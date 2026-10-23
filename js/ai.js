@@ -16,6 +16,7 @@ export async function chat(
     tm = setTimeout(() => ac.abort('timeout'), 120000);
   };
   arm();
+  const t0 = Date.now();
   try {
     for (let a = 0; ; a++) {
       const r = await fetch(PROVIDERS[p].u + '/chat/completions', {
@@ -37,7 +38,26 @@ export async function chat(
         let buf = '',
           tt = '',
           fr = '',
-          fin = false;
+          fin = false,
+          n = 0;
+        const feed = l => {
+          if (!l.startsWith('data:')) return;
+          const d = l.slice(5).trim();
+          if (d == '[DONE]') {
+            fin = true;
+            return;
+          }
+          try {
+            const c = JSON.parse(d).choices?.[0],
+              dl = c?.delta;
+            if (dl?.content) {
+              tt += dl.content;
+              n++;
+              od(tt);
+            } else if (dl?.reasoning_content || dl?.reasoning) od(tt, true);
+            if (c?.finish_reason) fr = c.finish_reason;
+          } catch (e) {}
+        };
         try {
           while (!fin) {
             const { done, value } = await rd.read();
@@ -46,23 +66,9 @@ export async function chat(
             buf += dc.decode(value, { stream: true });
             const ls = buf.split('\n');
             buf = ls.pop();
-            for (const l of ls) {
-              if (!l.startsWith('data:')) continue;
-              const d = l.slice(5).trim();
-              if (d == '[DONE]') {
-                fin = true;
-                continue;
-              }
-              try {
-                const c = JSON.parse(d).choices?.[0];
-                if (c?.delta?.content) {
-                  tt += c.delta.content;
-                  od(tt);
-                }
-                if (c?.finish_reason) fr = c.finish_reason;
-              } catch (e) {}
-            }
+            for (const l of ls) feed(l);
           }
+          if (!fin && buf) feed(buf);
           rd.cancel().catch(() => {});
         } catch (e) {
           if (!(tt && ac.signal.reason == 'timeout')) throw e;
@@ -70,7 +76,7 @@ export async function chat(
         const out = strip(tt);
         if (!out)
           throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
-        return { t: out, cut: fr == 'length' };
+        return { t: out, cut: fr == 'length', mode: 'stream', chunks: n, ms: Date.now() - t0 };
       }
       const j = await r.json().catch(() => ({}));
       if (r.status == 429 && a < 1) {
@@ -85,7 +91,13 @@ export async function chat(
       const out = strip(ch?.message?.content ?? '');
       if (!out)
         throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
-      return { t: out, cut: ch.finish_reason == 'length' };
+      return {
+        t: out,
+        cut: ch.finish_reason == 'length',
+        mode: 'block',
+        chunks: 1,
+        ms: Date.now() - t0
+      };
     }
   } catch (e) {
     if (ac.signal.aborted)

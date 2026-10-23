@@ -27,7 +27,7 @@ export const body = t =>
     .map((s, i) =>
       i % 2
         ? IMG[s.trim().toLowerCase()]
-          ? `<img class="pic" src="${IMG[s.trim().toLowerCase()]}" alt="">`
+          ? `<img class="pic" src="${IMG[s.trim().toLowerCase()]}" alt="" loading="lazy" decoding="async">`
           : '\n'
         : fmt(esc(s.replace(/^\n+|\n+$/g, '')))
     )

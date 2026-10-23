@@ -56,7 +56,7 @@ function render(sc) {
   const cs = lm?.role == 'assistant' && !app.cur.noChoices ? choicesOf(lm.content) : [];
   const cv = !st && coverOf(app.cur);
   $('#msgs').innerHTML =
-    (cv ? `<img class="cover" src="${esc(cv)}" alt="">` : '') +
+    (cv ? `<img class="cover" src="${esc(cv)}" alt="" decoding="async">` : '') +
     (st ? '<button class="more">Afficher les messages précédents</button>' : '') +
     app.cur.messages
       .slice(st)
@@ -84,7 +84,20 @@ function render(sc) {
       ? `<div class="ch">${cs.map(c => `<button>${esc(c)}</button>`).join('')}</div>`
       : '') +
     (n ? '' : '<p class="hint">Écrivez votre premier tour pour lancer l\'histoire.</p>');
-  if (sc) $('#msgs').scrollTop = $('#msgs').scrollHeight;
+  if (sc) {
+    const m = $('#msgs');
+    m.scrollTop = m.scrollHeight;
+    m.querySelectorAll('img').forEach(i => {
+      if (!i.complete)
+        i.addEventListener(
+          'load',
+          () => {
+            if (m.scrollHeight - m.scrollTop - m.clientHeight < 600) m.scrollTop = m.scrollHeight;
+          },
+          { once: true }
+        );
+    });
+  }
   tk();
 }
 async function delFrom(i) {
@@ -129,22 +142,31 @@ async function ask(old, cont) {
   }
   setBusy(true);
   let msg = '',
-    cut = false;
+    cut = false,
+    raf = 0,
+    pend = null;
+  const paint = () => {
+    raf = 0;
+    if (app.cur !== s || !pend) return;
+    const [t, th] = pend;
+    const m = $('#msgs');
+    let e = $('#live');
+    if (!e) {
+      m.insertAdjacentHTML(
+        'beforeend',
+        '<div class="m assistant" id="live"><div class="b"></div></div>'
+      );
+      e = $('#live');
+    }
+    const v = strip(t);
+    e.firstChild.innerHTML = v ? body(v) : t || th ? '<span class="act">Réflexion…</span>' : '';
+    if (m.scrollHeight - m.scrollTop - m.clientHeight < 200) m.scrollTop = m.scrollHeight;
+  };
+  const live = (t, th) => {
+    pend = [t, th];
+    if (!raf) raf = requestAnimationFrame(paint);
+  };
   try {
-    const live = t => {
-      if (app.cur !== s) return;
-      const m = $('#msgs');
-      let e = $('#live');
-      if (!e) {
-        m.insertAdjacentHTML(
-          'beforeend',
-          '<div class="m assistant" id="live"><div class="b"></div></div>'
-        );
-        e = $('#live');
-      }
-      e.firstChild.innerHTML = body(strip(t));
-      if (m.scrollHeight - m.scrollTop - m.clientHeight < 200) m.scrollTop = m.scrollHeight;
-    };
     live('');
     const r = await chat(build(s, cont), {
       max: +s.maxTok || 0,
@@ -153,6 +175,7 @@ async function ask(old, cont) {
       temp: s.temp ?? S.temp,
       top: s.top ?? S.top
     });
+    app.stream = { mode: S.ns?.[p] ? 'off' : r.mode, chunks: r.chunks, ms: r.ms };
     const out = r.t;
     cut = r.cut;
     if (cont) {
@@ -174,6 +197,8 @@ async function ask(old, cont) {
     msg = e.message;
     if (old) s.messages.push(old);
   }
+  cancelAnimationFrame(raf);
+  pend = null;
   setBusy(false);
   if (app.cur === s) {
     $('#err').textContent =

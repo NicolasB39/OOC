@@ -41,7 +41,7 @@ export async function draw() {
   const hero = !q && app.FIL == 'all' ? f.find(s => s.n > 0) : null;
   const card = (s, h) => {
     const cv = coverOf(s);
-    return `<div class="item ${h ? 'hero' : 'card'}">${cv ? `<img class="cv" src="${esc(cv)}" alt="" loading="lazy">` : `<div class="art" style="--h:${hue(s.name)}"></div>`}${!s.n && !h ? '<span class="tag">Nouveau</span>' : ''}<div class="t" role="button" tabindex="0" data-id="${esc(s.id)}"><b>${esc(s.name)}</b>${h ? `<small class="pv">${esc(s.pv || '')}</small><span class="go">Reprendre</span>` : `<small>${s.n ? s.n + ' message' + (s.n > 1 ? 's' : '') + ' · ' + ago(s.updated) : ''}</small>`}</div><button class="menu" data-id="${esc(s.id)}" aria-label="Options">${ic('more', 18)}</button></div>`;
+    return `<div class="item ${h ? 'hero' : 'card'}">${cv ? `<img class="cv" src="${esc(cv)}" alt="" loading="lazy" decoding="async">` : `<div class="art" style="--h:${hue(s.name)}"></div>`}${!s.n && !h ? '<span class="tag">Nouveau</span>' : ''}<div class="t" role="button" tabindex="0" data-id="${esc(s.id)}"><b>${esc(s.name)}</b>${h ? `<small class="pv">${esc(s.pv || '')}</small><span class="go">Reprendre</span>` : `<small>${s.n ? s.n + ' message' + (s.n > 1 ? 's' : '') + ' · ' + ago(s.updated) : ''}</small>`}</div><button class="menu" data-id="${esc(s.id)}" aria-label="Options">${ic('more', 18)}</button></div>`;
   };
   $('#items').innerHTML =
     (hero ? card(hero, 1) : '') +
@@ -73,7 +73,11 @@ $('#items').onkeydown = e => {
     go(e.target.dataset.id);
   }
 };
-$('#q').oninput = draw;
+let qt;
+$('#q').oninput = () => {
+  clearTimeout(qt);
+  qt = setTimeout(draw, 150);
+};
 $('#tabs').onclick = e => {
   const b = e.target.closest('button');
   if (!b) return;

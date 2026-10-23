@@ -18,5 +18,6 @@ export const app = {
   busy: false,
   ctl: null,
   LIM: 50,
-  FIL: 'all'
+  FIL: 'all',
+  stream: null
 };

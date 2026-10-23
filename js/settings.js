@@ -74,9 +74,32 @@ function fillCfg() {
   $('#cm').placeholder = PROVIDERS[p].m;
   $('#cn').checked = !!S.ns?.[p];
 }
+const streamInfo = () => {
+  const x = app.stream;
+  if (!x) return 'Aucune réponse reçue pour le moment dans cette session.';
+  const sec = (x.ms / 1000).toFixed(1).replace('.', ',');
+  if (x.mode == 'off') return 'Dernière réponse : le streaming est désactivé dans ces réglages.';
+  if (x.mode == 'block')
+    return (
+      "Dernière réponse : reçue d'un seul bloc après " +
+      sec +
+      " s. Le service ou le modèle n'a pas diffusé le texte au fur et à mesure."
+    );
+  if (x.chunks < 4)
+    return (
+      'Dernière réponse : diffusée en ' +
+      x.chunks +
+      (x.chunks > 1 ? ' morceaux' : ' morceau') +
+      ' seulement (' +
+      sec +
+      ' s). Le modèle envoie de gros morceaux ou a réfléchi avant de répondre.'
+    );
+  return 'Dernière réponse : diffusée en ' + x.chunks + ' morceaux (' + sec + ' s).';
+};
 function openCfg() {
   $('#cp').value = S.provider;
   fillCfg();
+  $('#cst').textContent = streamInfo();
   $('#ctp').value = S.temp ?? '';
   $('#ctk').value = S.top ?? '';
   $('#ccx').value = S.ctxLim || '';
