@@ -129,6 +129,7 @@ function openCfg() {
   $('#ctp').value = S.temp ?? '';
   $('#ctk').value = S.top ?? '';
   $('#ccx').value = S.ctxLim || '';
+  $('#crs').value = S.reserve || '';
   $('#crp').value = S.repo || '';
   $('#dc').showModal();
 }
@@ -196,6 +197,7 @@ $('#dcs').onclick = async () => {
   S.temp = num('#ctp');
   S.top = num('#ctk');
   S.ctxLim = +$('#ccx').value || 0;
+  S.reserve = +$('#crs').value || 0;
   await saveSet();
   $('#dc').close();
   if (app.cur) tk();

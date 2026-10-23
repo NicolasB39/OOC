@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="10">
+<meta name="app-version" content="11">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Histoires</title>
 <link rel="manifest" href="manifest.json">
@@ -181,8 +181,11 @@
 <input id="ctp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
 <label for="ctk">Top P (vide = défaut du fournisseur)</label>
 <input id="ctk" type="number" min="0" max="1" step="0.05" inputmode="decimal">
-<label for="ccx">Fenêtre de contexte du modèle (tokens, vide = pas d'alerte)</label>
-<input id="ccx" type="number" min="1" inputmode="numeric">
+<label for="ccx">Limite de tokens de l'IA (entrée + réponse, vide = aucune)</label>
+<input id="ccx" type="number" min="1" inputmode="numeric" placeholder="8000">
+<label for="crs">Réserve pour la réponse (tokens, défaut 1000)</label>
+<input id="crs" type="number" min="0" inputmode="numeric" placeholder="1000">
+<p class="note">Avec une limite, l'application n'envoie que les messages récents qui tiennent dans « limite − réserve ». Les plus anciens sont résumés dans la mémoire.</p>
 <label for="crp">Dépôt GitHub (proprietaire/depot, vide = automatique)</label>
 <input id="crp" placeholder="proprietaire/depot" autocomplete="off" autocapitalize="off">
 <label>Sauvegarde (clés API exclues)</label>

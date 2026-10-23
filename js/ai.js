@@ -1,4 +1,5 @@
 import { CHX, ETX } from './format.js';
+import { budgetOf, estTok, omittedCount } from './prompt.js';
 import { PROVIDERS, S, app } from './state.js';
 import { getOne, put } from './store.js';
 import { $, strip } from './util.js';
@@ -128,23 +129,33 @@ export async function summarize(s) {
   SUMS.add(s.id);
   let shown = false;
   try {
-    while (s.messages.length - s.mem.upto >= 40) {
+    const need = () => s.messages.length - s.mem.upto >= 40 || (S.ctxLim && omittedCount(s) >= 6);
+    while (need()) {
       if (app.cur === s && !app.busy) {
         $('#err').textContent = 'Mise à jour de la mémoire…';
         shown = true;
       }
-      const b = s.messages
-        .slice(s.mem.upto, s.mem.upto + 10)
-        .map(
-          m =>
-            (m.role == 'user' ? 'Joueur : ' : 'Narrateur : ') +
-            m.content
-              .replace(/\{\{img::[^}]*\}\}/g, '')
-              .replace(CHX, '')
-              .replace(ETX, '')
-              .trim()
-        )
-        .join('\n\n');
+      const om = S.ctxLim ? omittedCount(s) : 0,
+        n = Math.min(om >= 6 ? Math.min(om, 12) : 10, s.messages.length - s.mem.upto),
+        room = S.ctxLim
+          ? Math.max(400, budgetOf(s) - estTok(SUMP) - estTok(s.mem.summary || '') - 300)
+          : Infinity,
+        parts = [];
+      let acc = 0;
+      for (const m of s.messages.slice(s.mem.upto, s.mem.upto + n)) {
+        let x =
+          (m.role == 'user' ? 'Joueur : ' : 'Narrateur : ') +
+          m.content
+            .replace(/\{\{img::[^}]*\}\}/g, '')
+            .replace(CHX, '')
+            .replace(ETX, '')
+            .trim();
+        if (parts.length && acc + estTok(x) > room) break;
+        if (!parts.length && estTok(x) > room) x = x.slice(0, Math.floor(room * 3));
+        parts.push(x);
+        acc += estTok(x);
+      }
+      const b = parts.join('\n\n');
       const { t } = await chat([
         { role: 'system', content: SUMP },
         {
@@ -162,7 +173,7 @@ export async function summarize(s) {
       s.mem.summary = r[1].trim();
       for (const x of (m ? m[1] : '').split('\n').map(v => v.replace(/^[\s\-•*]+/, '').trim()))
         if (x && !/^aucun/i.test(x) && !s.mem.memories.includes(x)) s.mem.memories.push(x);
-      s.mem.upto += 10;
+      s.mem.upto += parts.length;
       const f = await getOne(s.id);
       if (f) {
         f.mem = s.mem;

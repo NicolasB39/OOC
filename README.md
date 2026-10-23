@@ -75,6 +75,19 @@ Bouton « T » dans l'en-tête de la conversation (feuille Lecture) :
 
 Limites : la synthèse vocale est celle de l'appareil, donc les voix disponibles et leur qualité varient. Elle se met en pause en coupant puis en relisant le morceau en cours (phrase ou deux), ce qui fonctionne partout. Sur iPhone, le navigateur exige un premier toucher pour parler : la lecture automatique peut rester muette tant que vous n'avez pas lancé une lecture une fois.
 
+## Budget de tokens
+
+Pour un modèle qui refuse les requêtes trop grosses (par exemple 8000 tokens), renseignez dans Réglages IA :
+
+- **Limite de tokens de l'IA** : le maximum accepté par le modèle, entrée et réponse comprises (par exemple 8000).
+- **Réserve pour la réponse** : la place gardée pour la réponse de l'IA (1000 par défaut). Si la longueur maximale du scénario est renseignée, elle sert de réserve pour ce scénario. La réserve est plafonnée à la moitié de la limite.
+
+L'entrée est limitée à « limite − réserve » (7000 avec 8000 et 1000). À chaque envoi, l'application garde toujours le prompt système et votre dernier message, puis ajoute les messages récents en partant du plus récent, tant qu'ils tiennent : les plus anciens ne sont pas envoyés. La suite envoyée commence toujours par un message du joueur.
+
+Quand au moins 6 messages ne sont plus envoyés, ils sont résumés dans la mémoire (requête de résumé limitée au même budget), pour que l'IA n'en perde pas le fil. Le compteur sous la conversation indique par exemple « ≈ 6 953 / 7 000 tokens envoyés · 4 anciens messages non envoyés ». Si le prompt de base (système, fiches, lorebook, mémoire) dépasse à lui seul la limite, le compteur passe en rouge : réduisez ces éléments.
+
+Le décompte est une estimation prudente (environ 3,2 caractères par token, plus 4 tokens par message). Si le fournisseur refuse encore des requêtes, baissez un peu la limite.
+
 ## Panneau d'état
 
 L'IA peut suivre l'état du jeu (lieu, santé, argent, humeur…). À chaque réponse elle ajoute un bloc `<etat>` (masqué dans le texte) que l'application affiche dans un panneau sous le titre : deux pastilles repliées, tous les champs une fois ouvert, avec une barre pour les valeurs de la forme `72/100`. L'état précédent est renvoyé à l'IA à chaque tour pour assurer la cohérence.
@@ -90,7 +103,7 @@ Activation : Réglages du scénario, « Panneau d'état », puis la liste des ch
 - Mémoire : résumé automatique, souvenirs, note utilisateur (icônes marque-page et crayon). Nombre de souvenirs injectés réglable.
 - Température et Top P : globaux (Réglages IA) ou par scénario.
 - Liste des modèles du fournisseur (Réglages IA, Lister les modèles).
-- Estimation des tokens envoyés, avec alerte si la fenêtre de contexte saisie est presque pleine.
+- Budget de tokens : limite réglable et estimation des tokens envoyés dans le compteur sous la conversation (voir ci-dessous).
 - Recherche dans la liste, export d'une histoire en `.md`, sauvegarde JSON (clés API exclues) avec rappel tous les 30 jours, synchronisation en ligne (GitHub ou Google Drive).
 - Bouton retour du téléphone géré, fonctionnement hors ligne.
 

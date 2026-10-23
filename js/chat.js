@@ -1,7 +1,7 @@
 import { chat, summarize } from './ai.js';
 import { CHX, ETX, body, choicesOf, lastEtat } from './format.js';
 import { showList } from './list.js';
-import { build, statOn } from './prompt.js';
+import { build, buildInfo, statOn } from './prompt.js';
 import {
   autoRead,
   refreshSpeech,
@@ -46,18 +46,24 @@ export function tk() {
     e.textContent = '';
     return;
   }
-  const n = Math.ceil(build(app.cur).reduce((a, m) => a + m.content.length, 0) / 3.5),
-    l = S.ctxLim || 0,
-    w = l && n > l * 0.9,
+  const r = buildInfo(app.cur),
     f = x => x.toLocaleString('fr-FR');
-  e.className = w ? 'w' : '';
-  e.textContent = w
-    ? 'Contexte presque plein (≈ ' +
-      f(n) +
+  e.className = r.over ? 'w' : '';
+  e.textContent = r.over
+    ? 'Prompt de base trop long pour la limite (≈ ' +
+      f(r.used) +
       ' / ' +
-      f(l) +
-      ' tokens) : supprimez des messages ou ajustez la mémoire.'
-    : '≈ ' + f(n) + ' tokens envoyés';
+      f(r.budget) +
+      ' tokens) : réduisez le prompt système, le lorebook ou la mémoire.'
+    : '≈ ' +
+      f(r.used) +
+      (r.budget ? ' / ' + f(r.budget) : '') +
+      ' tokens envoyés' +
+      (r.omitted
+        ? ' · ' +
+          r.omitted +
+          (r.omitted > 1 ? ' anciens messages non envoyés' : ' ancien message non envoyé')
+        : '');
 }
 export function render(sc) {
   $('#ct').textContent = app.cur.name;

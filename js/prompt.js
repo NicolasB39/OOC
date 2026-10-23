@@ -1,7 +1,13 @@
 import { CHX, ETX, lastEtat } from './format.js';
-import { ctx } from './state.js';
+import { S, ctx } from './state.js';
 import { nz } from './util.js';
 
+export const estTok = t => Math.ceil(t.length / 3.2) + 4;
+export const budgetOf = s => {
+  const L = S.ctxLim || 0;
+  if (!L) return 0;
+  return L - Math.min(s.maxTok || S.reserve || 1000, Math.floor(L / 2));
+};
 export const statOn = s => s.stat ?? !!(s.remote && ctx.stat);
 export const statFields = s => (s.statFields || '').trim() || (s.remote ? ctx.stat : '');
 const loreFor = (ms, max) => {
@@ -12,7 +18,7 @@ const loreFor = (ms, max) => {
   if (max) a = a.slice(0, max);
   return a.length ? '\n\n<lorebook>\n' + a.map(e => e.text).join('\n\n') + '\n</lorebook>' : '';
 };
-export function build(s, cont) {
+export function buildInfo(s, cont) {
   const c = s.remote ? ctx : { system: s.system, avatar: s.avatar };
   const nm = s.pname?.trim() || '';
   const U = t => t.replace(/\{\{user\}\}/gi, nm || 'Joueur');
@@ -65,8 +71,36 @@ export function build(s, cont) {
         'Trois propositions courtes et variées, écrites à la première personne.') +
       '\nUtilise exactement ce format, sans rien écrire après :\n<choix>\n1. …\n2. …\n3. …\n</choix>\n</consigne_choix>';
   if (add && l?.role == 'user') l.content += U(add);
-  return [...(sys.trim() ? [{ role: 'system', content: sys }] : []), ...ms];
+  const sysMsg = sys.trim() ? [{ role: 'system', content: sys }] : [],
+    B = budgetOf(s),
+    n = ms.length,
+    cost = ms.map(m => estTok(m.content)),
+    base = sysMsg.length ? estTok(sys) : 0;
+  let from = 0,
+    used = base + cost.reduce((a, b) => a + b, 0);
+  if (B && n > 1) {
+    let acc = base + cost[n - 1];
+    from = n - 1;
+    for (let i = n - 2; i >= 0 && acc + cost[i] <= B; i--) {
+      acc += cost[i];
+      from = i;
+    }
+    while (from < n - 1 && ms[from].role == 'assistant') {
+      acc -= cost[from];
+      from++;
+    }
+    used = acc;
+  }
+  return {
+    msgs: [...sysMsg, ...ms.slice(from)],
+    used,
+    budget: B,
+    omitted: from,
+    over: B > 0 && used > B
+  };
 }
+export const build = (s, cont) => buildInfo(s, cont).msgs;
+export const omittedCount = s => buildInfo(s).omitted;
 const wd = s =>
   new Set(
     nz(s)
