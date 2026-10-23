@@ -6,10 +6,15 @@
 <title>Histoires</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
-<meta name="theme-color" content="#1f7a8c">
+<meta name="theme-color" content="#1f7a8c" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12161f" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Histoires">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
-:root{--bg:#f3f5fa;--fg:#1d2433;--mu:#69728a;--card:#fff;--bd:#dde2ee;--ac:#1f7a8c;--on:#fff;--ub:#dff0f4}
+:root{color-scheme:light dark;--bg:#f3f5fa;--fg:#1d2433;--mu:#69728a;--card:#fff;--bd:#dde2ee;--ac:#1f7a8c;--on:#fff;--ub:#dff0f4}
 @media(prefers-color-scheme:dark){:root{--bg:#12161f;--fg:#e6e9f0;--mu:#8e98b0;--card:#1b2130;--bd:#2c3448;--ac:#5cc4d6;--on:#0c1a1e;--ub:#183038}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -29,7 +34,7 @@ header h1{flex:1;margin:0;font:600 19px/1.2 Georgia,serif;white-space:nowrap;ove
 .primary{background:var(--ac);color:var(--on);font-weight:600}
 #new{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:14px 22px;border-radius:999px}
 #chat{height:100dvh;display:flex;flex-direction:column}
-#msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:12px}
+#msgs{flex:1;min-width:0;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:12px}
 .m{max-width:92%}
 .m.user{align-self:flex-end}
 .m .b{padding:10px 14px;border-radius:14px;background:var(--card);border:1px solid var(--bd);white-space:pre-wrap;font-family:Georgia,serif;line-height:1.6}
@@ -60,12 +65,29 @@ dialog textarea{min-height:140px;resize:vertical}
 .col{display:grid;gap:4px}
 .col button{text-align:left;padding:12px}
 .danger{color:#d64545}
+.item .t:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:12px}
+.item small{display:block}
+.item .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sbar{padding:12px 12px 0}
+#q{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card)}
+.bk{display:flex;align-items:center;gap:6px;margin:12px 12px 0;padding:8px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);font-size:14px}
+.bk span{flex:1}
+#mw{position:relative;flex:1;min-height:0;display:flex}
+#bt{position:absolute;right:14px;bottom:10px;border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:6px 12px}
+#tk{padding:0 14px 4px;color:var(--mu);font-size:12px;text-align:right}
+#tk.w{color:#d64545}
+#cl{border:1px solid var(--bd)}
+.q{display:block;border-left:3px solid var(--bd);padding-left:10px;color:var(--mu)}
+hr{border:0;border-top:1px solid var(--bd);margin:10px 0}
+.m .a .n{font-size:13px;color:var(--mu);align-self:center}
 </style>
 </head>
 <body>
 
 <main id="list">
 <header><h1>Scénarios</h1><button id="rf" aria-label="Actualiser GitHub">↻</button><button id="cfg" aria-label="Réglages IA">⚙</button></header>
+<div id="bk" class="bk" hidden><span>Pensez à sauvegarder vos histoires.</span><button id="bke">Exporter</button><button id="bkl">Plus tard</button></div>
+<div id="sbar"><input id="q" type="search" placeholder="Rechercher" aria-label="Rechercher un scénario"></div>
 <div id="items"></div>
 <button id="new" class="primary">Nouveau scénario</button>
 </main>
@@ -79,8 +101,9 @@ dialog textarea{min-height:140px;resize:vertical}
 <button id="sc" aria-label="Réglages du scénario">✎</button>
 <button id="cfg2" aria-label="Réglages IA">⚙</button>
 </header>
-<div id="msgs"></div>
+<div id="mw"><div id="msgs"></div><button id="bt" hidden aria-label="Aller en bas">↓</button></div>
 <div id="err"></div>
+<div id="tk"></div>
 <footer>
 <textarea id="inp" rows="2" placeholder="Votre tour"></textarea>
 <button id="stop" hidden>Annuler</button>
@@ -93,6 +116,7 @@ dialog textarea{min-height:140px;resize:vertical}
 <div class="col">
 <button id="mr">Renommer</button>
 <button id="md">Dupliquer</button>
+<button id="mt">Exporter en texte (.md)</button>
 <button id="mx" class="danger">Supprimer</button>
 <button id="mc">Fermer</button>
 </div>
@@ -108,6 +132,16 @@ dialog textarea{min-height:140px;resize:vertical}
 <input id="snm">
 <label for="smx">Longueur maximale de la réponse (tokens, vide = par défaut)</label>
 <input id="smx" type="number" min="1" inputmode="numeric">
+<label for="stp">Température (vide = réglages IA)</label>
+<input id="stp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
+<label for="stk">Top P (vide = réglages IA)</label>
+<input id="stk" type="number" min="0" max="1" step="0.05" inputmode="decimal">
+<label for="smm">Souvenirs injectés par réponse (défaut 3)</label>
+<input id="smm" type="number" min="0" inputmode="numeric">
+<label for="sld">Messages scannés pour le lorebook (défaut 2)</label>
+<input id="sld" type="number" min="1" inputmode="numeric">
+<label for="slm">Entrées de lorebook maximum (vide = toutes)</label>
+<input id="slm" type="number" min="1" inputmode="numeric">
 <label><input id="sch" type="checkbox" style="width:auto;padding:0;margin-right:8px">Proposer trois choix de réponse</label>
 <label for="scp">Consigne des choix</label>
 <textarea id="scp" style="min-height:70px" placeholder="Trois propositions courtes et variées, écrites à la première personne."></textarea>
@@ -143,8 +177,18 @@ dialog textarea{min-height:140px;resize:vertical}
 <label for="ck">Clé API</label>
 <input id="ck" type="password" autocomplete="off">
 <label for="cm">Modèle</label>
-<input id="cm">
+<input id="cm" list="cml" autocomplete="off" autocapitalize="off">
+<datalist id="cml"></datalist>
+<div class="row" style="justify-content:flex-start;margin-top:4px"><button id="cl">Lister les modèles</button></div>
 <label><input id="cn" type="checkbox" style="width:auto;padding:0;margin-right:8px">Désactiver le streaming pour ce fournisseur</label>
+<label for="ctp">Température (vide = défaut du fournisseur)</label>
+<input id="ctp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
+<label for="ctk">Top P (vide = défaut du fournisseur)</label>
+<input id="ctk" type="number" min="0" max="1" step="0.05" inputmode="decimal">
+<label for="ccx">Fenêtre de contexte du modèle (tokens, vide = pas d'alerte)</label>
+<input id="ccx" type="number" min="1" inputmode="numeric">
+<label for="crp">Dépôt GitHub (proprietaire/depot, vide = automatique)</label>
+<input id="crp" placeholder="proprietaire/depot" autocomplete="off" autocapitalize="off">
 <label>Sauvegarde (clés API exclues)</label>
 <div class="row" style="justify-content:flex-start;margin-top:4px"><button id="ex">Exporter</button><button id="im">Importer</button><input id="imf" type="file" accept="application/json" hidden></div>
 <div class="row"><button id="dcc">Annuler</button><button id="dcs" class="primary">Enregistrer</button></div>
@@ -180,17 +224,39 @@ d.showModal();
 if(v!==null)i.focus();
 });
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const strip=t=>t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi,'').trim();
+const plain=t=>t.replace(/<choix>[\s\S]*?(?:<\/choix>|$)/gi,'').replace(/\{\{img::[^}]*\}\}/g,'').trim();
+const num=s=>$(s).value===''?null:+$(s).value;
+const fit=()=>{const i=$('#inp');i.style.height='auto';i.style.height=Math.min(i.scrollHeight,140)+'px'};
+const clean=x=>{
+if(!x||typeof x.id!='string'||!x.id||!Array.isArray(x.messages))return null;
+const s=v=>typeof v=='string'?v:'',n=v=>Number.isFinite(+v)&&+v>0?+v:0,o=v=>v===''||v==null||!Number.isFinite(+v)?null:+v;
+const messages=x.messages.filter(m=>m&&(m.role=='user'||m.role=='assistant')&&typeof m.content=='string').map(m=>{
+const r={role:m.role,content:m.content};
+if(Array.isArray(m.alts)&&m.alts.length>1&&m.alts.every(a=>typeof a=='string')){r.alts=m.alts;r.ai=Math.min(Math.max(0|m.ai,0),m.alts.length-1)}
+return r;
+});
+const mm=x.mem||{};
+return {id:x.id,name:s(x.name).trim()||'Sans titre',updated:n(x.updated)||Date.now(),remote:!!x.remote,folder:s(x.folder),system:s(x.system),avatar:s(x.avatar),pname:s(x.pname),note:s(x.note),choicePrompt:s(x.choicePrompt),noChoices:!!x.noChoices,maxTok:n(x.maxTok),temp:o(x.temp),top:o(x.top),memN:o(x.memN),loreDepth:n(x.loreDepth),loreMax:n(x.loreMax),messages,mem:{summary:s(mm.summary),memories:Array.isArray(mm.memories)?mm.memories.filter(v=>typeof v=='string'):[],upto:Math.min(n(mm.upto),messages.length)}};
+};
+const go=async id=>{history.pushState({c:1},'');await openScenario(id);if($('#chat').hidden)history.back()};
+const leave=()=>{if(busy)ctl?.abort();showList()};
+async function doExport(){
+const f=new File([JSON.stringify({v:1,scenarios:await getFull()})],'histoires-'+new Date().toISOString().slice(0,10)+'.json',{type:'application/json'});
+const dl=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1e4)};
+try{if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f]});else dl()}catch(e){if(e.name=='AbortError')return;dl()}
+LS.set('bk',Date.now());$('#bk').hidden=true;
+}
 
-const META=s=>({id:s.id,name:s.name,updated:s.updated,remote:s.remote,folder:s.folder});
+const pvOf=s=>{const m=s.messages?.at(-1);return m?m.content.replace(/<choix>[\s\S]*?(?:<\/choix>|$)/gi,'').replace(/\{\{img::[^}]*\}\}/g,'').replace(/[*_#>]/g,'').replace(/\s+/g,' ').trim().slice(0,100):''};
+const META=s=>({id:s.id,name:s.name,updated:s.updated,remote:s.remote,folder:s.folder,n:s.messages?.length||0,pv:pvOf(s)});
 const openDB=()=>new Promise((res,rej)=>{
-const r=indexedDB.open('histoires',2);
+const r=indexedDB.open('histoires',3);
 r.onupgradeneeded=e=>{
 const d=r.result,t=r.transaction;
 if(e.oldVersion<1){d.createObjectStore('scenarios',{keyPath:'id'});d.createObjectStore('settings',{keyPath:'key'})}
-if(e.oldVersion<2){
-d.createObjectStore('meta',{keyPath:'id'});
-t.objectStore('scenarios').openCursor().onsuccess=ev=>{const c=ev.target.result;if(c){t.objectStore('meta').put(META(c.value));c.continue()}};
-}
+if(e.oldVersion<2)d.createObjectStore('meta',{keyPath:'id'});
+if(e.oldVersion<3)t.objectStore('scenarios').openCursor().onsuccess=ev=>{const c=ev.target.result;if(c){t.objectStore('meta').put(META(c.value));c.continue()}};
 };
 r.onsuccess=()=>{db=r.result;res()};
 r.onerror=()=>rej(r.error);
@@ -224,27 +290,41 @@ if(n)await draw();
 }
 async function draw(){
 const a=(await getAll()).sort((x,y)=>y.updated-x.updated);
-$('#items').innerHTML=a.map(s=>`<div class="item" data-id="${esc(s.id)}"><div class="t"><b>${esc(s.name)}</b><small>${new Date(s.updated).toLocaleString('fr-FR')}</small></div><button class="menu" data-id="${esc(s.id)}" aria-label="Options">⋯</button></div>`).join('')||'<p class="empty">Aucun scénario. Créez-en un pour commencer.</p>';
+const q=nz($('#q').value.trim());
+const f=q?a.filter(s=>nz(s.name+' '+(s.pv||'')).includes(q)):a;
+$('#items').innerHTML=f.map(s=>`<div class="item"><div class="t" role="button" tabindex="0" data-id="${esc(s.id)}"><b>${esc(s.name)}</b><small>${new Date(s.updated).toLocaleString('fr-FR')}${s.n?' · '+s.n+' message'+(s.n>1?'s':''):''}</small>${s.pv?`<small class="pv">${esc(s.pv)}</small>`:''}</div><button class="menu" data-id="${esc(s.id)}" aria-label="Options">⋯</button></div>`).join('')||`<p class="empty">${a.length?'Aucun résultat.':'Aucun scénario. Créez-en un pour commencer.'}</p>`;
+$('#bk').hidden=!(a.some(s=>s.n>0)&&Date.now()-(+LS.get('bk')||+LS.get('first')||Date.now())>2592e6&&Date.now()-(+LS.get('bks')||0)>6048e5);
 }
 
 const txt=p=>fetch(encodeURI(p),{cache:'no-cache'}).then(r=>r.ok?r.text():'').catch(()=>'');
 const nz=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-const loreFor=ms=>{
+const kre=k=>{const p=k.endsWith('*'),e=(p?k.slice(0,-1):k).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return e?new RegExp('(^|[^a-z0-9])'+e+(p?'':'(?![a-z0-9])')):null};
+const loreFor=(ms,max)=>{
 const t=nz(ms.map(m=>m.content).join('\n'));
-const a=(ctx.lore||[]).filter(e=>e.keys.some(k=>t.includes(k)));
+let a=(ctx.lore||[]).filter(e=>e.always||e.keys.some(r=>r.test(t))).sort((x,y)=>y.pr-x.pr);
+if(max)a=a.slice(0,max);
 return a.length?'\n\n<lorebook>\n'+a.map(e=>e.text).join('\n\n')+'\n</lorebook>':'';
 };
 
+const repo=()=>{
+if(/^[\w.-]+\/[\w.-]+$/.test(S.repo||''))return S.repo.split('/');
+const seg=location.pathname.split('/')[1];
+return [location.hostname.split('.')[0],seg&&!seg.includes('.')?seg:location.hostname];
+};
 async function getTree(force){
 let c=null;
 try{c=JSON.parse(LS.get('tree')||'null')}catch(e){}
 if(!force&&c&&Date.now()-c.t<600000){TREE=c.p;TERR='';return TREE}
 TERR='';
 try{
-const seg=location.pathname.split('/')[1];
-const o=location.hostname.split('.')[0],r=seg&&!seg.includes('.')?seg:location.hostname;
+const r=await fetch('index.json',{cache:'no-cache'});
+const j=r.ok?await r.json().catch(()=>null):null;
+if(Array.isArray(j)&&j.every(x=>typeof x=='string')){TREE=j;LS.set('tree',JSON.stringify({t:Date.now(),p:TREE}));return TREE}
+}catch(e){}
+try{
+const [o,r]=repo();
 const j=await(await fetch(`https://api.github.com/repos/${o}/${r}/git/trees/HEAD?recursive=1`)).json();
-if(j.tree){TREE=j.tree.filter(x=>x.type=='blob').map(x=>x.path);LS.set('tree',JSON.stringify({t:Date.now(),p:TREE}))}
+if(j.tree){TREE=j.tree.filter(x=>x.type=='blob').map(x=>x.path);if(j.truncated)TERR='arbre GitHub tronqué, ajoutez index.json (voir README)';LS.set('tree',JSON.stringify({t:Date.now(),p:TREE}))}
 else TERR=j.message||'réponse inattendue';
 }catch(e){TERR='réseau indisponible'}
 if(TERR&&!TREE&&c)TREE=c.p;
@@ -275,14 +355,23 @@ extra=(await Promise.all(fp)).join('');
 if(codes.length)extra+='\n\n# Images\nCodes disponibles : '+codes.join(', ')+'\nPour afficher une image, écris {{img::code}} seul sur sa propre ligne, avec un code de cette liste.';
 const lb=base+'lorebook/';
 const lore=(await Promise.all(T.filter(p=>p.startsWith(lb)&&p.endsWith('.md')&&!p.slice(lb.length).includes('/')).map(p=>txt(p)))).map(t=>{
-const [h,...r]=t.split(/\r?\n/);
-const m=h.match(/^\s*mots[-\s]?cl[ée]s\s*:\s*(.*)$/i);
-return m?{keys:m[1].split(',').map(k=>nz(k.trim())).filter(Boolean),text:r.join('\n').trim()}:null;
-}).filter(e=>e&&e.text);
+const ls=t.split(/\r?\n/);
+let keys=[],always=false,pr=0,i=0;
+for(;i<ls.length;i++){
+const m=ls[i].match(/^\s*(mots[-\s]?cl[ée]s|toujours|priorit[ée])\s*(?::\s*(.*))?$/i);
+if(!m)break;
+const n=nz(m[1]),v=(m[2]||'').trim();
+if(n.startsWith('mots'))keys=v.split(',').map(k=>kre(nz(k.trim()))).filter(Boolean);
+else if(n=='toujours')always=!/^(non|false|0)$/i.test(v);
+else pr=+v||0;
+}
+const text=ls.slice(i).join('\n').trim();
+return text&&(always||keys.length)?{keys,always,pr,text}:null;
+}).filter(Boolean);
 ctx={system,avatar,extra,lore};
 }
 
-const fmt=t=>t.replace(/\*\*([^*]+?)\*\*/g,'<b>$1</b>').replace(/\*([^*]+?)\*/g,'<span class="act">$1</span>');
+const fmt=t=>t.replace(/\*\*([^*]+?)\*\*/g,'<b>$1</b>').replace(/\*([^*]+?)\*/g,'<span class="act">$1</span>').replace(/(^|[\s(])_([^_\n]+?)_(?=$|[\s.,;:!?)])/g,'$1<span class="act">$2</span>').replace(/\n?^-{3,}$\n?/gm,'<hr>').replace(/^&gt; ?(.*)$\n?/gm,'<span class="q">$1</span>');
 const CHX=/<choix>[\s\S]*?(?:<\/choix>|$)/gi;
 const choicesOf=t=>{
 const m=t.match(/<choix>([\s\S]*?)<\/choix>/i);
@@ -298,8 +387,16 @@ cur.mem??={summary:'',memories:[],upto:0};
 await loadCtx();
 $('#list').hidden=true;$('#chat').hidden=false;
 $('#err').textContent=!cur.remote?'':!ctx.system?'Prompt introuvable : vérifiez scenarios/'+cur.folder+'/systeme.md':TERR?'GitHub indisponible ('+TERR+') : fiches, images et lorebooks peuvent manquer.':'';
-$('#inp').value=LS.get('draft:'+id)||'';
+$('#inp').value=LS.get('draft:'+id)||'';fit();
 render(true);
+}
+
+function tk(){
+const e=$('#tk');
+if(!cur||!cur.mem){e.textContent='';return}
+const n=Math.ceil(build(cur).reduce((a,m)=>a+m.content.length,0)/3.5),l=S.ctxLim||0,w=l&&n>l*.9,f=x=>x.toLocaleString('fr-FR');
+e.className=w?'w':'';
+e.textContent=w?'Contexte presque plein (≈ '+f(n)+' / '+f(l)+' tokens) : supprimez des messages ou ajustez la mémoire 🧠.':'≈ '+f(n)+' tokens envoyés';
 }
 
 function render(sc){
@@ -307,56 +404,88 @@ $('#ct').textContent=cur.name;
 const n=cur.messages.length,st=Math.max(0,n-LIM);
 const lm=cur.messages.at(-1);
 const cs=lm?.role=='assistant'&&!cur.noChoices?choicesOf(lm.content):[];
-$('#msgs').innerHTML=(st?'<button class="more">Afficher les messages précédents</button>':'')+cur.messages.slice(st).map((m,j)=>{const i=st+j;return `<div class="m ${m.role}"><div class="b">${body(m.content)}</div><div class="a"><button data-a="e" data-i="${i}" aria-label="Modifier">✎</button>${i==n-1?`<button data-a="r" data-i="${i}" aria-label="Régénérer">↻</button>`:''}</div></div>`}).join('')+(cs.length?`<div class="ch">${cs.map(c=>`<button>${esc(c)}</button>`).join('')}</div>`:'');
+$('#msgs').innerHTML=(st?'<button class="more">Afficher les messages précédents</button>':'')+cur.messages.slice(st).map((m,j)=>{
+const i=st+j,last=i==n-1,al=last&&m.alts?.length>1;
+return `<div class="m ${m.role}"><div class="b">${body(m.content)}</div><div class="a">`
++(al?`<button data-a="p" aria-label="Variante précédente">‹</button><span class="n">${m.ai+1}/${m.alts.length}</span><button data-a="n" aria-label="Variante suivante">›</button>`:'')
++`<button data-a="c" data-i="${i}" aria-label="Copier">⧉</button><button data-a="e" data-i="${i}" aria-label="Modifier">✎</button><button data-a="d" data-i="${i}" aria-label="Supprimer à partir d'ici">🗑</button>`
++(last?`<button data-a="r" data-i="${i}" aria-label="Régénérer">↻</button>`+(m.role=='assistant'?`<button data-a="k" data-i="${i}" aria-label="Continuer">»</button>`:''):'')
++`</div></div>`}).join('')+(cs.length?`<div class="ch">${cs.map(c=>`<button>${esc(c)}</button>`).join('')}</div>`:'');
 if(sc)$('#msgs').scrollTop=$('#msgs').scrollHeight;
+tk();
+}
+
+async function delFrom(i){
+const u=cur.mem.upto;
+if(!(await dlg("Supprimer à partir d'ici ?",{m:'Ce message et tous les suivants seront effacés.'+(i<u?' La mémoire résumée n\'est pas modifiée : vérifiez-la avec 🧠.':''),ok:'Supprimer'})))return;
+cur.messages.length=i;
+cur.mem.upto=Math.min(u,i);
+await save();render(true);
+}
+async function swipe(d){
+const m=cur.messages.at(-1),k=(m.ai+d+m.alts.length)%m.alts.length;
+m.ai=k;m.content=m.alts[k];
+await save();render(true);
 }
 
 function setBusy(b){busy=b;$('#send').disabled=b;$('#stop').hidden=!b;$('#err').textContent=b?'Écriture en cours…':''}
 
-async function ask(old){
+function build(s,cont){
+const c=s.remote?ctx:{system:s.system,avatar:s.avatar};
+const nm=s.pname?.trim()||'';
+const U=t=>t.replace(/\{\{user\}\}/gi,nm||'Joueur');
+const av=(nm?'Nom : '+nm+'\n':'')+(c.avatar||'');
+const sys=U((c.system||'')+(c.extra||'')+(av.trim()?'\n\n# Avatar du joueur\n'+av:''));
+const ms=s.messages.slice(Math.min(s.mem.upto,s.messages.length)).map(m=>({role:m.role,content:m.content}));
+if(cont)ms.push({role:'user',content:"Continue ta réponse exactement là où elle s'est arrêtée, sans répéter ce qui précède."});
+const l=ms.at(-1);
+const ai=ms.map(m=>m.role).lastIndexOf('assistant');
+ms.forEach((m,i)=>{if(m.role=='assistant'&&(cont||i!=ai))m.content=m.content.replace(CHX,'').trim()});
+let add='';
+if(s.mem.summary.trim())add+='\n\n<previous_history>\n'+s.mem.summary.trim()+'\n</previous_history>';
+const lm=pick(s.mem.memories,s.messages.slice(-2),s.memN??3);
+if(lm.length)add+='\n\n<long_term_memory>\n'+lm.map(x=>'- '+x).join('\n')+'\n</long_term_memory>';
+if(s.note?.trim())add+='\n\n<system_note>\n'+s.note.trim()+'\n</system_note>';
+add+=loreFor(s.messages.slice(-(s.loreDepth||2)),s.loreMax);
+if(!s.noChoices)add+='\n\n<consigne_choix>\nÀ la fin de ta réponse, propose trois actions possibles pour le personnage du joueur. '+(s.choicePrompt?.trim()||'Trois propositions courtes et variées, écrites à la première personne.')+'\nUtilise exactement ce format, sans rien écrire après :\n<choix>\n1. …\n2. …\n3. …\n</choix>\n</consigne_choix>';
+if(add&&l?.role=='user')l.content+=U(add);
+return [...(sys.trim()?[{role:'system',content:sys}]:[]),...ms];
+}
+
+async function ask(old,cont){
 const s=cur,p=S.provider,k=S.keys[p];
 if(!k){if(old)s.messages.push(old);render();$('#err').textContent='Ajoutez une clé API dans les réglages IA (⚙).';return}
 setBusy(true);
 let msg='',cut=false;
 try{
-const c=s.remote?ctx:{system:s.system,avatar:s.avatar};
-const lore=loreFor(s.messages.slice(-2));
-const nm=s.pname?.trim()||'';
-const U=t=>t.replace(/\{\{user\}\}/gi,nm||'Joueur');
-const av=(nm?'Nom : '+nm+'\n':'')+(c.avatar||'');
-const sys=U(c.system+lore+(c.extra||'')+(av.trim()?'\n\n# Avatar du joueur\n'+av:''));
-const ms=s.messages.slice(s.mem.upto).map(m=>({...m}));
-const l=ms.at(-1);
-const ai=ms.map(m=>m.role).lastIndexOf('assistant');
-ms.forEach((m,i)=>{if(m.role=='assistant'&&i!=ai)m.content=m.content.replace(CHX,'').trim()});
-let add='';
-if(s.mem.summary.trim())add+='\n\n<previous_history>\n'+s.mem.summary.trim()+'\n</previous_history>';
-const lm=pick(s.mem.memories,s.messages.slice(-2));
-if(lm.length)add+='\n\n<long_term_memory>\n'+lm.map(x=>'- '+x).join('\n')+'\n</long_term_memory>';
-if(s.note?.trim())add+='\n\n<system_note>\n'+s.note.trim()+'\n</system_note>';
-add+=lore;
-if(!s.noChoices)add+='\n\n<consigne_choix>\nÀ la fin de ta réponse, propose trois actions possibles pour le personnage du joueur. '+(s.choicePrompt?.trim()||'Trois propositions courtes et variées, écrites à la première personne.')+'\nUtilise exactement ce format, sans rien écrire après :\n<choix>\n1. …\n2. …\n3. …\n</choix>\n</consigne_choix>';
-if(add&&l?.role=='user')l.content+=U(add);
 const live=t=>{
 if(cur!==s)return;
 const m=$('#msgs');
 let e=$('#live');
 if(!e){m.insertAdjacentHTML('beforeend','<div class="m assistant" id="live"><div class="b"></div></div>');e=$('#live')}
-e.firstChild.innerHTML=body(t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi,''));
+e.firstChild.innerHTML=body(strip(t));
 if(m.scrollHeight-m.scrollTop-m.clientHeight<200)m.scrollTop=m.scrollHeight;
 };
-const out=await chat([...(sys.trim()?[{role:'system',content:sys}]:[]),...ms],+s.maxTok||0,ctl=new AbortController(),S.ns?.[p]?null:live);
-cut=chat.cut;
-s.messages.push({role:'assistant',content:out});
+const r=await chat(build(s,cont),{max:+s.maxTok||0,ac:ctl=new AbortController(),od:S.ns?.[p]?null:live,temp:s.temp??S.temp,top:s.top??S.top});
+const out=r.t;
+cut=r.cut;
+if(cont){
+const m=s.messages.at(-1);
+m.content=m.content.replace(CHX,'').trimEnd()+(/^[\s.,;:!?…»)]/.test(out)?'':' ')+out;
+if(m.alts)m.alts[m.ai]=m.content;
+}else{
+const al=old?.role=='assistant'?[...(old.alts||[old.content]),out].slice(-10):null;
+s.messages.push(al?{role:'assistant',content:out,alts:al,ai:al.length-1}:{role:'assistant',content:out});
+}
 old=null;
 await save(s);
 }catch(e){msg=e.message;if(old)s.messages.push(old)}
 setBusy(false);
-if(cur===s){$('#err').textContent=msg||(cut?'Réponse coupée par la longueur maximale. Augmentez-la dans ✎ ou régénérez avec ↻.':'');render(true)}
+if(cur===s){$('#err').textContent=msg||(cut?'Réponse coupée par la longueur maximale. Augmentez-la dans ✎, continuez avec » ou régénérez avec ↻.':'');render(true)}
 if(!msg)summarize(s);
 }
 
-async function chat(ms,max,ac=new AbortController(),od){
+async function chat(ms,{max=0,ac=new AbortController(),od=null,temp=null,top=null}={}){
 const p=S.provider,k=S.keys[p];
 if(!k)throw new Error('clé API manquante');
 let tm;
@@ -364,7 +493,7 @@ const arm=()=>{clearTimeout(tm);tm=setTimeout(()=>ac.abort('timeout'),120000)};
 arm();
 try{
 for(let a=0;;a++){
-const r=await fetch(P[p].u+'/chat/completions',{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},body:JSON.stringify({model:S.models[p]||P[p].m,messages:ms,...(max?{max_tokens:max}:{}),...(od?{stream:true}:{})})});
+const r=await fetch(P[p].u+'/chat/completions',{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},body:JSON.stringify({model:S.models[p]||P[p].m,messages:ms,...(max?{max_tokens:max}:{}),...(temp!=null?{temperature:+temp}:{}),...(top!=null?{top_p:+top}:{}),...(od?{stream:true}:{})})});
 if(r.ok&&od&&r.body&&(r.headers.get('content-type')||'').includes('event-stream')){
 const rd=r.body.getReader(),dc=new TextDecoder();let buf='',tt='',fr='',fin=false;
 try{
@@ -383,20 +512,18 @@ try{const c=JSON.parse(d).choices?.[0];if(c?.delta?.content){tt+=c.delta.content
 }
 rd.cancel().catch(()=>{});
 }catch(e){if(!(tt&&ac.signal.reason=='timeout'))throw e}
-const out=tt.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi,'').trim();
+const out=strip(tt);
 if(!out)throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
-chat.cut=fr=='length';
-return out;
+return {t:out,cut:fr=='length'};
 }
 const j=await r.json().catch(()=>({}));
 if(r.status==429&&a<1){await new Promise(x=>setTimeout(x,Math.min(+r.headers.get('retry-after')||5,20)*1000));continue}
 const er=(Array.isArray(j)?j[0]:j)?.error;
 if(!r.ok||er)throw new Error(er?.message||('Erreur '+r.status));
 const ch=j.choices?.[0];
-const out=(ch?.message?.content??'').replace(/<think>[\s\S]*?(?:<\/think>|$)/gi,'').trim();
+const out=strip(ch?.message?.content??'');
 if(!out)throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
-chat.cut=ch.finish_reason=='length';
-return out;
+return {t:out,cut:ch.finish_reason=='length'};
 }
 }catch(e){
 if(ac.signal.aborted)throw new Error(ac.signal.reason=='timeout'?'Délai dépassé (120 s sans réponse du fournisseur).':'Annulé.');
@@ -405,9 +532,9 @@ throw e;
 }
 
 const wd=s=>new Set(nz(s).split(/[^a-z0-9]+/).filter(w=>w.length>=4));
-const pick=(mem,ms)=>{
+const pick=(mem,ms,n=3)=>{
 const q=wd(ms.map(m=>m.content).join(' '));
-return mem.map((t,i)=>({t,i,s:[...wd(t)].filter(w=>q.has(w)).length})).sort((a,b)=>b.s-a.s||b.i-a.i).slice(0,3).map(x=>x.t);
+return mem.map((t,i)=>({t,i,s:[...wd(t)].filter(w=>q.has(w)).length})).sort((a,b)=>b.s-a.s||b.i-a.i).slice(0,n).map(x=>x.t);
 };
 
 const SUMP="Tu mets à jour la mémoire d'une histoire interactive. Intègre les nouveaux messages au résumé actuel et réponds uniquement dans ce format :\n[RÉSUMÉ]\n(résumé complet mis à jour, concis, en trois parties : Événements récents, Relations des personnages, Objectif actuel)\n[SOUVENIRS]\n- (un ou deux souvenirs marquants à retenir à long terme, une phrase chacun, ou « aucun »)";
@@ -421,7 +548,7 @@ try{
 while(s.messages.length-s.mem.upto>=40){
 if(cur===s&&!busy){$('#err').textContent='Mise à jour de la mémoire…';shown=true}
 const b=s.messages.slice(s.mem.upto,s.mem.upto+10).map(m=>(m.role=='user'?'Joueur : ':'Narrateur : ')+m.content.replace(/\{\{img::[^}]*\}\}/g,'').replace(CHX,'').trim()).join('\n\n');
-const t=await chat([{role:'system',content:SUMP},{role:'user',content:'Résumé actuel :\n'+(s.mem.summary||'(vide)')+'\n\nNouveaux messages à intégrer :\n'+b}]);
+const {t}=await chat([{role:'system',content:SUMP},{role:'user',content:'Résumé actuel :\n'+(s.mem.summary||'(vide)')+'\n\nNouveaux messages à intégrer :\n'+b}]);
 const r=t.match(/\[R[ÉE]SUM[ÉE]\]([\s\S]*?)(?=\[SOUVENIRS\]|$)/i);
 if(!r||!r[1].trim())throw new Error('réponse inattendue');
 const m=t.match(/\[SOUVENIRS\]([\s\S]*)$/i);
@@ -445,33 +572,53 @@ render(true);ask(old);
 $('#send').onclick=async()=>{
 const t=$('#inp').value.trim();
 if(!t||busy)return;
-$('#inp').value='';LS.del('draft:'+cur.id);
+$('#inp').value='';fit();LS.del('draft:'+cur.id);
 cur.messages.push({role:'user',content:t});
 await save();render(true);ask();
 };
 
 $('#stop').onclick=()=>ctl?.abort();
-$('#inp').oninput=()=>LS.set('draft:'+cur.id,$('#inp').value);
+$('#inp').oninput=()=>{LS.set('draft:'+cur.id,$('#inp').value);fit()};
 $('#inp').onkeydown=e=>{if(e.key=='Enter'&&!e.shiftKey&&matchMedia('(pointer:fine)').matches){e.preventDefault();$('#send').click()}};
 
 $('#msgs').onclick=e=>{
 const b=e.target.closest('button');if(!b)return;
 if(b.classList.contains('more')){LIM+=50;render();$('#msgs').scrollTop=0;return}
-if(b.parentElement.classList.contains('ch')){$('#inp').value=b.textContent;$('#inp').focus();return}
-const i=+b.dataset.i;
-if(b.dataset.a=='e'){editI=i;$('#et').value=cur.messages[i].content;$('#de').showModal()}
-else regen();
+if(b.parentElement.classList.contains('ch')){$('#inp').value=b.textContent;fit();$('#inp').focus();return}
+const a=b.dataset.a,i=+b.dataset.i;
+if(a=='c'){navigator.clipboard?.writeText(plain(cur.messages[i].content)).then(()=>{b.textContent='✓';setTimeout(()=>{b.textContent='⧉'},1200)}).catch(()=>{});return}
+if(busy)return;
+if(a=='e'){editI=i;$('#et').value=cur.messages[i].content;$('#de').showModal()}
+else if(a=='d')delFrom(i);
+else if(a=='r')regen();
+else if(a=='k')ask(null,true);
+else swipe(a=='p'?-1:1);
 };
+$('#msgs').onscroll=()=>{const m=$('#msgs');$('#bt').hidden=m.scrollHeight-m.scrollTop-m.clientHeight<200};
+$('#bt').onclick=()=>{const m=$('#msgs');m.scrollTo({top:m.scrollHeight,behavior:'smooth'})};
 $('#dec').onclick=()=>$('#de').close();
-$('#des').onclick=async()=>{cur.messages[editI].content=$('#et').value;await save();render();$('#de').close()};
+$('#des').onclick=async()=>{const m=cur.messages[editI];m.content=$('#et').value;if(m.alts)m.alts[m.ai]=m.content;await save();render();$('#de').close()};
 
 $('#items').onclick=e=>{
 const m=e.target.closest('.menu');
-if(m){menuId=m.dataset.id;const s=[...document.querySelectorAll('.item')].find(x=>x.dataset.id==menuId);$('#mnt').textContent=s.querySelector('b').textContent;$('#mn').showModal();return}
-const it=e.target.closest('.item');
-if(it)openScenario(it.dataset.id);
+if(m){menuId=m.dataset.id;$('#mnt').textContent=m.closest('.item').querySelector('b').textContent;$('#mn').showModal();return}
+const it=e.target.closest('.t');
+if(it)go(it.dataset.id);
 };
+$('#items').onkeydown=e=>{if((e.key=='Enter'||e.key==' ')&&e.target.classList.contains('t')){e.preventDefault();go(e.target.dataset.id)}};
+$('#q').oninput=draw;
 $('#mc').onclick=()=>$('#mn').close();
+$('#mt').onclick=async()=>{
+const s=await getOne(menuId);
+$('#mn').close();
+const nm=s.pname?.trim()||'Joueur';
+const t='# '+s.name+'\n\n'+s.messages.map(m=>'**'+(m.role=='user'?nm:'Narrateur')+'**\n\n'+plain(m.content)).join('\n\n---\n\n')+'\n';
+const a=document.createElement('a');
+a.href=URL.createObjectURL(new Blob([t],{type:'text/markdown'}));
+a.download=(s.name.replace(/[\\/:*?"<>|]+/g,'_')||'histoire')+'.md';
+a.click();
+setTimeout(()=>URL.revokeObjectURL(a.href),1e4);
+};
 $('#mr').onclick=async()=>{
 const s=await getOne(menuId);
 $('#mn').close();
@@ -494,16 +641,22 @@ const n=await dlg('Nom du scénario',{v:''});
 if(!n||!n.trim())return;
 const s={id:uid(),name:n.trim(),updated:Date.now(),system:'',avatar:'',messages:[]};
 await put(s);
-await openScenario(s.id);
+await go(s.id);
 openSc();
 };
-$('#back').onclick=showList;
+$('#back').onclick=()=>history.state?.c?history.back():leave();
+addEventListener('popstate',()=>{
+const d=document.querySelector('dialog[open]');
+if(d){d.close();history.pushState({c:1},'');return}
+if(!$('#chat').hidden)leave();
+});
 
 function openSc(){
 const c=cur.remote?ctx:cur;
 $('#ssys').value=c.system;$('#sav').value=c.avatar;
 $('#ssys').readOnly=$('#sav').readOnly=!!cur.remote;
 $('#snm').value=cur.pname||'';$('#smx').value=cur.maxTok||'';
+$('#stp').value=cur.temp??'';$('#stk').value=cur.top??'';$('#smm').value=cur.memN??'';$('#sld').value=cur.loreDepth||'';$('#slm').value=cur.loreMax||'';
 $('#sch').checked=!cur.noChoices;$('#scp').value=cur.choicePrompt||'';
 $('#ds').showModal();
 }
@@ -518,21 +671,31 @@ $('#dsc').onclick=()=>$('#ds').close();
 $('#dss').onclick=async()=>{
 if(!cur.remote){cur.system=$('#ssys').value;cur.avatar=$('#sav').value}
 cur.pname=$('#snm').value.trim();cur.maxTok=+$('#smx').value||0;
+cur.temp=num('#stp');cur.top=num('#stk');cur.memN=num('#smm');cur.loreDepth=+$('#sld').value||0;cur.loreMax=+$('#slm').value||0;
 cur.noChoices=!$('#sch').checked;cur.choicePrompt=$('#scp').value.trim();
 await save();$('#ds').close();
 };
 
 $('#cp').innerHTML=Object.entries(P).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
 function fillCfg(){const p=$('#cp').value;$('#ck').value=S.keys[p]||'';$('#cm').value=S.models[p]||'';$('#cm').placeholder=P[p].m;$('#cn').checked=!!S.ns?.[p]}
-function openCfg(){$('#cp').value=S.provider;fillCfg();$('#dc').showModal()}
+function openCfg(){$('#cp').value=S.provider;fillCfg();$('#ctp').value=S.temp??'';$('#ctk').value=S.top??'';$('#ccx').value=S.ctxLim||'';$('#crp').value=S.repo||'';$('#dc').showModal()}
 $('#cfg').onclick=openCfg;$('#cfg2').onclick=openCfg;
 $('#cp').onchange=fillCfg;
 $('#rf').onclick=async()=>{await getTree(true);showList()};
-$('#ex').onclick=async()=>{
-const a=document.createElement('a');
-a.href=URL.createObjectURL(new Blob([JSON.stringify({v:1,scenarios:await getFull()})],{type:'application/json'}));
-a.download='histoires-'+new Date().toISOString().slice(0,10)+'.json';
-a.click();
+$('#ex').onclick=doExport;
+$('#bke').onclick=doExport;
+$('#bkl').onclick=()=>{LS.set('bks',Date.now());$('#bk').hidden=true};
+$('#cl').onclick=async()=>{
+const p=$('#cp').value,k=$('#ck').value.trim();
+if(!k){dlg('Clé API manquante',{m:'Saisissez la clé avant de lister les modèles.'});return}
+try{
+const r=await fetch(P[p].u+'/models',{headers:{Authorization:'Bearer '+k}});
+const j=await r.json();
+const a=(j.data||j.models||[]).map(x=>String(x.id||x.name||'').replace(/^models\//,'')).filter(Boolean).sort();
+if(!a.length)throw new Error(j.error?.message||'liste vide');
+$('#cml').innerHTML=a.map(x=>`<option value="${esc(x)}">`).join('');
+dlg(a.length+' modèles',{m:'Effacez le champ Modèle puis touchez-le pour choisir dans la liste.'});
+}catch(e){dlg('Liste indisponible',{m:e.message})}
 };
 $('#im').onclick=()=>$('#imf').click();
 $('#imf').onchange=async e=>{
@@ -540,7 +703,7 @@ const f=e.target.files[0];e.target.value='';
 if(!f)return;
 try{
 const d=JSON.parse(await f.text());
-const a=(d.scenarios||[]).filter(x=>x&&x.id&&Array.isArray(x.messages));
+const a=(Array.isArray(d.scenarios)?d.scenarios:[]).map(clean).filter(Boolean);
 if(!a.length||!(await dlg('Importer '+a.length+' scénario(s) ?',{m:'Ceux qui ont le même identifiant seront remplacés.',ok:'Importer'})))return;
 for(const x of a)await put(x);
 $('#dc').close();showList();
@@ -550,10 +713,13 @@ $('#dcc').onclick=()=>$('#dc').close();
 $('#dcs').onclick=async()=>{
 const p=$('#cp').value;
 S.provider=p;S.keys[p]=$('#ck').value.trim();S.models[p]=$('#cm').value.trim();(S.ns??={})[p]=$('#cn').checked;
-await saveSet();$('#dc').close();
+const rp=$('#crp').value.trim();if(rp!==(S.repo||''))LS.del('tree');
+S.repo=rp;S.temp=num('#ctp');S.top=num('#ctk');S.ctxLim=+$('#ccx').value||0;
+await saveSet();$('#dc').close();if(cur)tk();
 };
 
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(!LS.get('first'))LS.set('first',Date.now());
 openDB().then(()=>Promise.resolve(navigator.storage?.persist?.()).catch(()=>{})).then(loadSet).then(showList);
 </script>
 </body>
