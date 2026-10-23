@@ -1,13 +1,24 @@
 import { chat, summarize } from './ai.js';
-import { CHX, body, choicesOf } from './format.js';
+import { CHX, ETX, body, choicesOf, lastEtat } from './format.js';
 import { showList } from './list.js';
-import { build } from './prompt.js';
+import { build, statOn } from './prompt.js';
+import {
+  autoRead,
+  refreshSpeech,
+  speakFrom,
+  speakMsg,
+  stopSpeech,
+  setReading,
+  ttsOk
+} from './read.js';
 import { TERR, coverOf, loadCtx } from './scenarios.js';
 import { S, app, ctx } from './state.js';
 import { getOne, save } from './store.js';
-import { $, LS, dlg, esc, fit, ic, plain, strip } from './util.js';
+import { $, LS, esc, fit, ic, plain, strip, toast } from './util.js';
 
 export async function openScenario(id) {
+  stopSpeech();
+  setReading(false);
   app.cur = await getOne(id);
   if (!app.cur) {
     showList();
@@ -48,7 +59,7 @@ export function tk() {
       ' tokens) : supprimez des messages ou ajustez la mémoire.'
     : '≈ ' + f(n) + ' tokens envoyés';
 }
-function render(sc) {
+export function render(sc) {
   $('#ct').textContent = app.cur.name;
   const n = app.cur.messages.length,
     st = Math.max(0, n - app.LIM);
@@ -65,9 +76,12 @@ function render(sc) {
           last = i == n - 1,
           al = last && m.alts?.length > 1;
         return (
-          `<div class="m ${m.role}"><div class="b">${body(m.content)}</div><div class="a">` +
+          `<div class="m ${m.role}" data-i="${i}"><div class="b">${body(m.content)}</div><div class="a">` +
           (al
             ? `<button data-a="p" aria-label="Variante précédente">${ic('chevl', 18)}</button><span class="n">${m.ai + 1}/${m.alts.length}</span><button data-a="n" aria-label="Variante suivante">${ic('chevr', 18)}</button>`
+            : '') +
+          (ttsOk
+            ? `<button data-a="v" data-i="${i}" aria-label="Lire à voix haute">${ic('vol', 17)}</button>`
             : '') +
           `<button data-a="c" data-i="${i}" aria-label="Copier">${ic('copy', 17)}</button><button data-a="e" data-i="${i}" aria-label="Modifier">${ic('edit', 17)}</button><button data-a="d" data-i="${i}" aria-label="Supprimer à partir d'ici">${ic('trash', 17)}</button>` +
           (last
@@ -99,24 +113,55 @@ function render(sc) {
     });
   }
   tk();
+  stateView();
+  refreshSpeech();
+}
+function stateView() {
+  const e = $('#stp');
+  const st = statOn(app.cur) ? lastEtat(app.cur.messages) : null;
+  if (!st) {
+    e.hidden = true;
+    return;
+  }
+  $('#sts').innerHTML = st
+    .slice(0, 2)
+    .map(([k, v]) => `<span class="chip"><b>${esc(k)}</b>${esc(v)}</span>`)
+    .join('');
+  $('#stg').innerHTML = st
+    .map(([k, v]) => {
+      const m = v.match(/^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/),
+        p = m
+          ? Math.max(0, Math.min(100, (+m[1].replace(',', '.') / +m[2].replace(',', '.')) * 100))
+          : null;
+      return `<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b>${p != null ? `<i class="bar"><u style="width:${p}%"></u></i>` : ''}</div>`;
+    })
+    .join('');
+  e.hidden = false;
 }
 async function delFrom(i) {
-  const u = app.cur.mem.upto;
-  if (
-    !(await dlg("Supprimer à partir d'ici ?", {
-      m:
-        'Ce message et tous les suivants seront effacés.' +
-        (i < u ? " La mémoire résumée n'est pas modifiée : vérifiez-la dans Mémoire." : ''),
-      ok: 'Supprimer'
-    }))
-  )
-    return;
-  app.cur.messages.length = i;
-  app.cur.mem.upto = Math.min(u, i);
+  stopSpeech();
+  const c = app.cur,
+    upto = c.mem.upto,
+    removed = c.messages.splice(i);
+  c.mem.upto = Math.min(upto, i);
   await save();
   render(true);
+  toast(removed.length > 1 ? removed.length + ' messages supprimés' : 'Message supprimé', {
+    label: 'Annuler',
+    fn: async () => {
+      if (app.cur !== c || c.messages.length !== i) {
+        toast('Annulation impossible : la conversation a changé');
+        return;
+      }
+      c.messages.push(...removed);
+      c.mem.upto = upto;
+      await save();
+      render(true);
+    }
+  });
 }
 async function swipe(d) {
+  stopSpeech();
   const m = app.cur.messages.at(-1),
     k = (m.ai + d + m.alts.length) % m.alts.length;
   m.ai = k;
@@ -143,6 +188,7 @@ async function ask(old, cont) {
   setBusy(true);
   let msg = '',
     cut = false,
+    part = false,
     raf = 0,
     pend = null;
   const paint = () => {
@@ -178,10 +224,13 @@ async function ask(old, cont) {
     app.stream = { mode: S.ns?.[p] ? 'off' : r.mode, chunks: r.chunks, ms: r.ms };
     const out = r.t;
     cut = r.cut;
+    part = !!r.partial;
     if (cont) {
       const m = s.messages.at(-1);
       m.content =
-        m.content.replace(CHX, '').trimEnd() + (/^[\s.,;:!?…»)]/.test(out) ? '' : ' ') + out;
+        m.content.replace(CHX, '').replace(ETX, '').trimEnd() +
+        (/^[\s.,;:!?…»)]/.test(out) ? '' : ' ') +
+        out;
       if (m.alts) m.alts[m.ai] = m.content;
     } else {
       const al = old?.role == 'assistant' ? [...(old.alts || [old.content]), out].slice(-10) : null;
@@ -203,15 +252,19 @@ async function ask(old, cont) {
   if (app.cur === s) {
     $('#err').textContent =
       msg ||
-      (cut
-        ? 'Réponse coupée par la longueur maximale. Augmentez-la dans les réglages du scénario, continuez ou régénérez.'
-        : '');
+      (part
+        ? 'Réponse interrompue : le texte reçu est conservé. Continuez (double chevron) ou régénérez.'
+        : cut
+          ? 'Réponse coupée par la longueur maximale. Augmentez-la dans les réglages du scénario, continuez ou régénérez.'
+          : '');
     render(true);
+    if (!msg && !cont) autoRead(s.messages.length - 1);
   }
   if (!msg) summarize(s);
 }
 async function regen() {
   if (app.busy) return;
+  stopSpeech();
   const old = app.cur.messages.at(-1)?.role == 'assistant' ? app.cur.messages.pop() : null;
   render(true);
   ask(old);
@@ -219,6 +272,7 @@ async function regen() {
 $('#send').onclick = async () => {
   const t = $('#inp').value.trim();
   if (!t || app.busy) return;
+  stopSpeech();
   $('#inp').value = '';
   fit();
   LS.del('draft:' + app.cur.id);
@@ -227,7 +281,7 @@ $('#send').onclick = async () => {
   render(true);
   ask();
 };
-$('#stop').onclick = () => app.ctl?.abort();
+$('#stop').onclick = () => app.ctl?.abort('stop');
 $('#inp').oninput = () => {
   LS.set('draft:' + app.cur.id, $('#inp').value);
   fit();
@@ -240,7 +294,11 @@ $('#inp').onkeydown = e => {
 };
 $('#msgs').onclick = e => {
   const b = e.target.closest('button');
-  if (!b) return;
+  if (!b) {
+    const m = e.target.closest('.m');
+    if (app.reading && m) speakFrom(+m.dataset.i);
+    return;
+  }
   if (b.classList.contains('more')) {
     app.LIM += 50;
     render();
@@ -266,6 +324,10 @@ $('#msgs').onclick = e => {
         }, 1200);
       })
       .catch(() => {});
+    return;
+  }
+  if (a == 'v') {
+    speakMsg(i);
     return;
   }
   if (app.busy) return;

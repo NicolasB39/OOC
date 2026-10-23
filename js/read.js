@@ -1,0 +1,250 @@
+import { S, app } from './state.js';
+import { saveSet } from './store.js';
+import { $, esc, ic, plain } from './util.js';
+
+const ok = typeof speechSynthesis != 'undefined' && typeof SpeechSynthesisUtterance != 'undefined';
+export const ttsOk = ok;
+const T = { q: [], pos: 0, run: 0, state: 'idle', msg: -1 };
+const FS = [14, 30];
+
+export const applyFs = () =>
+  document.documentElement.style.setProperty('--fs', (S.fs || 17) + 'px');
+const fsLabel = () => {
+  $('#lfv').textContent = (S.fs || 17) + ' px';
+  $('#lfs').value = S.fs || 17;
+};
+const setFs = n => {
+  S.fs = Math.max(FS[0], Math.min(FS[1], n));
+  applyFs();
+  fsLabel();
+  saveSet();
+};
+
+const speakable = t =>
+  plain(t)
+    .replace(/\{\{user\}\}/gi, app.cur?.pname?.trim() || 'Joueur')
+    .replace(/<[^>]*>/g, '')
+    .replace(/^-{3,}$/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/[*_]+/g, '')
+    .trim();
+const pieces = s => (s.length > 240 ? s.match(/[^,;:]+[,;:]?\s*/g) || [s] : [s]);
+const chunks = t => {
+  const out = [];
+  for (const p of t.split(/\n+/)) {
+    let cur = '';
+    for (const s of p.match(/[^.!?…]+[.!?…]*\s*/g) || [])
+      for (const x of pieces(s)) {
+        if (cur && (cur + x).length > 200) {
+          out.push(cur.trim());
+          cur = '';
+        }
+        cur += x;
+      }
+    if (cur.trim()) out.push(cur.trim());
+  }
+  return out;
+};
+const items = idx =>
+  idx.flatMap(i => chunks(speakable(app.cur.messages[i]?.content || '')).map(t => ({ m: i, t })));
+const voice = () => {
+  const vs = speechSynthesis.getVoices();
+  return (
+    vs.find(v => v.voiceURI == S.tts?.voice) ||
+    vs.find(v => v.lang?.toLowerCase().startsWith('fr')) ||
+    null
+  );
+};
+
+const mark = (i, scroll) => {
+  T.msg = i;
+  document
+    .querySelectorAll('#msgs .m')
+    .forEach(e => e.classList.toggle('speaking', +e.dataset.i === i));
+  document
+    .querySelectorAll('#msgs [data-a="v"]')
+    .forEach(b => b.classList.toggle('on', +b.dataset.i === i && T.state != 'idle'));
+  if (scroll && i >= 0)
+    document.querySelector('#msgs .m[data-i="' + i + '"]')?.scrollIntoView({ block: 'nearest' });
+};
+export const refreshSpeech = () => {
+  if (T.state != 'idle') mark(T.msg);
+};
+function ttsUI() {
+  const idle = T.state == 'idle',
+    pl = T.state == 'play';
+  $('#tts').hidden = idle || app.reading;
+  $('#rbar').hidden = !app.reading;
+  $('#rpp').hidden = $('#rst').hidden = !ok;
+  for (const id of ['#tpp', '#rpp']) {
+    $(id).innerHTML = ic(pl ? 'pause' : 'play', 20);
+    $(id).setAttribute(
+      'aria-label',
+      pl ? 'Mettre en pause' : T.state == 'paused' ? 'Reprendre la lecture' : 'Lire à voix haute'
+    );
+  }
+  $('#rst').disabled = idle;
+}
+function next() {
+  if (T.state != 'play') return;
+  if (T.pos >= T.q.length) {
+    T.state = 'idle';
+    T.q = [];
+    mark(-1);
+    ttsUI();
+    return;
+  }
+  const it = T.q[T.pos],
+    id = T.run,
+    u = new SpeechSynthesisUtterance(it.t),
+    v = voice();
+  if (it.m !== T.msg) mark(it.m, true);
+  if (v) {
+    u.voice = v;
+    u.lang = v.lang;
+  } else u.lang = 'fr-FR';
+  u.rate = S.tts?.rate || 1;
+  u.onend = () => {
+    if (id == T.run && T.state == 'play') {
+      T.pos++;
+      next();
+    }
+  };
+  u.onerror = e => {
+    if (id != T.run || e.error == 'canceled' || e.error == 'interrupted') return;
+    T.pos++;
+    next();
+  };
+  speechSynthesis.speak(u);
+}
+function stop() {
+  T.run++;
+  T.state = 'idle';
+  T.q = [];
+  speechSynthesis.cancel();
+  mark(-1);
+  ttsUI();
+}
+function start(list) {
+  if (!ok) return;
+  const was = T.state != 'idle';
+  stop();
+  if (!list.length) return;
+  T.q = list;
+  T.pos = 0;
+  T.state = 'play';
+  ttsUI();
+  if (was) setTimeout(next, 80);
+  else next();
+}
+const pause = () => {
+  T.state = 'paused';
+  T.run++;
+  speechSynthesis.cancel();
+  ttsUI();
+};
+const resume = () => {
+  T.state = 'play';
+  T.run++;
+  ttsUI();
+  next();
+};
+export const stopSpeech = () => {
+  if (ok && T.state != 'idle') stop();
+};
+export function speakMsg(i) {
+  if (T.state != 'idle' && T.msg === i) stopSpeech();
+  else start(items([i]));
+}
+export function speakFrom(i) {
+  const idx = [];
+  app.cur.messages.forEach((m, j) => {
+    if (j >= i && m.role == 'assistant') idx.push(j);
+  });
+  start(items(idx));
+}
+export function autoRead(i) {
+  if (S.tts?.auto && app.cur?.messages[i]) start(items([i]));
+}
+export function setReading(on) {
+  app.reading = !!on;
+  $('#chat').classList.toggle('reading', app.reading);
+  ttsUI();
+}
+const visibleStart = () => {
+  const m = $('#msgs'),
+    top = m.getBoundingClientRect().top,
+    els = [...m.querySelectorAll('.m')],
+    el = els.find(e => e.getBoundingClientRect().bottom > top + 24) || els.at(-1);
+  return el ? +el.dataset.i : 0;
+};
+
+const tts = () => (S.tts ??= { voice: '', rate: 1, auto: false });
+function fillVoices() {
+  if (!ok) return;
+  const vs = speechSynthesis.getVoices(),
+    fr = vs.filter(v => v.lang?.toLowerCase().startsWith('fr')),
+    rest = vs.filter(v => !fr.includes(v)),
+    sel = $('#lvo');
+  sel.innerHTML =
+    '<option value="">Automatique (français)</option>' +
+    [...fr, ...rest]
+      .map(v => `<option value="${esc(v.voiceURI)}">${esc(v.name)} (${esc(v.lang)})</option>`)
+      .join('');
+  sel.value = S.tts?.voice || '';
+  if (sel.value !== (S.tts?.voice || '')) sel.value = '';
+}
+function openLec() {
+  fsLabel();
+  $('#lrm').checked = app.reading;
+  $('#ltt').hidden = !ok;
+  if (ok) {
+    fillVoices();
+    const t = S.tts || {};
+    $('#lra').value = t.rate || 1;
+    $('#lrv').textContent = (t.rate || 1).toFixed(1) + '×';
+    $('#lau').checked = !!t.auto;
+  }
+  if (!$('#dlc').open) $('#dlc').showModal();
+}
+if (ok) speechSynthesis.addEventListener?.('voiceschanged', fillVoices);
+$('#rd').onclick = openLec;
+$('#lfs').oninput = () => {
+  S.fs = +$('#lfs').value;
+  applyFs();
+  fsLabel();
+};
+$('#lfs').onchange = () => saveSet();
+$('#lfm').onclick = () => setFs((S.fs || 17) - 1);
+$('#lfp').onclick = () => setFs((S.fs || 17) + 1);
+$('#rm').onclick = () => setFs((S.fs || 17) - 1);
+$('#rp').onclick = () => setFs((S.fs || 17) + 1);
+$('#lrm').onchange = () => {
+  setReading($('#lrm').checked);
+  if ($('#lrm').checked) $('#dlc').close();
+};
+$('#rx').onclick = () => setReading(false);
+$('#lvo').onchange = () => {
+  tts().voice = $('#lvo').value;
+  saveSet();
+};
+$('#lra').oninput = () => {
+  tts().rate = +$('#lra').value;
+  $('#lrv').textContent = (+$('#lra').value).toFixed(1) + '×';
+};
+$('#lra').onchange = () => saveSet();
+$('#lau').onchange = () => {
+  tts().auto = $('#lau').checked;
+  saveSet();
+};
+$('#ltest').onclick = () => start([{ m: -1, t: 'Voici un exemple de lecture à voix haute.' }]);
+$('#lcl').onclick = () => $('#dlc').close();
+$('#rpp').onclick = () => {
+  if (T.state == 'play') pause();
+  else if (T.state == 'paused') resume();
+  else speakFrom(visibleStart());
+};
+$('#tpp').onclick = () => (T.state == 'play' ? pause() : resume());
+$('#rst').onclick = stopSpeech;
+$('#tst').onclick = stopSpeech;
+ttsUI();

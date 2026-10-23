@@ -1,3 +1,4 @@
+import { stopSpeech } from './read.js';
 import { sync } from './backup.js';
 import { openScenario } from './chat.js';
 import { showList } from './list.js';
@@ -10,7 +11,8 @@ export const go = async id => {
   if ($('#chat').hidden) history.back();
 };
 const leave = () => {
-  if (app.busy) app.ctl?.abort();
+  stopSpeech();
+  if (app.busy) app.ctl?.abort('stop');
   showList();
   if (LS.get('bkd')) sync();
 };

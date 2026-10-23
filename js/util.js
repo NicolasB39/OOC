@@ -41,7 +41,7 @@ export const LS = {
     } catch (e) {}
   }
 };
-export const dlg = (t, { m = '', v = null, ok = 'OK' } = {}) =>
+export const dlg = (t, { m = '', v = null, ok = 'OK', no = 'Annuler' } = {}) =>
   new Promise(res => {
     const d = $('#dq'),
       i = $('#dqi');
@@ -51,6 +51,7 @@ export const dlg = (t, { m = '', v = null, ok = 'OK' } = {}) =>
     i.hidden = v === null;
     i.value = v ?? '';
     $('#dqo').textContent = ok;
+    $('#dqc').textContent = no;
     let r = null;
     $('#dqo').onclick = () => {
       r = v === null ? true : i.value;
@@ -66,6 +67,7 @@ export const strip = t => t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim
 export const plain = t =>
   t
     .replace(/<choix>[\s\S]*?(?:<\/choix>|$)/gi, '')
+    .replace(/<etat>[\s\S]*?(?:<\/etat>|$)/gi, '')
     .replace(/\{\{img::[^}]*\}\}/g, '')
     .trim();
 export const num = s => ($(s).value === '' ? null : +$(s).value);
@@ -79,12 +81,29 @@ export const nz = s =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
-export const toast = t => {
+export const ikey = s =>
+  nz(s)
+    .replace(/[\s_.\-]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+export const toast = (t, a) => {
   const e = $('#toast');
   e.textContent = t;
+  if (a) {
+    const b = document.createElement('button');
+    b.textContent = a.label;
+    b.onclick = () => {
+      e.hidden = true;
+      clearTimeout(toastT);
+      a.fn();
+    };
+    e.append(b);
+  }
   e.hidden = false;
   clearTimeout(toastT);
-  toastT = setTimeout(() => {
-    e.hidden = true;
-  }, 2600);
+  toastT = setTimeout(
+    () => {
+      e.hidden = true;
+    },
+    a ? 7000 : 2600
+  );
 };

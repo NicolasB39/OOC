@@ -1,4 +1,4 @@
-const C = 'histoires-v5',
+const C = 'histoires-v8',
   A = [
     './',
     'index.html',
@@ -19,6 +19,7 @@ const C = 'histoires-v5',
     'js/list.js',
     'js/nav.js',
     'js/settings.js',
+    'js/read.js',
     'js/backup.js'
   ],
   MAX = 120;

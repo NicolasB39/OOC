@@ -3,6 +3,7 @@ import { showList } from './list.js';
 import { S } from './state.js';
 import { loadSet, openDB } from './store.js';
 import { LS } from './util.js';
+import { applyFs } from './read.js';
 import './list.js';
 import './chat.js';
 import './nav.js';
@@ -15,7 +16,10 @@ if (!LS.get('first')) LS.set('first', Date.now());
 openDB()
   .then(() => Promise.resolve(navigator.storage?.persist?.()).catch(() => {}))
   .then(loadSet)
-  .then(showList)
+  .then(() => {
+    applyFs();
+    return showList();
+  })
   .then(() => {
     if (S.bk?.p == 'drive') gis().catch(() => {});
     sync();

@@ -222,6 +222,7 @@ export const bkOn = () => {
 };
 const bkMsg = t => {
   const B = S.bk || {};
+  $('#sy').classList.toggle('err', !!B.err);
   $('#bks').textContent =
     t ||
     (B.err
@@ -297,18 +298,20 @@ function openBk() {
   $('#bci').value = B.cid || '';
   bkShow();
   bkMsg();
-  $('#dbk').showModal();
+  if (!$('#dbk').open) $('#dbk').showModal();
 }
 async function bkSave() {
-  S.bk = {
-    ...(S.bk || {}),
-    p: $('#bp').value,
-    repo: $('#bgr').value.trim(),
-    tok: $('#bgt').value.trim(),
-    path: $('#bgf').value.trim(),
-    cid: $('#bci').value.trim()
-  };
+  const o = S.bk || {},
+    n = {
+      p: $('#bp').value,
+      repo: $('#bgr').value.trim(),
+      tok: $('#bgt').value.trim(),
+      path: $('#bgf').value.trim(),
+      cid: $('#bci').value.trim()
+    };
+  S.bk = { ...o, ...n, ...(Object.keys(n).some(k => (o[k] || '') !== n[k]) ? { err: '' } : {}) };
   await saveSet();
+  bkMsg();
 }
 $('#bp').onchange = bkShow;
 $('#bko').onclick = () => {
@@ -316,25 +319,42 @@ $('#bko').onclick = () => {
   openBk();
 };
 $('#bkc').onclick = () => $('#dbk').close();
+async function syncNow() {
+  await sync(true);
+  const e = S.bk?.err;
+  if (!e) {
+    toast('Sauvegarde à jour');
+    return;
+  }
+  const r = await dlg('Synchronisation impossible', {
+    m: e,
+    ok: 'Modifier la configuration',
+    no: 'Fermer'
+  });
+  if (r) openBk();
+}
 $('#bkv').onclick = async () => {
   await bkSave();
   $('#dbk').close();
-  if (bkOn()) sync(true);
+  if (bkOn()) syncNow();
 };
 $('#bkn').onclick = async () => {
   await bkSave();
   await sync(true);
   bkMsg();
 };
-$('#sy').onclick = async () => {
-  if (!bkOn()) {
-    openBk();
-    return;
-  }
-  await sync(true);
-  const e = S.bk.err;
-  if (e) dlg('Synchronisation impossible', { m: e });
-  else toast('Sauvegarde à jour');
+$('#sy').onclick = () => (bkOn() ? syncNow() : openBk());
+$('#bkx').onclick = async () => {
+  const r = await dlg('Effacer la configuration ?', {
+    m: "Le service, le jeton ou l'ID client et la connexion Google seront oubliés sur cet appareil. Vos histoires et la sauvegarde en ligne ne sont pas touchées.",
+    ok: 'Effacer'
+  });
+  if (!r) return;
+  S.bk = {};
+  LS.del('bk:tok');
+  LS.del('bks');
+  await saveSet();
+  openBk();
 };
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && LS.get('bkd')) sync();

@@ -26,6 +26,7 @@
 <link rel="modulepreload" href="js/list.js">
 <link rel="modulepreload" href="js/nav.js">
 <link rel="modulepreload" href="js/settings.js">
+<link rel="modulepreload" href="js/read.js">
 <link rel="modulepreload" href="js/backup.js">
 </head>
 <body>
@@ -50,6 +51,11 @@
 <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
 <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+<symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
 </defs></svg>
 
@@ -67,15 +73,25 @@
 <header>
 <button id="back" aria-label="Retour"><svg class="i"><use href="#i-back"/></svg></button>
 <h1 id="ct"></h1>
+<button id="rd" aria-label="Lecture"><svg class="i"><use href="#i-type"/></svg></button>
 <button id="mb" aria-label="Mémoire"><svg class="i"><use href="#i-mem"/></svg></button>
 <button id="nt" aria-label="Note utilisateur"><svg class="i"><use href="#i-note"/></svg></button>
 <button id="sc" aria-label="Réglages du scénario"><svg class="i"><use href="#i-sliders"/></svg></button>
 <button id="cfg2" aria-label="Réglages IA"><svg class="i"><use href="#i-gear"/></svg></button>
 </header>
+<details id="stp" hidden><summary><span class="stl">État</span><span id="sts"></span></summary><div id="stg"></div></details>
 <div id="mw"><div id="msgs"></div><button id="bt" hidden aria-label="Aller en bas"><svg class="i"><use href="#i-down"/></svg></button></div>
 <div id="err" role="status"></div>
 <div id="tk"></div>
 <footer><div class="inb"><textarea id="inp" rows="1" placeholder="Votre tour"></textarea><button id="stop" hidden aria-label="Annuler"><svg class="i f"><use href="#i-stop"/></svg></button><button id="send" class="primary" aria-label="Envoyer"><svg class="i" style="stroke-width:2.6"><use href="#i-send"/></svg></button></div></footer>
+<div id="tts" hidden><span>Lecture</span><button id="tpp"></button><button id="tst" aria-label="Arrêter la lecture"><svg class="i f"><use href="#i-stop"/></svg></button></div>
+<div id="rbar" hidden>
+<button id="rpp"></button>
+<button id="rst" aria-label="Arrêter la lecture"><svg class="i f"><use href="#i-stop"/></svg></button>
+<button id="rm" aria-label="Réduire le texte">A−</button>
+<button id="rp" aria-label="Agrandir le texte">A+</button>
+<button id="rx" aria-label="Quitter le mode lecture"><svg class="i"><use href="#i-x"/></svg></button>
+</div>
 </main>
 
 <dialog id="mn">
@@ -112,6 +128,15 @@
 <label><input id="sch" type="checkbox" style="width:auto;padding:0;margin-right:8px">Proposer trois choix de réponse</label>
 <label for="scp">Consigne des choix</label>
 <textarea id="scp" style="min-height:70px" placeholder="Trois propositions courtes et variées, écrites à la première personne."></textarea>
+<label><input id="sst" type="checkbox" style="width:auto;padding:0;margin-right:8px">Panneau d'état (statistiques suivies par l'IA)</label>
+<label for="sstf">Champs à suivre</label>
+<textarea id="sstf" style="min-height:70px" placeholder="Lieu, Santé (0/100), Argent, Humeur"></textarea>
+<div id="simw" hidden>
+<label>Images détectées</label>
+<p id="simn" class="note"></p>
+<div id="simg"></div>
+<div class="row l"><button id="simr">Recharger l'index</button></div>
+</div>
 <div class="row"><button id="dsc">Annuler</button><button id="dss" class="primary">Enregistrer</button></div>
 </dialog>
 
@@ -139,6 +164,7 @@
 
 <dialog id="dc">
 <h2>Réglages IA</h2>
+<div class="row l"><button id="bko">Sauvegarde en ligne…</button></div>
 <label for="cp">Fournisseur</label>
 <select id="cp"></select>
 <label for="ck">Clé API</label>
@@ -158,7 +184,6 @@
 <label for="crp">Dépôt GitHub (proprietaire/depot, vide = automatique)</label>
 <input id="crp" placeholder="proprietaire/depot" autocomplete="off" autocapitalize="off">
 <label>Sauvegarde (clés API exclues)</label>
-<div class="row l"><button id="bko">Sauvegarde en ligne…</button></div>
 <div class="row l"><button id="ex">Exporter</button><button id="im">Importer</button><input id="imf" type="file" accept="application/json" hidden></div>
 <div class="row"><button id="dcc">Annuler</button><button id="dcs" class="primary">Enregistrer</button></div>
 </dialog>
@@ -167,6 +192,23 @@
 <h2>Modifier le message</h2>
 <textarea id="et"></textarea>
 <div class="row"><button id="dec">Annuler</button><button id="des" class="primary">Enregistrer</button></div>
+</dialog>
+
+<dialog id="dlc">
+<h2>Lecture</h2>
+<label for="lfs">Taille du texte : <span id="lfv"></span></label>
+<div class="fsr"><button id="lfm" aria-label="Réduire le texte">A−</button><input id="lfs" type="range" min="14" max="30" step="1"><button id="lfp" aria-label="Agrandir le texte">A+</button></div>
+<p class="lprev">Le vent se lève sur la falaise, et les vagues frappent la roche sans relâche.</p>
+<label><input id="lrm" type="checkbox" style="width:auto;padding:0;margin-right:8px">Mode lecture (masque les boutons)</label>
+<div id="ltt">
+<label for="lvo">Voix</label>
+<select id="lvo"></select>
+<label for="lra">Vitesse : <span id="lrv"></span></label>
+<input id="lra" type="range" min="0.6" max="1.6" step="0.1">
+<label><input id="lau" type="checkbox" style="width:auto;padding:0;margin-right:8px">Lire automatiquement les nouvelles réponses</label>
+<div class="row l"><button id="ltest">Écouter un exemple</button></div>
+</div>
+<div class="row"><button id="lcl" class="primary">Fermer</button></div>
 </dialog>
 
 <dialog id="dbk">
@@ -188,7 +230,7 @@
 <p class="note">La connexion Google dure environ une heure : au-delà, touchez le nuage pour vous reconnecter.</p>
 </div>
 <p id="bks" class="note"></p>
-<div class="row l"><button id="bkn" hidden>Synchroniser maintenant</button></div>
+<div class="row l"><button id="bkn" hidden>Synchroniser maintenant</button><button id="bkx">Effacer la configuration</button></div>
 <div class="row"><button id="bkc">Fermer</button><button id="bkv" class="primary">Enregistrer</button></div>
 </dialog>
 <script type="module" src="js/main.js"></script>

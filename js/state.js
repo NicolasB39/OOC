@@ -9,7 +9,7 @@ export const PROVIDERS = {
   openrouter: { n: 'OpenRouter', u: 'https://openrouter.ai/api/v1', m: 'openrouter/free' }
 };
 export const S = { provider: 'groq', keys: {}, models: {} };
-export const ctx = { system: '', avatar: '', extra: '', lore: [] };
+export const ctx = { system: '', avatar: '', extra: '', lore: [], images: [], stat: '' };
 export const IMG = {};
 export const app = {
   cur: null,
@@ -19,5 +19,6 @@ export const app = {
   ctl: null,
   LIM: 50,
   FIL: 'all',
-  stream: null
+  stream: null,
+  reading: false
 };
