@@ -1,0 +1,1 @@
+Nouvelle recrue de la guilde, arrivée au village en réponse à une annonce un peu trop optimiste. Les PNJ ne savent presque rien de vous, sinon que vous avez accepté de travailler sans salaire garanti.
