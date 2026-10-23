@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="9">
+<meta name="app-version" content="10">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Histoires</title>
 <link rel="manifest" href="manifest.json">
@@ -202,6 +202,7 @@
 <div class="fsr"><button id="lfm" aria-label="Réduire le texte">A−</button><input id="lfs" type="range" min="14" max="30" step="1"><button id="lfp" aria-label="Agrandir le texte">A+</button></div>
 <p class="lprev">Le vent se lève sur la falaise, et les vagues frappent la roche sans relâche.</p>
 <label><input id="lrm" type="checkbox" style="width:auto;padding:0;margin-right:8px">Mode lecture (masque les boutons)</label>
+<label><input id="lfo" type="checkbox" style="width:auto;padding:0;margin-right:8px">Suivre le texte pendant l'écriture de l'IA (défilement automatique)</label>
 <div id="ltt">
 <label for="lvo">Voix</label>
 <select id="lvo"></select>

@@ -190,7 +190,9 @@ async function ask(old, cont) {
     cut = false,
     part = false,
     raf = 0,
-    pend = null;
+    pend = null,
+    anchor = !S.follow,
+    lastTop = null;
   const paint = () => {
     raf = 0;
     if (app.cur !== s || !pend) return;
@@ -206,7 +208,17 @@ async function ask(old, cont) {
     }
     const v = strip(t);
     e.firstChild.innerHTML = v ? body(v) : t || th ? '<span class="act">Réflexion…</span>' : '';
-    if (m.scrollHeight - m.scrollTop - m.clientHeight < 200) m.scrollTop = m.scrollHeight;
+    if (anchor) {
+      if (lastTop !== null && Math.abs(m.scrollTop - lastTop) > 2) anchor = false;
+      else {
+        const off = e.getBoundingClientRect().top - m.getBoundingClientRect().top - 12;
+        if (off > 1) m.scrollTop += off;
+        lastTop = m.scrollTop;
+      }
+    }
+    if (S.follow && m.scrollHeight - m.scrollTop - m.clientHeight < 200)
+      m.scrollTop = m.scrollHeight;
+    m.dispatchEvent(new Event('scroll'));
   };
   const live = (t, th) => {
     pend = [t, th];
@@ -257,7 +269,13 @@ async function ask(old, cont) {
         : cut
           ? 'Réponse coupée par la longueur maximale. Augmentez-la dans les réglages du scénario, continuez ou régénérez.'
           : '');
-    render(true);
+    if (S.follow) render(true);
+    else {
+      const m = $('#msgs'),
+        y = m.scrollTop;
+      render();
+      m.scrollTop = y;
+    }
     if (!msg && !cont) autoRead(s.messages.length - 1);
   }
   if (!msg) summarize(s);

@@ -68,6 +68,7 @@ Pour afficher une couverture, ajoutez une image `cover.webp` (ou `.png`, `.jpg`)
 Bouton « T » dans l'en-tête de la conversation (feuille Lecture) :
 
 - **Taille du texte** de 14 à 30 px, avec aperçu. Le réglage est conservé sur l'appareil.
+- **Défilement pendant la réponse** : par défaut, l'écran ne suit pas le texte pendant que l'IA écrit. Le début de la nouvelle réponse se place en haut de l'écran, puis l'écran ne bouge plus et ne saute pas en bas à la fin. Si vous faites défiler vous-même, l'application ne vous ramène jamais en bas, et le bouton flèche permet d'y aller quand vous voulez. L'option « Suivre le texte pendant l'écriture de l'IA » rétablit le défilement automatique.
 - **Mode lecture** : masque les boutons des messages, la saisie, les choix, le panneau d'état et les réglages. Il reste le retour, le bouton Lecture et une barre flottante (lire ou mettre en pause, arrêter, A−, A+, quitter). Le mode lecture n'est pas conservé : il se désactive en quittant la conversation.
 - **Lecture à voix haute** : un bouton haut-parleur sous chaque message lit ce message. En mode lecture, toucher un message lit la suite de l'histoire (réponses de l'IA seulement), et le bouton Lire de la barre démarre depuis le haut de l'écran. Le texte lu est nettoyé (sans astérisques, état ni choix) et `{{user}}` est remplacé par le nom du joueur.
 - Réglages de la voix : choix de la voix (les voix françaises en premier), vitesse de 0,6 à 1,6, bouton pour écouter un exemple, et lecture automatique des nouvelles réponses.

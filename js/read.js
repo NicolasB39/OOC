@@ -197,6 +197,7 @@ function fillVoices() {
 function openLec() {
   fsLabel();
   $('#lrm').checked = app.reading;
+  $('#lfo').checked = !!S.follow;
   $('#ltt').hidden = !ok;
   if (ok) {
     fillVoices();
@@ -224,6 +225,10 @@ $('#lrm').onchange = () => {
   if ($('#lrm').checked) $('#dlc').close();
 };
 $('#rx').onclick = () => setReading(false);
+$('#lfo').onchange = () => {
+  S.follow = $('#lfo').checked;
+  saveSet();
+};
 $('#lvo').onchange = () => {
   tts().voice = $('#lvo').value;
   saveSet();

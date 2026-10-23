@@ -1,4 +1,4 @@
-const C = 'histoires-v9',
+const C = 'histoires-v10',
   A = [
     './',
     'index.html',
