@@ -144,6 +144,7 @@ dialog textarea{min-height:140px;resize:vertical}
 <input id="ck" type="password" autocomplete="off">
 <label for="cm">Modèle</label>
 <input id="cm">
+<label><input id="cn" type="checkbox" style="width:auto;padding:0;margin-right:8px">Désactiver le streaming pour ce fournisseur</label>
 <label>Sauvegarde (clés API exclues)</label>
 <div class="row" style="justify-content:flex-start;margin-top:4px"><button id="ex">Exporter</button><button id="im">Importer</button><input id="imf" type="file" accept="application/json" hidden></div>
 <div class="row"><button id="dcc">Annuler</button><button id="dcs" class="primary">Enregistrer</button></div>
@@ -159,7 +160,7 @@ dialog textarea{min-height:140px;resize:vertical}
 const $=s=>document.querySelector(s);
 const P={
 groq:{n:'Groq',u:'https://api.groq.com/openai/v1',m:'llama-3.3-70b-versatile'},
-gemini:{n:'Gemini',u:'https://generativelanguage.googleapis.com/v1beta/openai',m:'gemini-2.5-flash'},
+gemini:{n:'Gemini',u:'https://generativelanguage.googleapis.com/v1beta/openai',m:'gemini-3.8-flash'},
 mistral:{n:'Mistral',u:'https://api.mistral.ai/v1',m:'mistral-small-latest'},
 openrouter:{n:'OpenRouter',u:'https://openrouter.ai/api/v1',m:'openrouter/free'}
 };
@@ -344,7 +345,7 @@ if(!e){m.insertAdjacentHTML('beforeend','<div class="m assistant" id="live"><div
 e.firstChild.innerHTML=body(t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi,''));
 if(m.scrollHeight-m.scrollTop-m.clientHeight<200)m.scrollTop=m.scrollHeight;
 };
-const out=await chat([...(sys.trim()?[{role:'system',content:sys}]:[]),...ms],+s.maxTok||0,ctl=new AbortController(),live);
+const out=await chat([...(sys.trim()?[{role:'system',content:sys}]:[]),...ms],+s.maxTok||0,ctl=new AbortController(),S.ns?.[p]?null:live);
 cut=chat.cut;
 s.messages.push({role:'assistant',content:out});
 old=null;
@@ -358,24 +359,30 @@ if(!msg)summarize(s);
 async function chat(ms,max,ac=new AbortController(),od){
 const p=S.provider,k=S.keys[p];
 if(!k)throw new Error('clé API manquante');
-const tm=setTimeout(()=>ac.abort('timeout'),90000);
+let tm;
+const arm=()=>{clearTimeout(tm);tm=setTimeout(()=>ac.abort('timeout'),120000)};
+arm();
 try{
 for(let a=0;;a++){
 const r=await fetch(P[p].u+'/chat/completions',{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},body:JSON.stringify({model:S.models[p]||P[p].m,messages:ms,...(max?{max_tokens:max}:{}),...(od?{stream:true}:{})})});
 if(r.ok&&od&&r.body&&(r.headers.get('content-type')||'').includes('event-stream')){
-const rd=r.body.getReader(),dc=new TextDecoder();let buf='',tt='',fr='';
-for(;;){
+const rd=r.body.getReader(),dc=new TextDecoder();let buf='',tt='',fr='',fin=false;
+try{
+while(!fin){
 const {done,value}=await rd.read();
 if(done)break;
+arm();
 buf+=dc.decode(value,{stream:true});
 const ls=buf.split('\n');buf=ls.pop();
 for(const l of ls){
 if(!l.startsWith('data:'))continue;
 const d=l.slice(5).trim();
-if(d=='[DONE]')continue;
+if(d=='[DONE]'){fin=true;continue}
 try{const c=JSON.parse(d).choices?.[0];if(c?.delta?.content){tt+=c.delta.content;od(tt)}if(c?.finish_reason)fr=c.finish_reason}catch(e){}
 }
 }
+rd.cancel().catch(()=>{});
+}catch(e){if(!(tt&&ac.signal.reason=='timeout'))throw e}
 const out=tt.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi,'').trim();
 if(!out)throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
 chat.cut=fr=='length';
@@ -392,7 +399,7 @@ chat.cut=ch.finish_reason=='length';
 return out;
 }
 }catch(e){
-if(ac.signal.aborted)throw new Error(ac.signal.reason=='timeout'?'Délai dépassé (90 s).':'Annulé.');
+if(ac.signal.aborted)throw new Error(ac.signal.reason=='timeout'?'Délai dépassé (120 s sans réponse du fournisseur).':'Annulé.');
 throw e;
 }finally{clearTimeout(tm)}
 }
@@ -516,7 +523,7 @@ await save();$('#ds').close();
 };
 
 $('#cp').innerHTML=Object.entries(P).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
-function fillCfg(){const p=$('#cp').value;$('#ck').value=S.keys[p]||'';$('#cm').value=S.models[p]||'';$('#cm').placeholder=P[p].m}
+function fillCfg(){const p=$('#cp').value;$('#ck').value=S.keys[p]||'';$('#cm').value=S.models[p]||'';$('#cm').placeholder=P[p].m;$('#cn').checked=!!S.ns?.[p]}
 function openCfg(){$('#cp').value=S.provider;fillCfg();$('#dc').showModal()}
 $('#cfg').onclick=openCfg;$('#cfg2').onclick=openCfg;
 $('#cp').onchange=fillCfg;
@@ -542,7 +549,7 @@ $('#dc').close();showList();
 $('#dcc').onclick=()=>$('#dc').close();
 $('#dcs').onclick=async()=>{
 const p=$('#cp').value;
-S.provider=p;S.keys[p]=$('#ck').value.trim();S.models[p]=$('#cm').value.trim();
+S.provider=p;S.keys[p]=$('#ck').value.trim();S.models[p]=$('#cm').value.trim();(S.ns??={})[p]=$('#cn').checked;
 await saveSet();$('#dc').close();
 };
 
