@@ -196,7 +196,7 @@ async function ask(old, cont) {
     if (app.cur !== s || !pend) return;
     const [t, th] = pend;
     const m = $('#msgs');
-    let e = $('#live');
+    let e = document.querySelector('#live');
     if (!e) {
       m.insertAdjacentHTML(
         'beforeend',

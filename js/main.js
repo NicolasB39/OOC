@@ -10,6 +10,14 @@ import './nav.js';
 import './settings.js';
 import './backup.js';
 
+const VERSION = '9';
+const pv = document.querySelector('meta[name="app-version"]')?.content;
+if (pv !== VERSION)
+  window.__boot?.warn(
+    'Version mélangée : page ' + (pv || 'inconnue') + ', scripts ' + VERSION + '.'
+  );
+window.__started = true;
+
 if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
   navigator.serviceWorker.register('sw.js').catch(() => {});
 if (!LS.get('first')) LS.set('first', Date.now());

@@ -1,5 +1,28 @@
 let toastT;
-export const $ = s => document.querySelector(s);
+const PRIM = {
+  value: '',
+  checked: false,
+  hidden: false,
+  open: false,
+  disabled: false,
+  readOnly: false,
+  textContent: '',
+  innerHTML: '',
+  innerText: '',
+  className: ''
+};
+const stub = new Proxy(function () {}, {
+  get: (_, k) =>
+    k in PRIM ? PRIM[k] : k === Symbol.toPrimitive ? () => '' : k === 'then' ? undefined : stub,
+  set: () => true,
+  apply: () => stub
+});
+export const $ = s => {
+  const e = document.querySelector(s);
+  if (e) return e;
+  (window.__missing ??= new Set()).add(s);
+  return stub;
+};
 export const ic = (n, s) =>
   `<svg class="i${n == 'logo' ? ' logo' : ''}"${s ? ` style="width:${s}px;height:${s}px"` : ''} aria-hidden="true"><use href="#i-${n}"/></svg>`;
 export const hue = s => {

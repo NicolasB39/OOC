@@ -1,5 +1,5 @@
-import { IMG, app } from './state.js';
-import { esc } from './util.js';
+import { IMG, app, ctx } from './state.js';
+import { esc, ikey } from './util.js';
 
 const fmt = t =>
   t
@@ -9,6 +9,41 @@ const fmt = t =>
     .replace(/\n?^-{3,}$\n?/gm, '<hr>')
     .replace(/^&gt; ?(.*)$\n?/gm, '<span class="q">$1</span>');
 export const CHX = /<choix>[\s\S]*?(?:<\/choix>|$)/gi;
+export const ETX = /<etat>[\s\S]*?(?:<\/etat>|$)/gi;
+export const parseEtat = t => {
+  const m = t.match(/<etat>([\s\S]*?)<\/etat>/i);
+  if (!m) return [];
+  return m[1]
+    .split('\n')
+    .map(l => {
+      const x = l.replace(/^[\s\-*•]+/, '').replace(/\*\*/g, ''),
+        i = x.indexOf(':');
+      return i > 0 ? [x.slice(0, i).trim(), x.slice(i + 1).trim()] : null;
+    })
+    .filter(e => e && e[0] && e[1])
+    .slice(0, 12);
+};
+export const lastEtat = ms => {
+  for (let i = ms.length - 1; i >= 0; i--) {
+    if (ms[i].role != 'assistant') continue;
+    const e = parseEtat(ms[i].content);
+    if (e.length) return e;
+  }
+  return null;
+};
+const imgFor = c => {
+  c = c.trim();
+  const k = ikey(c);
+  if (IMG[c.toLowerCase()] || IMG[k]) return IMG[c.toLowerCase()] || IMG[k];
+  const m = ctx.images.filter(i => ikey(i.code).endsWith('_' + k));
+  return m.length == 1 ? m[0].url : '';
+};
+const imgTag = c => {
+  const u = imgFor(c);
+  return u
+    ? `<img class="pic" src="${esc(u)}" alt="" loading="lazy" decoding="async">`
+    : `<span class="miss">image introuvable : ${esc(c.trim())}</span>`;
+};
 export const choicesOf = t => {
   const m = t.match(/<choix>([\s\S]*?)<\/choix>/i);
   return m
@@ -22,13 +57,8 @@ export const choicesOf = t => {
 export const body = t =>
   t
     .replace(CHX, '')
+    .replace(ETX, '')
     .replace(/\{\{user\}\}/gi, app.cur?.pname?.trim() || 'Joueur')
     .split(/\{\{img::([^}]*)\}\}/g)
-    .map((s, i) =>
-      i % 2
-        ? IMG[s.trim().toLowerCase()]
-          ? `<img class="pic" src="${IMG[s.trim().toLowerCase()]}" alt="" loading="lazy" decoding="async">`
-          : '\n'
-        : fmt(esc(s.replace(/^\n+|\n+$/g, '')))
-    )
+    .map((s, i) => (i % 2 ? imgTag(s) : fmt(esc(s.replace(/^\n+|\n+$/g, '')))))
     .join('');

@@ -1,4 +1,4 @@
-import { CHX } from './format.js';
+import { CHX, ETX } from './format.js';
 import { PROVIDERS, S, app } from './state.js';
 import { getOne, put } from './store.js';
 import { $, strip } from './util.js';
@@ -39,6 +39,7 @@ export async function chat(
           tt = '',
           fr = '',
           fin = false,
+          part = false,
           n = 0;
         const feed = l => {
           if (!l.startsWith('data:')) return;
@@ -71,12 +72,20 @@ export async function chat(
           if (!fin && buf) feed(buf);
           rd.cancel().catch(() => {});
         } catch (e) {
-          if (!(tt && ac.signal.reason == 'timeout')) throw e;
+          if (!(tt && (ac.signal.reason == 'timeout' || ac.signal.reason == 'stop'))) throw e;
+          part = true;
         }
         const out = strip(tt);
         if (!out)
           throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
-        return { t: out, cut: fr == 'length', mode: 'stream', chunks: n, ms: Date.now() - t0 };
+        return {
+          t: out,
+          cut: fr == 'length',
+          mode: 'stream',
+          chunks: n,
+          ms: Date.now() - t0,
+          partial: part
+        };
       }
       const j = await r.json().catch(() => ({}));
       if (r.status == 429 && a < 1) {
@@ -132,6 +141,7 @@ export async function summarize(s) {
             m.content
               .replace(/\{\{img::[^}]*\}\}/g, '')
               .replace(CHX, '')
+              .replace(ETX, '')
               .trim()
         )
         .join('\n\n');

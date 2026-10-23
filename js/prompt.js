@@ -1,7 +1,9 @@
-import { CHX } from './format.js';
+import { CHX, ETX, lastEtat } from './format.js';
 import { ctx } from './state.js';
 import { nz } from './util.js';
 
+export const statOn = s => s.stat ?? !!(s.remote && ctx.stat);
+export const statFields = s => (s.statFields || '').trim() || (s.remote ? ctx.stat : '');
 const loreFor = (ms, max) => {
   const t = nz(ms.map(m => m.content).join('\n'));
   let a = (ctx.lore || [])
@@ -30,7 +32,8 @@ export function build(s, cont) {
   const l = ms.at(-1);
   const ai = ms.map(m => m.role).lastIndexOf('assistant');
   ms.forEach((m, i) => {
-    if (m.role == 'assistant' && (cont || i != ai)) m.content = m.content.replace(CHX, '').trim();
+    if (m.role == 'assistant' && (cont || i != ai))
+      m.content = m.content.replace(CHX, '').replace(ETX, '').trim();
   });
   let add = '';
   if (s.mem.summary.trim())
@@ -40,6 +43,21 @@ export function build(s, cont) {
     add += '\n\n<long_term_memory>\n' + lm.map(x => '- ' + x).join('\n') + '\n</long_term_memory>';
   if (s.note?.trim()) add += '\n\n<system_note>\n' + s.note.trim() + '\n</system_note>';
   add += loreFor(s.messages.slice(-(s.loreDepth || 2)), s.loreMax);
+  if (statOn(s)) {
+    const prev = lastEtat(s.messages);
+    add +=
+      "\n\n<consigne_etat>\nTu suis l'état du jeu. Après ta narration" +
+      (s.noChoices ? '' : ' et avant le bloc de choix') +
+      ", écris l'état actuel dans ce format exact, une ligne « Champ: valeur » par champ :\n<etat>\nChamp: valeur\n</etat>\nChamps à suivre : " +
+      (statFields(s).replace(/\s*\n+\s*/g, ', ') || 'Lieu, Santé, Humeur') +
+      '.\n' +
+      (prev
+        ? 'État précédent :\n' +
+          prev.map(([k, v]) => k + ': ' + v).join('\n') +
+          '\nNe modifie que ce que les événements de la scène changent.'
+        : 'Invente des valeurs de départ cohérentes avec le scénario.') +
+      "\nUne valeur numérique avec un maximum s'écrit 80/100.\n</consigne_etat>";
+  }
   if (!s.noChoices)
     add +=
       '\n\n<consigne_choix>\nÀ la fin de ta réponse, propose trois actions possibles pour le personnage du joueur. ' +

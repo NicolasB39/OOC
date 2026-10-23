@@ -1,4 +1,4 @@
-const C = 'histoires-v8',
+const C = 'histoires-v9',
   A = [
     './',
     'index.html',
@@ -7,6 +7,7 @@ const C = 'histoires-v8',
     'icon-192.png',
     'icon-512.png',
     'css/style.css',
+    'js/boot.js',
     'js/main.js',
     'js/state.js',
     'js/util.js',
@@ -28,9 +29,7 @@ self.addEventListener('install', e =>
   e.waitUntil(
     caches
       .open(C)
-      .then(c =>
-        Promise.all(A.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})))
-      )
+      .then(c => Promise.all(A.map(u => c.add(new Request(u, { cache: 'reload' })))))
       .then(() => self.skipWaiting())
   )
 );
@@ -57,7 +56,7 @@ const store = (r, x) => {
 };
 const swr = (e, r) => {
   const ps = [];
-  const n = fetch(r).then(x => {
+  const n = fetch(r.url, { cache: 'no-cache' }).then(x => {
     ps.push(store(r, x));
     return x;
   });
@@ -66,7 +65,7 @@ const swr = (e, r) => {
 };
 const nf = (e, r) => {
   const ps = [];
-  const n = fetch(r).then(x => {
+  const n = fetch(r.url, { cache: 'no-cache' }).then(x => {
     ps.push(store(r, x));
     return x;
   });

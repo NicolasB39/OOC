@@ -36,6 +36,8 @@ export const clean = x => {
     memN: o(x.memN),
     loreDepth: n(x.loreDepth),
     loreMax: n(x.loreMax),
+    stat: typeof x.stat == 'boolean' ? x.stat : undefined,
+    statFields: s(x.statFields),
     messages,
     mem: {
       summary: s(mm.summary),
@@ -49,6 +51,7 @@ const pvOf = s => {
   return m
     ? m.content
         .replace(/<choix>[\s\S]*?(?:<\/choix>|$)/gi, '')
+        .replace(/<etat>[\s\S]*?(?:<\/etat>|$)/gi, '')
         .replace(/\{\{img::[^}]*\}\}/g, '')
         .replace(/[*_#>]/g, '')
         .replace(/\s+/g, ' ')

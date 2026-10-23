@@ -1,5 +1,5 @@
 import { IMG, S, app, ctx } from './state.js';
-import { LS, nz } from './util.js';
+import { LS, ikey, nz } from './util.js';
 
 let TREE = null;
 export let TERR = '';
@@ -16,6 +16,30 @@ export const coverOf = s => {
       p => p.startsWith(b) && /^cover\.(webp|png|jpe?g|gif)$/i.test(p.slice(b.length))
     );
   return f ? encodeURI(f) : '';
+};
+const unq = p => {
+  if (!p.startsWith('"')) return p;
+  const a = [...p.slice(1, -1)],
+    b = [],
+    te = new TextEncoder();
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] == '\\') {
+      const o = a.slice(i + 1, i + 4).join('');
+      if (/^[0-7]{3}$/.test(o)) {
+        b.push(parseInt(o, 8));
+        i += 3;
+        continue;
+      }
+      const m = { n: 10, t: 9, '"': 34, '\\': 92 }[a[i + 1]];
+      if (m !== undefined) {
+        b.push(m);
+        i++;
+        continue;
+      }
+    }
+    b.push(...te.encode(a[i]));
+  }
+  return new TextDecoder().decode(new Uint8Array(b));
 };
 const txt = p =>
   fetch(encodeURI(p), { cache: 'no-cache' })
@@ -36,7 +60,7 @@ export async function getTree(force) {
   try {
     c = JSON.parse(LS.get('tree') || 'null');
   } catch (e) {}
-  if (!force && c && Date.now() - c.t < 600000) {
+  if (!force && c && Date.now() - c.t < 60000) {
     TREE = c.p;
     TERR = '';
     return TREE;
@@ -46,7 +70,7 @@ export async function getTree(force) {
     const r = await fetch('index.json', { cache: 'no-cache' });
     const j = r.ok ? await r.json().catch(() => null) : null;
     if (Array.isArray(j) && j.every(x => typeof x == 'string')) {
-      TREE = j;
+      TREE = j.map(unq);
       LS.set('tree', JSON.stringify({ t: Date.now(), p: TREE }));
       return TREE;
     }
@@ -69,7 +93,7 @@ export async function getTree(force) {
 }
 export async function loadCtx() {
   for (const k in IMG) delete IMG[k];
-  Object.assign(ctx, { system: '', avatar: '', extra: '', lore: [] });
+  Object.assign(ctx, { system: '', avatar: '', extra: '', lore: [], images: [], stat: '' });
   if (!app.cur.remote) return;
   const base = 'scenarios/' + app.cur.folder + '/',
     pb = base + 'personnages/';
@@ -78,6 +102,7 @@ export async function loadCtx() {
     txt(base + 'systeme.md'),
     txt(base + 'avatar.md')
   ]);
+  const stat = T.includes(base + 'etat.md') ? (await txt(base + 'etat.md')).trim() : '';
   const ch = {};
   for (const p of T) {
     if (!p.startsWith(pb)) continue;
@@ -87,6 +112,7 @@ export async function loadCtx() {
   }
   let extra = '',
     codes = [];
+  const images = [];
   const fp = [];
   for (const [n, files] of Object.entries(ch)) {
     for (const f of files) {
@@ -94,6 +120,8 @@ export async function loadCtx() {
       if (m) {
         const c = (n + '_' + m[1]).toLowerCase();
         IMG[c] = encodeURI(pb + n + '/' + f);
+        IMG[ikey(c)] ??= IMG[c];
+        images.push({ code: c, url: IMG[c] });
         codes.push(c);
       }
     }
@@ -137,5 +165,6 @@ export async function loadCtx() {
       return text && (always || keys.length) ? { keys, always, pr, text } : null;
     })
     .filter(Boolean);
-  Object.assign(ctx, { system, avatar, extra, lore });
+  images.sort((x, y) => x.code.localeCompare(y.code));
+  Object.assign(ctx, { system, avatar, extra, lore, images, stat });
 }

@@ -1,5 +1,7 @@
-import { tk } from './chat.js';
+import { render, tk } from './chat.js';
 import { showList } from './list.js';
+import { statOn } from './prompt.js';
+import { TERR, getTree, loadCtx } from './scenarios.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { clean, put, save, saveSet } from './store.js';
 import { $, LS, dlg, esc, num } from './util.js';
@@ -18,8 +20,29 @@ export function openSc() {
   $('#slm').value = app.cur.loreMax || '';
   $('#sch').checked = !app.cur.noChoices;
   $('#scp').value = app.cur.choicePrompt || '';
-  $('#ds').showModal();
+  $('#sst').checked = statOn(app.cur);
+  $('#sstf').value = app.cur.statFields || '';
+  $('#sstf').placeholder = ctx.stat || 'Lieu, Santé (0/100), Argent, Humeur';
+  const im = ctx.images;
+  $('#simw').hidden = !app.cur.remote;
+  $('#simn').textContent =
+    (im.length
+      ? im.length + (im.length > 1 ? ' images détectées.' : ' image détectée.')
+      : 'Aucune image détectée dans personnages/<Nom>/.') + (TERR ? ' Index : ' + TERR + '.' : '');
+  $('#simg').innerHTML = im
+    .map(
+      i =>
+        `<figure><img src="${esc(i.url)}" alt="" loading="lazy" decoding="async"><figcaption>${esc(i.code)}</figcaption></figure>`
+    )
+    .join('');
+  if (!$('#ds').open) $('#ds').showModal();
 }
+$('#simr').onclick = async () => {
+  await getTree(true);
+  await loadCtx();
+  openSc();
+  render();
+};
 $('#sc').onclick = openSc;
 $('#mb').onclick = () => {
   $('#msu').value = app.cur.mem.summary;
@@ -61,7 +84,10 @@ $('#dss').onclick = async () => {
   app.cur.loreMax = +$('#slm').value || 0;
   app.cur.noChoices = !$('#sch').checked;
   app.cur.choicePrompt = $('#scp').value.trim();
+  app.cur.stat = $('#sst').checked;
+  app.cur.statFields = $('#sstf').value.trim();
   await save();
+  render();
   $('#ds').close();
 };
 $('#cp').innerHTML = Object.entries(PROVIDERS)
