@@ -168,6 +168,7 @@ export const toast = (t, a) => {
   }
   e.hidden = false;
   clearTimeout(toastT);
+  if (a?.keep) return;
   toastT = setTimeout(
     () => {
       e.hidden = true;

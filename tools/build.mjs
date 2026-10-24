@@ -15,6 +15,8 @@ const assets = [
   'icon-192-mask.png',
   'icon-512-mask.png',
   'css/style.css',
+  'fonts/literata-r.woff2',
+  'fonts/literata-i.woff2',
   ...js.map(f => 'js/' + f)
 ];
 
@@ -80,7 +82,7 @@ writeFileSync(
   'sw.js',
   readFileSync('sw.js', 'utf8').replace(
     /const C = '[^']*',\n {2}A = \[[\s\S]*?\n {2}\],/,
-    `const C = 'histoires-${V}',\n  A = [\n    ${list}\n  ],`
+    `const C = 'nocturne-${V}',\n  A = [\n    ${list}\n  ],`
   )
 );
 

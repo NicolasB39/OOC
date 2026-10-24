@@ -23,6 +23,7 @@ export const clean = x => {
     .filter(m => m && (m.role == 'user' || m.role == 'assistant') && typeof m.content == 'string')
     .map(m => {
       const r = one(m);
+      if (Number.isFinite(+m.t) && +m.t > 0) r.t = +m.t;
       const a = Array.isArray(m.alts)
         ? m.alts.map(v =>
             typeof v == 'string'
@@ -48,6 +49,7 @@ export const clean = x => {
     name: s(x.name).trim() || 'Sans titre',
     updated: n(x.updated) || Date.now(),
     remote: !!x.remote,
+    pin: !!x.pin,
     folder: s(x.folder),
     system: s(x.system),
     avatar: s(x.avatar),
@@ -97,6 +99,7 @@ const META = s => ({
   name: s.name,
   updated: s.updated,
   remote: s.remote,
+  pin: !!s.pin,
   folder: s.folder,
   cover: s.cover || '',
   n: s.messages?.length || 0,
@@ -104,6 +107,7 @@ const META = s => ({
 });
 export const openDB = () =>
   new Promise((res, rej) => {
+    // Nom historique de la base : le renommer reviendrait à repartir d'une base vide.
     const r = indexedDB.open('histoires', 3);
     r.onupgradeneeded = e => {
       const d = r.result,
@@ -155,6 +159,7 @@ export const put = o => {
 export const del = id => {
   LS.set('bkd', 1);
   LS.del('draft:' + id);
+  LS.del('pos:' + id);
   return both((a, m) => {
     a.delete(id);
     m.delete(id);

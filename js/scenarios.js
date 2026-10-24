@@ -3,17 +3,19 @@ import { LS, ikey, nz } from './util.js';
 
 let TREE = null;
 export let TERR = '';
-export const coverOf = s => {
+export const localTree = () => {
+  if (TREE) return TREE;
+  try {
+    return JSON.parse(LS.get('tree') || 'null')?.p || null;
+  } catch (e) {
+    return null;
+  }
+};
+export const coverOf = (s, T) => {
   if (s.cover) return s.cover;
   if (!s.remote || !s.folder) return '';
-  let T = TREE;
-  if (!T) {
-    try {
-      T = JSON.parse(LS.get('tree') || 'null')?.p;
-    } catch (e) {}
-  }
   const b = 'scenarios/' + s.folder + '/',
-    f = (T || []).find(
+    f = (T || localTree() || []).find(
       p => p.startsWith(b) && /^cover\.(webp|png|jpe?g|gif)$/i.test(p.slice(b.length))
     );
   return f ? encodeURI(f) : '';

@@ -1,6 +1,6 @@
 import { S, app } from './state.js';
 import { saveSet } from './store.js';
-import { $, el, ic, plain, toast } from './util.js';
+import { $, LS, el, ic, plain, toast } from './util.js';
 
 const ok = typeof speechSynthesis != 'undefined' && typeof SpeechSynthesisUtterance != 'undefined';
 export const ttsOk = ok;
@@ -11,8 +11,10 @@ export const applyFs = () => {
   const d = document.documentElement.style;
   d.setProperty('--fs', (S.fs || 17) + 'px');
   d.setProperty('--lh', S.lh || 1.7);
-  d.setProperty('--cw', (S.cw || 45) + 'em');
+  d.setProperty('--cw', Math.min(1200, (S.cw || 45) * (S.fs || 17)) + 'px');
   d.setProperty('--rf', S.ff == 'sans' ? 'var(--sans)' : 'var(--ser)');
+  d.setProperty('--pg', S.pm == 'in' ? '0em' : '0.7em');
+  d.setProperty('--pin', S.pm == 'in' ? '1.4em' : '0');
 };
 const fsLabel = () => {
   $('#lfv').textContent = (S.fs || 17) + ' px';
@@ -23,6 +25,13 @@ const setFs = n => {
   applyFs();
   fsLabel();
   saveSet();
+};
+export const readPos = id => {
+  if (!id || $('#chat').hidden) return;
+  const m = $('#msgs'),
+    i = m.scrollHeight - m.scrollTop - m.clientHeight < 80 ? 0 : visibleStart();
+  if (i > 0) LS.set('pos:' + id, i);
+  else LS.del('pos:' + id);
 };
 
 const speakable = t =>
@@ -177,7 +186,7 @@ export function setReading(on) {
   ttsUI();
   if (app.reading && !was && ok) toast('Touchez un message pour lire à partir de là');
 }
-const visibleStart = () => {
+export const visibleStart = () => {
   const m = $('#msgs'),
     top = m.getBoundingClientRect().top,
     els = [...m.querySelectorAll('.m')],
@@ -211,6 +220,7 @@ function openLec() {
   $('#llh').value = S.lh || 1.7;
   $('#lcw').value = S.cw || 45;
   $('#lff').value = S.ff || 'ser';
+  $('#lpm').value = S.pm || 'sp';
   $('#lrm').checked = app.reading;
   $('#lfo').checked = !!S.follow;
   $('#ltt').hidden = !ok;
@@ -244,6 +254,11 @@ $('#lcw').oninput = () => {
 $('#llh').onchange = $('#lcw').onchange = () => saveSet();
 $('#lff').onchange = () => {
   S.ff = $('#lff').value;
+  applyFs();
+  saveSet();
+};
+$('#lpm').onchange = () => {
+  S.pm = $('#lpm').value;
   applyFs();
   saveSet();
 };

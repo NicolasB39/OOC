@@ -27,6 +27,9 @@ export async function openScenario(id) {
     return;
   }
   app.LIM = 50;
+  const n0 = app.cur.messages.length,
+    back = Math.min(+LS.get('pos:' + id) || 0, n0 - 2);
+  while (back > 0 && n0 - app.LIM > back) app.LIM += 50;
   app.cur.mem ??= { summary: '', memories: [], upto: 0 };
   await loadCtx();
   const cf = conflicts(app.cur.remote ? ctx.system : app.cur.system);
@@ -47,6 +50,19 @@ export async function openScenario(id) {
     fit();
     render(true);
   });
+  if (back > 0) {
+    const e = document.querySelector('#msgs .m[data-i="' + back + '"]');
+    if (e) {
+      e.scrollIntoView({ block: 'start' });
+      toast('Reprise là où vous en étiez', {
+        label: 'Aller en bas',
+        fn: () => {
+          const m = $('#msgs');
+          m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
+        }
+      });
+    }
+  }
 }
 export function tk(info) {
   const e = $('#tk');
@@ -125,6 +141,7 @@ const msgNode = (i, m, last) => {
   const n = el(
     'div',
     { class: 'm ' + m.role, data: { i } },
+    el('span', { class: 'sr', text: (m.role == 'user' ? 'Joueur' : 'Récit') + ' :' }),
     el('div', { class: 'b' }, body(m.content)),
     act(i, m, last)
   );
@@ -132,6 +149,16 @@ const msgNode = (i, m, last) => {
   return n;
 };
 const same = (a, b) => a && a.c === b.c && a.a === b.a && a.l === b.l && a.n === b.n;
+const dayOf = t => new Date(t).toDateString();
+const cut6h = (t, p) => dayOf(t) !== dayOf(p) || t - p > 216e5;
+const dayLab = (t, p) => {
+  const d = new Date(t);
+  if (dayOf(t) === dayOf(p))
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (dayOf(t) === dayOf(Date.now())) return "aujourd'hui";
+  if (dayOf(t) === dayOf(Date.now() - 864e5)) return 'hier';
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+};
 export function jump(i) {
   if (!app.cur) return;
   while (app.cur.messages.length - app.LIM > i) app.LIM += 50;
@@ -194,6 +221,17 @@ export function render(sc) {
     w.querySelector(':scope > .m[data-i="' + wi + '"]')?.before(
       el('div', { class: 'lim', text: 'l’IA lit à partir d’ici' })
     );
+  for (const e of w.querySelectorAll(':scope > .day')) e.remove();
+  let pt = 0;
+  for (let i = st; i < n; i++) {
+    const t = ms[i].t;
+    if (!t) continue;
+    if (pt && cut6h(t, pt))
+      w.querySelector(':scope > .m[data-i="' + i + '"]')?.before(
+        el('div', { class: 'day', text: dayLab(t, pt) })
+      );
+    pt = t;
+  }
   const lm = ms.at(-1),
     cs = lm?.role == 'assistant' && !app.cur.noChoices ? lm.choices || [] : [];
   foot.replaceChildren(
@@ -337,11 +375,13 @@ async function ask(old, cont) {
     return;
   }
   setBusy(true);
+  $('#gst').textContent = 'Réponse en cours.';
+  const t0 = Date.now();
   let msg = '',
     cut = false,
     part = false,
     raf = 0,
-    pend = null,
+    pend = ['', false],
     anchor = !S.follow,
     lastTop = null;
   const paint = () => {
@@ -354,11 +394,16 @@ async function ask(old, cont) {
       e = el('div', { class: 'm assistant', id: 'live' }, el('div', { class: 'b' }));
       $('#mfoot').before(e);
     }
-    const v = strip(t);
+    const v = strip(t),
+      sec = Math.round((Date.now() - t0) / 1000);
     e.firstChild.replaceChildren(
-      ...(v ? body(v) : t || th ? [el('span', { class: 'act', text: 'Réflexion…' })] : [])
+      ...(v
+        ? body(v)
+        : sec > 2 || th
+          ? [el('span', { class: 'act', text: 'Réflexion… ' + sec + ' s' })]
+          : [])
     );
-    if (anchor) {
+    if (anchor && v) {
       if (lastTop !== null && Math.abs(m.scrollTop - lastTop) > 2) anchor = false;
       else {
         const off = e.getBoundingClientRect().top - m.getBoundingClientRect().top - 12;
@@ -374,6 +419,10 @@ async function ask(old, cont) {
     pend = [t, th];
     if (!raf) raf = requestAnimationFrame(paint);
   };
+  paint();
+  const tick = setInterval(() => {
+    if (!pend[0] && !raf) paint();
+  }, 1000);
   try {
     const info = buildInfo(s, cont);
     const r = await chat(info.msgs, {
@@ -409,7 +458,9 @@ async function ask(old, cont) {
       const base = old?.role == 'assistant' ? old.alts || [{ content: old.content, choices: old.choices, state: old.state }] : null,
         al = base ? [...base, p2].slice(-10) : null;
       s.messages.push(
-        al ? { role: 'assistant', ...p2, alts: al, ai: al.length - 1 } : { role: 'assistant', ...p2 }
+        al
+          ? { role: 'assistant', ...p2, alts: al, ai: al.length - 1, t: Date.now() }
+          : { role: 'assistant', ...p2, t: Date.now() }
       );
     }
     old = null;
@@ -420,6 +471,7 @@ async function ask(old, cont) {
     msg = e.message;
     if (old) s.messages.push(old);
   }
+  clearInterval(tick);
   cancelAnimationFrame(raf);
   pend = null;
   document.querySelector('#live')?.remove();
@@ -434,6 +486,7 @@ async function ask(old, cont) {
             : ''),
       !!msg
     );
+    $('#gst').textContent = msg ? 'Échec : ' + msg : 'Réponse reçue.';
     if (S.follow) render(true);
     else {
       const m = $('#msgs'),
@@ -459,7 +512,7 @@ $('#send').onclick = async () => {
   $('#inp').value = '';
   fit();
   LS.del('draft:' + app.cur.id);
-  app.cur.messages.push({ role: 'user', content: t });
+  app.cur.messages.push({ role: 'user', content: t, t: Date.now() });
   await save();
   render(true);
   ask();

@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="7c8fd51ca9">
+<meta name="app-version" content="07af995df6">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Histoires</title>
+<title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="theme-color" content="#0a0a0b">
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Histoires">
+<meta name="apple-mobile-web-app-title" content="Nocturne">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="css/style.css">
+<link rel="preload" href="fonts/literata-r.woff2" as="font" type="font/woff2" crossorigin>
 <!--PRELOAD-->
 <link rel="modulepreload" href="js/ai.js">
 <link rel="modulepreload" href="js/backup.js">
@@ -71,8 +72,9 @@
 
 <div id="toast" role="status" hidden></div>
 <main id="list">
-<header><h1><svg class="i logo" style="width:28px;height:28px"><use href="#i-logo"/></svg>Histoires</h1><button id="rf" aria-label="Actualiser GitHub"><svg class="i"><use href="#i-refresh"/></svg></button><button id="sy" aria-label="Synchroniser la sauvegarde"><svg class="i"><use href="#i-cloud"/></svg></button><button id="cfg" aria-label="Réglages IA"><svg class="i"><use href="#i-gear"/></svg></button></header>
+<header><h1><svg class="i logo" style="width:28px;height:28px"><use href="#i-logo"/></svg>Nocturne</h1><button id="rf" aria-label="Actualiser GitHub"><svg class="i"><use href="#i-refresh"/></svg></button><button id="sy" aria-label="Synchroniser la sauvegarde"><svg class="i"><use href="#i-cloud"/></svg></button><button id="cfg" aria-label="Réglages IA"><svg class="i"><use href="#i-gear"/></svg></button></header>
 <div id="bk" class="bk" hidden><span>Pensez à sauvegarder vos histoires.</span><button id="bke">Exporter</button><button id="bkl">Plus tard</button></div>
+<div id="ak" class="bk" hidden><span>Aucune clé API : l'IA ne pourra pas répondre.</span><button id="akb">Réglages IA</button></div>
 <label class="sb"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" placeholder="Rechercher" aria-label="Rechercher un scénario"></label>
 <div id="tabs" role="radiogroup" aria-label="Filtrer"><button class="on" data-f="all" role="radio" aria-checked="true">Tous<span class="cnt"></span></button><button data-f="play" role="radio" aria-checked="false">En cours<span class="cnt"></span></button><button data-f="lib" role="radio" aria-checked="false">Bibliothèque<span class="cnt"></span></button><button data-f="own" role="radio" aria-checked="false">Perso<span class="cnt"></span></button></div>
 <div id="items"></div>
@@ -89,6 +91,7 @@
 <details id="stp" hidden><summary><span class="stl">État</span><span id="sts"></span></summary><div id="stg"></div></details>
 <div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><button id="bt" hidden aria-label="Aller en bas"><svg class="i"><use href="#i-down"/></svg></button></div>
 <div id="err" role="status"></div>
+<p id="gst" class="sr" role="status"></p>
 <div id="tk"></div>
 <div id="rl" hidden><i class="bar"><u></u></i><span></span></div>
 <footer><div class="inb"><textarea id="inp" rows="1" placeholder="Votre tour"></textarea><button id="stop" hidden aria-label="Annuler"><svg class="i f"><use href="#i-stop"/></svg></button><button id="send" class="primary" aria-label="Envoyer"><svg class="i" style="stroke-width:2.6"><use href="#i-send"/></svg></button></div></footer>
@@ -105,6 +108,7 @@
 <dialog id="mn" aria-labelledby="mnt">
 <h2 id="mnt"></h2>
 <div class="col">
+<button id="mp">Épingler</button>
 <button id="mr">Renommer</button>
 <button id="md">Dupliquer</button>
 <button id="mt">Exporter en texte (.md)</button>
@@ -211,6 +215,18 @@
 
 <dialog id="dpic" aria-label="Image en plein écran"><img id="dpici" alt=""><button class="pclose" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button></dialog>
 
+<dialog id="dtp" aria-labelledby="hdtp">
+<h2 id="hdtp">Point de départ</h2>
+<p class="note" style="margin-top:4px">Un canevas écrit le prompt système à votre place. Vous pourrez le réécrire entièrement ensuite.</p>
+<div class="col">
+<button id="tp1">Enquête contemporaine</button>
+<button id="tp2">Fantasy de voyage</button>
+<button id="tp3">Huis clos</button>
+<button id="tp0">Partir d'une page blanche</button>
+<button id="tpx">Annuler</button>
+</div>
+</dialog>
+
 <dialog id="dma" aria-labelledby="hdma">
 <h2 id="hdma">Message</h2>
 <div class="col">
@@ -288,6 +304,7 @@
 <div class="row l"><button id="bko">Configurer…</button></div>
 <label>Sauvegarde dans un fichier (clés API exclues)</label>
 <div class="row l"><button id="ex">Exporter</button><button id="im">Importer</button><input id="imf" type="file" accept="application/json" hidden></div>
+<p id="sto" class="note"></p>
 </details>
 
 <div class="row"><button id="dcc">Annuler</button><button id="dcs" class="primary">Enregistrer</button></div>
@@ -307,6 +324,8 @@
 <input id="llh" type="range" min="1.4" max="2.1" step="0.05">
 <label for="lff">Police du récit</label>
 <select id="lff"><option value="ser">Serif</option><option value="sans">Sans serif</option></select>
+<label for="lpm">Paragraphes</label>
+<select id="lpm"><option value="sp">Espacés</option><option value="in">Alinéa</option></select>
 <label for="lcw">Largeur de colonne : <span id="lcv"></span></label>
 <input id="lcw" type="range" min="34" max="52" step="1">
 <p class="lprev">Le vent se lève sur la falaise, et les vagues frappent la roche sans relâche.</p>

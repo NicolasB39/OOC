@@ -244,9 +244,27 @@ function openCfg() {
   $('#cpre').value = S.pre || '';
   $('#cpr').value = S.proto || '';
   $('#ctc').checked = !!S.counters;
+  $('#sto').textContent = '';
+  Promise.all([
+    navigator.storage?.estimate?.() || null,
+    navigator.storage?.persisted?.() ?? null
+  ])
+    .then(([e, p]) => {
+      if (!e) return;
+      const mo = x => (x / 1048576).toFixed(1).replace('.', ',') + ' Mo';
+      $('#sto').textContent =
+        'Sur cet appareil : ' +
+        mo(e.usage || 0) +
+        (e.quota ? ' utilisés sur ' + mo(e.quota) + ' disponibles' : ' utilisés') +
+        ' · conservation accordée par le navigateur : ' +
+        (p ? 'oui' : 'non, les données peuvent être effacées si l’espace manque') +
+        '.';
+    })
+    .catch(() => {});
   $('#dc').showModal();
 }
 $('#cfg').onclick = openCfg;
+$('#akb').onclick = openCfg;
 $('#cfg2').onclick = () => {
   $('#dmn').close();
   openCfg();

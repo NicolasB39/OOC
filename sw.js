@@ -1,4 +1,4 @@
-const C = 'histoires-7c8fd51ca9',
+const C = 'nocturne-07af995df6',
   A = [
     './',
     'index.html',
@@ -10,6 +10,8 @@ const C = 'histoires-7c8fd51ca9',
     'icon-192-mask.png',
     'icon-512-mask.png',
     'css/style.css',
+    'fonts/literata-r.woff2',
+    'fonts/literata-i.woff2',
     'js/ai.js',
     'js/backup.js',
     'js/boot.js',
@@ -38,9 +40,11 @@ self.addEventListener('install', e =>
     caches
       .open(C)
       .then(c => Promise.all(A.map(u => c.add(new Request(u, { cache: 'reload' })))))
-      .then(() => self.skipWaiting())
   )
 );
+self.addEventListener('message', e => {
+  if (e.data == 'skip') self.skipWaiting();
+});
 self.addEventListener('activate', e =>
   e.waitUntil(
     caches

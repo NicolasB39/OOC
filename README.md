@@ -1,4 +1,4 @@
-# Histoires
+# Nocturne
 
 Application web installable (PWA) pour jouer des histoires interactives avec une IA. Tout tourne dans le navigateur : les scénarios, l'historique et la mémoire sont stockés localement (IndexedDB), les requêtes partent directement vers le fournisseur d'IA choisi.
 
@@ -93,23 +93,51 @@ Ce qui reste au scénario : tout ce qui touche à la voix. Ce qui passe à l'app
 
 ## Apparence
 
-Thème sombre inspiré des applications de fiction interactive : fond noir, accent vert citron, cartes de scénarios avec couverture, onglets de filtre, carte « Reprendre » pour la dernière histoire, choix de réponse sous forme de cartes et feuilles de réglages qui montent du bas.
+Thème sombre inspiré des applications de fiction interactive : fond noir, accent laiton, cartes de scénarios avec couverture, onglets de filtre, carte « Reprendre » pour la dernière histoire, choix de réponse sous forme de cartes et feuilles de réglages qui montent du bas.
 
-Le vert citron est réservé aux **actions** : bouton « Nouveau », « Reprendre », boutons Enregistrer. Les **états** (onglet actif, badge « Nouveau ») n'en prennent qu'une version teintée, bordée, sur fond sombre, pour qu'un badge ne pèse pas autant qu'un bouton. Les avertissements utilisent un orangé distinct, jamais l'accent. Les surfaces s'étagent du fond vers les cartes, les champs et les menus, et les contrôles (champ de saisie, listes, cartes de choix) portent une bordure plus claire que les simples séparateurs, pour rester visibles en plein soleil.
+Le laiton `#e8b45c` est réservé aux **actions** : bouton « Nouveau », « Reprendre », boutons Enregistrer. Les **états** (onglet actif, badge « Nouveau », avertissement) n'en prennent qu'une version teintée, bordée, sur fond sombre, pour qu'un badge ne pèse pas autant qu'un bouton. Le rouge `#ff6b6b` reste réservé aux erreurs et aux actions destructrices. Les surfaces s'étagent du fond vers les cartes, les champs et les menus, et les contrôles (champ de saisie, listes, cartes de choix) portent une bordure plus claire que les simples séparateurs, pour rester visibles en plein soleil.
+
+Les icônes `icon-*.png` sont le glyphe `#i-logo` d'`index.html` posé en laiton sur le fond : si l'accent change, elles sont à régénérer, sans quoi l'icône d'accueil jurera avec l'application.
 
 Pour afficher une couverture sur un scénario GitHub, ajoutez une image `cover.webp` (ou `.png`, `.jpg`) dans son dossier. Pour un scénario créé dans l'application, choisissez une image dans ses réglages : elle est réduite à 600 px de large et convertie en WebP avant d'être stockée sur l'appareil. Elle sert de vignette dans la liste et d'en-tête dans la conversation. Sans couverture, un visuel est généré à partir du nom : teinte, position du motif (quatre géométries) et initiale du titre en grand, pour que deux scénarios voisins ne se ressemblent pas.
 
 Les onglets de filtre affichent le nombre de scénarios qu'ils contiennent, et la navigation entre la liste et une conversation passe par un fondu (`startViewTransition`) là où le navigateur le gère.
 
+Les cartes portent les étiquettes utiles : « Nouveau » pour une histoire jamais jouée, « Brouillon » quand un tour commencé attend dans la saisie, « Épinglé » pour celles qu'on garde en tête de liste (menu « … », Épingler).
+
+Au clavier : `/` place le curseur dans la recherche, `Échap` quitte une conversation.
+
+### Police du récit
+
+Le récit est composé en **Literata** (SIL Open Font License, `fonts/LICENSE-Literata.txt`), embarquée dans l'application : deux fichiers variables de 53 ko, romain et italique, sous-ensemble latin et ponctuation française, mis en cache par le service worker. Sans elle, les piles système donnaient Georgia sur Android et Iowan sur iPhone, donc deux rendus différents du même texte. La police sans empattement reste celle du système, car elle ne sert qu'à l'interface.
+
+### Nouveau scénario
+
+« Nouveau » demande un nom, puis propose un point de départ : enquête contemporaine, fantasy de voyage, huis clos, ou page blanche. Le canevas choisi remplit le prompt système, qui s'ouvre aussitôt pour être réécrit. Les canevas ne décrivent que la fiction : aucun ne touche au protocole (voir « Protocole et préambule »).
+
+Tant qu'aucune clé API n'est enregistrée pour le fournisseur courant, un bandeau le signale en haut de la liste et mène aux Réglages IA.
+
 ### Actions d'un message
 
 Sous chaque message restent les actions qu'on utilise en lisant : écouter, et sur le dernier message régénérer, continuer et passer d'une variante à l'autre. Copier, modifier et supprimer à partir d'ici sont regroupés derrière le bouton « … », dans une feuille : moins de boutons au fil du texte, des cibles plus grandes, et plus de « supprimer » collé à « modifier ». La suppression reste annulable pendant quelques secondes.
+
+### Repères dans le fil
+
+Chaque message est horodaté à l'écriture. Quand plus de six heures ou un changement de jour séparent deux messages, une ligne discrète marque la coupure : une heure pour une reprise dans la journée, « hier », « aujourd'hui » ou la date pour un retour plus tardif. Les histoires écrites avant cette version n'ont pas d'horodatage et n'affichent donc aucune coupure tant qu'on ne les reprend pas.
+
+En quittant une conversation, l'application retient le message en haut de l'écran et y revient à la réouverture, avec un bouton « Aller en bas ». Si vous étiez déjà en bas, rien n'est retenu.
+
+### Pendant la génération
+
+Au bout de trois secondes sans texte, le bloc en cours affiche « Réflexion… 12 s ». C'est surtout utile quand le streaming est coupé ou que le modèle raisonne avant de répondre : sans cela, rien ne bouge. Un message d'état invisible, destiné aux lecteurs d'écran, annonce le début et la fin de la réponse, et l'auteur de chaque message est annoncé avant son texte.
 
 ## Lecture
 
 Bouton « T » dans l'en-tête de la conversation (feuille Lecture) :
 
-- **Taille du texte** de 14 à 30 px, **interlignage** de 1,4 à 2,1, **police du récit** (serif ou sans serif) et **largeur de colonne**, avec aperçu. Les réglages sont conservés sur l'appareil.
+- **Taille du texte** de 14 à 30 px, **interlignage** de 1,4 à 2,1, **police du récit** (serif ou sans serif), **largeur de colonne** et **paragraphes**, avec aperçu. Les réglages sont conservés sur l'appareil.
+- La largeur de colonne est une vraie mesure : elle vaut le nombre choisi multiplié par la taille du texte, donc agrandir le texte élargit la colonne et le nombre de caractères par ligne reste constant.
+- **Paragraphes** : *Espacés* laisse un blanc entre les paragraphes, *Alinéa* les colle et décale la première ligne, comme dans un livre imprimé. Le récit est découpé en vrais paragraphes par l'application, l'espacement ne dépend donc plus des lignes vides écrites par le modèle. Les images sont collées au texte qui les entoure, à l'interligne près.
 - **Défilement pendant la réponse** : par défaut, l'écran ne suit pas le texte pendant que l'IA écrit. Le début de la nouvelle réponse se place en haut de l'écran, puis l'écran ne bouge plus et ne saute pas en bas à la fin. Si vous faites défiler vous-même, l'application ne vous ramène jamais en bas, et le bouton flèche permet d'y aller quand vous voulez. L'option « Suivre le texte pendant l'écriture de l'IA » rétablit le défilement automatique.
 - **Mode lecture** : masque les boutons des messages, la saisie, les choix, le panneau d'état et les réglages. Il reste le retour, le bouton Lecture et une barre flottante (lire ou mettre en pause, arrêter, A−, A+, quitter). Le mode lecture n'est pas conservé : il se désactive en quittant la conversation.
 - **Lecture à voix haute** : un bouton haut-parleur sous chaque message lit ce message. En mode lecture, toucher un message lit la suite de l'histoire (réponses de l'IA seulement), et le bouton Lire de la barre démarre depuis le haut de l'écran. Le texte lu est nettoyé (sans astérisques, état ni choix) et `{{user}}` est remplacé par le nom du joueur.
@@ -237,6 +265,7 @@ Fonctionnement : à chaque synchronisation, l'application télécharge le fichie
 - Après « Enregistrer », la synchronisation se lance tout de suite et affiche son résultat (« Sauvegarde à jour » ou l'erreur).
 - La configuration est aussi accessible par la roue dentée (Réglages IA), section « GitHub et sauvegarde », bouton « Configurer… ».
 - « Effacer la configuration » remet le service, le jeton et la connexion Google à zéro sur l'appareil. Les histoires et le fichier de sauvegarde en ligne ne sont pas touchés.
+- Réglages IA, section « GitHub et sauvegarde », indique l'espace occupé sur l'appareil et si le navigateur a accordé la **conservation** des données. Sans elle, le navigateur peut effacer les histoires quand l'espace manque : c'est la vraie raison de configurer une sauvegarde en ligne.
 
 ### GitHub (recommandé)
 
@@ -262,6 +291,7 @@ Limites : la connexion Google dure environ une heure, au-delà de laquelle il fa
 ```
 index.html          structure de la page (aucun style ni script en ligne)
 css/style.css       tout le style
+fonts/              Literata (récit), romain et italique variables, sous-ensemble latin
 js/
   main.js           point d'entrée : charge les modules, démarre l'application
   state.js          réglages (S), scénario ouvert et état de l'interface (app), contexte (ctx), images (IMG)
@@ -280,12 +310,13 @@ js/
   settings.js       réglages du scénario, mémoire, note, réglages IA, import
   backup.js         export, synchronisation GitHub / Google Drive
   merge.js          fusion des sauvegardes (sans DOM, testé unitairement)
+  memory.js         mémoire longue : fusion des souvenirs et des relations
   boot.js           garde-fou de démarrage : alerte et bouton Réparer si un fichier manque
   reparer.js        script de la page reparer.html
 reparer.html        page de réparation (vide les caches, garde les histoires)
 sw.js               service worker (hors ligne)
 tools/build.mjs     numérotation de version, liste du service worker, contrôles
-test/               tests unitaires (node --test)
+test/               tests unitaires (node --test), sans aucune dépendance
 ```
 
 En local : `npm test` lance les tests, `npm run build` régénère les numéros de version.
@@ -312,6 +343,7 @@ Protections intégrées :
 - Si un fichier est introuvable, une alerte « L'application ne démarre pas correctement » nomme le fichier fautif et propose **Réparer**.
 - Si la page et les scripts sont de versions différentes, une alerte « Mise à jour incomplète » le signale et l'application reste utilisable autant que possible.
 - Le service worker refuse d'installer une nouvelle version dont un fichier manque : l'ancienne version continue de fonctionner.
+- Une nouvelle version ne prend jamais la main sous vos pieds. Elle s'installe en arrière-plan, puis une notification « Nouvelle version prête — Recharger » attend votre accord ; la page se recharge alors d'un bloc. C'est ce qui évite l'essentiel des « mises à jour incomplètes », où une page déjà ouverte se retrouvait à mélanger l'ancien HTML et les nouveaux scripts.
 
 Si l'application ne répond plus malgré tout :
 

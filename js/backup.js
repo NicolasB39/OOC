@@ -7,7 +7,7 @@ import { $, LS, ago, dlg, toast, uid } from './util.js';
 async function doExport() {
   const f = new File(
     [JSON.stringify({ v: 1, scenarios: await getFull() })],
-    'histoires-' + new Date().toISOString().slice(0, 10) + '.json',
+    'nocturne-' + new Date().toISOString().slice(0, 10) + '.json',
     { type: 'application/json' }
   );
   const dl = () => {
@@ -33,6 +33,7 @@ $('#bkl').onclick = () => {
   LS.set('bks', Date.now());
   $('#bk').hidden = true;
 };
+// Nom historique : le renommer ferait chercher un fichier inexistant chez le fournisseur.
 const FN = 'histoires-backup.json';
 const b64e = s => {
   const b = new TextEncoder().encode(s);

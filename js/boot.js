@@ -37,7 +37,7 @@
     b.textContent = label;
     b.style.cssText =
       'flex:1;padding:12px;border:0;border-radius:14px;font:600 15px system-ui,sans-serif;cursor:pointer;' +
-      (primary ? 'background:#d2f53c;color:#0a0a0b' : 'background:#2a2a31;color:#f2f2ee');
+      (primary ? 'background:#e8b45c;color:#0a0a0b' : 'background:#3b3b47;color:#f2f2ee');
     b.onclick = fn;
     return b;
   }
@@ -50,7 +50,7 @@
       box = document.createElement('div');
       box.setAttribute('role', 'alert');
       box.style.cssText =
-        'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;padding:16px;border-radius:18px;background:#1c1c20;color:#f2f2ee;border:1px solid #ff6b6b;font:15px/1.5 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.6);max-height:75vh;overflow:auto';
+        'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;padding:16px;border-radius:18px;background:#17171d;color:#f2f2ee;border:1px solid #ff6b6b;font:15px/1.5 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.6);max-height:75vh;overflow:auto';
       document.body.appendChild(box);
     }
     box.textContent = '';

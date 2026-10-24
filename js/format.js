@@ -76,24 +76,34 @@ const inline = (s, out) => {
   if (i < s.length) out.push(s.slice(i));
 };
 const blocks = (s, out) => {
-  let buf = [];
-  const flush = nl => {
-    if (!buf.length) return;
-    inline(buf.join('\n') + (nl ? '\n' : ''), out);
+  let buf = [],
+    q = false;
+  const flush = () => {
+    const t = buf.join('\n'),
+      k = q;
     buf = [];
+    q = false;
+    if (!t.trim()) return;
+    const c = [];
+    inline(t, c);
+    out.push(el('p', k ? { class: 'q' } : null, c));
   };
   for (const ln of s.split('\n')) {
     if (/^-{3,}$/.test(ln)) {
-      flush(false);
+      flush();
       out.push(el('hr'));
     } else if (/^> ?/.test(ln)) {
-      flush(true);
-      const q = [];
-      inline(ln.replace(/^> ?/, ''), q);
-      out.push(el('span', { class: 'q' }, q));
-    } else buf.push(ln);
+      if (!q) flush();
+      q = true;
+      buf.push(ln.replace(/^> ?/, ''));
+    } else if (!ln.trim()) {
+      flush();
+    } else {
+      if (q) flush();
+      buf.push(ln);
+    }
   }
-  flush(false);
+  flush();
 };
 export const body = t => {
   const out = [];
