@@ -21,13 +21,13 @@ export const reset = () => {
   Object.assign(last, { cached: 0, total: 0 });
 };
 
-export function note(h, u, m) {
+export function note(h, u, m, primary) {
   const tot = u?.total_tokens || (u?.prompt_tokens || 0) + (u?.completion_tokens || 0);
-  if (tot) {
-    spend(tot, m);
-    last.total = tot;
+  if (tot) spend(tot, m);
+  if (primary) {
+    last.total = tot || 0;
+    last.cached = u?.prompt_tokens_details?.cached_tokens ?? u?.cache_read_input_tokens ?? 0;
   }
-  last.cached = u?.prompt_tokens_details?.cached_tokens ?? u?.cache_read_input_tokens ?? 0;
   const lim = +h?.get?.('x-ratelimit-limit-tokens') || 0,
     rem = h?.get?.('x-ratelimit-remaining-tokens');
   if (lim && rem != null && rem !== '') {
@@ -39,11 +39,18 @@ export const hit429 = (m, ms) => {
   RL[m] = { lim: RL[m]?.lim || S.tpms?.[m] || S.tpm || 0, rem: 0, at: Date.now() + (ms || 0), req: 0 };
 };
 
+const aged = (m, since, now) =>
+  use.reduce(
+    (a, x) => a + (x[2] === m && x[0] <= now - W && x[0] > since - W ? x[1] : 0),
+    0
+  );
 export function status(m) {
-  const r = RL[m];
-  if (r?.lim && Date.now() - r.at < 150000) {
-    const back = (r.lim * Math.min(W, Math.max(0, Date.now() - r.at))) / W;
-    return { lim: r.lim, rem: Math.min(r.lim, Math.round(r.rem + back)), src: 'api', req: r.req };
+  const r = RL[m],
+    now = Date.now();
+  if (r?.lim && now - r.at < 150000) {
+    const api = Math.min(r.lim, r.rem + aged(m, r.at, now)),
+      loc = r.lim - local(m);
+    return { lim: r.lim, rem: Math.max(0, Math.round(Math.min(api, loc))), src: 'api', req: r.req };
   }
   const lim = S.tpms?.[m] || S.tpm || 0;
   return lim ? { lim, rem: Math.max(0, lim - local(m)), src: 'local', req: 0 } : null;

@@ -55,7 +55,7 @@ export function tk(info) {
   }
   const r = info || buildInfo(app.cur),
     n = app.cur.messages.length,
-    sentN = n - r.omitted,
+    sentN = Math.max(0, n - r.win),
     f = x => x.toLocaleString('fr-FR');
   e.className = r.over ? 'w' : '';
   e.textContent = r.over
@@ -378,6 +378,7 @@ async function ask(old, cont) {
       od: S.ns?.[p] ? null : live,
       temp: s.temp ?? S.temp,
       top: s.top ?? S.top,
+      primary: true,
       onWait: w => {
         if (app.cur !== s) return;
         if (w) err('Limite de débit du fournisseur atteinte : envoi dans ' + w + ' s…');

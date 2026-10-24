@@ -291,3 +291,27 @@ test('choicesOf retire la numérotation et plafonne à trois', () => {
   assert.deepEqual(choicesOf('<choix>\n1. a\n2) b\n- c\n4. d\n</choix>'), ['a', 'b', 'c']);
   assert.deepEqual(choicesOf('aucun bloc'), []);
 });
+
+test('win est l’index absolu du premier message envoyé', () => {
+  const msgs = Array.from({ length: 12 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    content: 'm' + i
+  }));
+  const s = sc({ noChoices: true, messages: msgs, mem: { upto: 6 } });
+  const r = buildInfo(s);
+  assert.equal(r.win, 6);
+  assert.equal(r.msgs.length - 1, msgs.length - r.win);
+});
+
+test('le nombre envoyé tient compte des messages déjà résumés', () => {
+  S.ctxLim = 900;
+  S.reserve = 300;
+  const msgs = Array.from({ length: 30 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    content: 'z'.repeat(400) + i
+  }));
+  const s = sc({ noChoices: true, messages: msgs, mem: { upto: 10 } });
+  const r = buildInfo(s);
+  assert.ok(r.win > 10, 'la fenêtre démarre après le point de résumé');
+  assert.equal(r.msgs.length - 1, msgs.length - r.win, 'autant de messages que n − win');
+});

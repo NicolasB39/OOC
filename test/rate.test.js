@@ -25,7 +25,8 @@ test('les en-têtes du fournisseur font foi et mémorisent la limite', () => {
       'x-ratelimit-remaining-requests': '14390'
     }),
     { prompt_tokens: 2100, completion_tokens: 500, prompt_tokens_details: { cached_tokens: 1700 } },
-    M
+    M,
+    true
   );
   const s = status(M);
   assert.equal(s.src, 'api');
@@ -73,4 +74,19 @@ test('resetDur lit les durées des en-têtes et des messages d’erreur', () => 
   assert.equal(resetDur('2m59.56s'), 179560);
   assert.equal(resetDur('1m23.4s'), 83400);
   assert.equal(resetDur(''), 0);
+});
+
+test('la jauge ne recrédite pas de tokens qui n’ont pas quitté la fenêtre', () => {
+  note(
+    hdr({ 'x-ratelimit-limit-tokens': '8000', 'x-ratelimit-remaining-tokens': '2000' }),
+    { total_tokens: 1200 },
+    M,
+    true
+  );
+  const a = status(M).rem;
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60) {}
+  const b = status(M).rem;
+  assert.equal(a, b, 'rien ne revient tant que rien ne sort de la fenêtre');
+  assert.ok(a <= 2000);
 });

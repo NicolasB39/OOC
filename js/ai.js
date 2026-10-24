@@ -23,7 +23,7 @@ const calib = (ms, u) => {
 };
 export async function chat(
   ms,
-  { max = 0, ac = new AbortController(), od = null, temp = null, top = null, model = '', json = false, onWait = null } = {}
+  { max = 0, ac = new AbortController(), od = null, temp = null, top = null, model = '', json = false, onWait = null, primary = false } = {}
 ) {
   const p = S.provider,
     k = S.keys[p];
@@ -112,8 +112,8 @@ export async function chat(
         const out = strip(tt);
         if (!out)
           throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
-        calib(ms, us);
-        note(r.headers, us, mdl);
+        if (primary) calib(ms, us);
+        note(r.headers, us, mdl, primary);
         return {
           t: out,
           cut: fr == 'length',
@@ -152,8 +152,8 @@ export async function chat(
       }
       if (!r.ok || er) throw new Error(er?.message || 'Erreur ' + r.status);
       const ch = j.choices?.[0];
-      calib(ms, j.usage);
-      note(r.headers, j.usage, mdl);
+      if (primary) calib(ms, j.usage);
+      note(r.headers, j.usage, mdl, primary);
       const out = strip(ch?.message?.content ?? '');
       if (!out)
         throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
