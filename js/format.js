@@ -105,6 +105,11 @@ const blocks = (s, out) => {
   }
   flush();
 };
+export const line = t => {
+  const out = [];
+  inline(t, out);
+  return out;
+};
 export const body = t => {
   const out = [];
   t.replace(CHX, '')

@@ -1,5 +1,5 @@
 import { chat, summarize } from './ai.js';
-import { body, lastEtat, raw, split } from './format.js';
+import { body, line, raw, split } from './format.js';
 import { showList } from './list.js';
 import { buildInfo, statOn } from './prompt.js';
 import { conflicts, modelOf } from './protocol.js';
@@ -11,7 +11,8 @@ import {
   speakMsg,
   stopSpeech,
   setReading,
-  ttsOk
+  ttsOk,
+  visibleStart
 } from './read.js';
 import { TERR, coverOf, loadCtx } from './scenarios.js';
 import { S, app, ctx } from './state.js';
@@ -137,18 +138,69 @@ const act = (i, m, last) => {
   r.append(b('m', 'Autres actions', 'more'));
   return r;
 };
+const numOf = v => {
+  const m = String(v).match(/^(-?\d+(?:[.,]\d+)?)/);
+  return m ? +m[1].replace(',', '.') : null;
+};
+const sig = st => (st || []).map(x => x[0] + '=' + x[1]).join('|');
+const prevState = i => {
+  const ms = app.cur.messages;
+  for (let j = i - 1; j >= 0; j--)
+    if (ms[j].role == 'assistant' && ms[j].state?.length) return ms[j].state;
+  return [];
+};
+const stCard = (i, m) => {
+  if (!m.state?.length || !statOn(app.cur)) return null;
+  const pm = new Map(prevState(i));
+  return el(
+    'div',
+    { class: 'st' },
+    el('span', { class: 'stl', text: 'État' }),
+    el(
+      'div',
+      { class: 'stg' },
+      m.state.map(([k, v]) => {
+        const r = v.match(/^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/),
+          p = r
+            ? Math.max(0, Math.min(100, (+r[1].replace(',', '.') / +r[2].replace(',', '.')) * 100))
+            : null,
+          a = numOf(v),
+          b = pm.has(k) ? numOf(pm.get(k)) : null,
+          d = a != null && b != null && a !== b ? a - b : null;
+        return el(
+          'div',
+          { class: 'kv' },
+          el('span', { text: k }),
+          el(
+            'b',
+            null,
+            v,
+            d != null &&
+              el('em', {
+                class: 'dl ' + (d > 0 ? 'up' : 'dn'),
+                text: (d > 0 ? '▲ +' : '▼ ') + Math.round(d * 100) / 100
+              })
+          ),
+          p != null && el('i', { class: 'bar' }, el('u', { style: 'width:' + p + '%' }))
+        );
+      })
+    )
+  );
+};
 const msgNode = (i, m, last) => {
   const n = el(
     'div',
     { class: 'm ' + m.role, data: { i } },
     el('span', { class: 'sr', text: (m.role == 'user' ? 'Joueur' : 'Récit') + ' :' }),
     el('div', { class: 'b' }, body(m.content)),
+    stCard(i, m),
     act(i, m, last)
   );
-  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0 };
+  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state) };
   return n;
 };
-const same = (a, b) => a && a.c === b.c && a.a === b.a && a.l === b.l && a.n === b.n;
+const same = (a, b) =>
+  a && a.c === b.c && a.a === b.a && a.l === b.l && a.n === b.n && a.s === b.s;
 const dayOf = t => new Date(t).toDateString();
 const cut6h = (t, p) => dayOf(t) !== dayOf(p) || t - p > 216e5;
 const dayLab = (t, p) => {
@@ -201,7 +253,13 @@ export function render(sc) {
   const fresh = [];
   for (const e of cur) {
     const i = +e.dataset.i,
-      k = { c: ms[i].content, a: ms[i].ai, l: i == n - 1, n: ms[i].alts?.length || 0 };
+      k = {
+        c: ms[i].content,
+        a: ms[i].ai,
+        l: i == n - 1,
+        n: ms[i].alts?.length || 0,
+        s: sig(ms[i].state)
+      };
     if (!same(e._k, k)) {
       const x = msgNode(i, ms[i], k.l);
       e.replaceWith(x);
@@ -244,11 +302,16 @@ export function render(sc) {
             el(
               'div',
               { class: 'chr' },
-              el('button', { class: 'cht', text: c }),
               el(
                 'button',
-                { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c },
-                ic('edit', 16)
+                { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c.replace(/\*/g, '') },
+                ic('edit', 17)
+              ),
+              el('button', { class: 'cht', data: { t: c } }, line(c)),
+              el(
+                'button',
+                { class: 'chs', 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
+                ic('send', 17)
               )
             )
           )
@@ -270,55 +333,7 @@ export function render(sc) {
           );
   }
   tk(info);
-  stateView();
   refreshSpeech();
-}
-const numOf = v => {
-  const m = String(v).match(/^(-?\d+(?:[.,]\d+)?)/);
-  return m ? +m[1].replace(',', '.') : null;
-};
-function stateView() {
-  const e = $('#stp');
-  const ms = app.cur.messages,
-    st = statOn(app.cur) ? lastEtat(ms) : null;
-  if (!st) {
-    e.hidden = true;
-    return;
-  }
-  const li = ms.findLastIndex(m => m.role == 'assistant' && m.state?.length),
-    prev = lastEtat(ms.slice(0, li)) || [],
-    pm = new Map(prev);
-  $('#sts').replaceChildren(
-    ...st.slice(0, 2).map(([k, v]) => el('span', { class: 'chip' }, el('b', { text: k }), v))
-  );
-  $('#stg').replaceChildren(
-    ...st.map(([k, v]) => {
-      const m = v.match(/^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/),
-        p = m
-          ? Math.max(0, Math.min(100, (+m[1].replace(',', '.') / +m[2].replace(',', '.')) * 100))
-          : null;
-      const a = numOf(v),
-        b = pm.has(k) ? numOf(pm.get(k)) : null,
-        d = a != null && b != null && a !== b ? a - b : null;
-      return el(
-        'div',
-        { class: 'kv' },
-        el('span', { text: k }),
-        el(
-          'b',
-          null,
-          v,
-          d != null &&
-            el('em', {
-              class: 'dl ' + (d > 0 ? 'up' : 'dn'),
-              text: (d > 0 ? '▲ +' : '▼ ') + Math.round(d * 100) / 100
-            })
-        ),
-        p != null && el('i', { class: 'bar' }, el('u', { style: 'width:' + p + '%' }))
-      );
-    })
-  );
-  e.hidden = false;
 }
 async function delFrom(i) {
   stopSpeech();
@@ -551,7 +566,7 @@ $('#msgs').onclick = e => {
   }
   const row = b.closest('.chr');
   if (row) {
-    const t = row.querySelector('.cht').textContent;
+    const t = row.querySelector('.cht').dataset.t;
     if (b.classList.contains('che')) {
       $('#inp').value = t;
       fit();
@@ -578,13 +593,23 @@ $('#msgs').onclick = e => {
   else if (a == 'k') ask(null, true);
   else swipe(a == 'p' ? -1 : 1);
 };
-$('#msgs').onscroll = () => {
-  const m = $('#msgs');
-  $('#bt').hidden = m.scrollHeight - m.scrollTop - m.clientHeight < 200;
+const goTurn = d => {
+  const w = $('#msgs'),
+    e = document.querySelector('#msgs .m[data-i="' + (visibleStart() + d) + '"]');
+  if (e) e.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  else w.scrollTo({ top: d < 0 ? 0 : w.scrollHeight, behavior: 'smooth' });
 };
-$('#bt').onclick = () => {
-  const m = $('#msgs');
-  m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
+$('#nvp').onclick = () => goTurn(-1);
+$('#nvn').onclick = () => goTurn(1);
+$('#ast').onclick = () => {
+  const t = $('#inp'),
+    a = t.selectionStart,
+    b = t.selectionEnd,
+    v = t.value;
+  t.value = v.slice(0, a) + '*' + v.slice(a, b) + '*' + v.slice(b);
+  t.focus();
+  t.setSelectionRange(a + 1, b + 1);
+  t.dispatchEvent(new Event('input'));
 };
 $('#dec').onclick = () => $('#de').close();
 $('#des').onclick = async () => {

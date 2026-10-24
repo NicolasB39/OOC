@@ -95,6 +95,10 @@ Ce qui reste au scénario : tout ce qui touche à la voix. Ce qui passe à l'app
 
 Thème sombre inspiré des applications de fiction interactive : fond noir, accent laiton, cartes de scénarios avec couverture, onglets de filtre, carte « Reprendre » pour la dernière histoire, choix de réponse sous forme de cartes et feuilles de réglages qui montent du bas.
 
+La conversation, elle, **n'utilise pas de bulles** : chaque tour occupe la largeur de la colonne et un filet le sépare du suivant, pour qu'une longue partie se lise comme une page plutôt que comme une messagerie. Le tour du joueur se distingue par son alignement à droite. Le texte entre astérisques (`*un geste*`) s'affiche en gris, la parole en blanc : c'est le même deux-tons dans le récit et dans les suggestions de réponse.
+
+Les deux ronds en bas à droite sautent d'un tour au précédent ou au suivant, et le bouton `✱` du composer encadre la sélection d'astérisques.
+
 Le laiton `#e8b45c` est réservé aux **actions** : bouton « Nouveau », « Reprendre », boutons Enregistrer. Les **états** (onglet actif, badge « Nouveau », avertissement) n'en prennent qu'une version teintée, bordée, sur fond sombre, pour qu'un badge ne pèse pas autant qu'un bouton. Le rouge `#ff6b6b` reste réservé aux erreurs et aux actions destructrices. Les surfaces s'étagent du fond vers les cartes, les champs et les menus, et les contrôles (champ de saisie, listes, cartes de choix) portent une bordure plus claire que les simples séparateurs, pour rester visibles en plein soleil.
 
 Les icônes `icon-*.png` sont le glyphe `#i-logo` d'`index.html` posé en laiton sur le fond : si l'accent change, elles sont à régénérer, sans quoi l'icône d'accueil jurera avec l'application.
@@ -120,6 +124,12 @@ Tant qu'aucune clé API n'est enregistrée pour le fournisseur courant, un bande
 ### Actions d'un message
 
 Sous chaque message restent les actions qu'on utilise en lisant : écouter, et sur le dernier message régénérer, continuer et passer d'une variante à l'autre. Copier, modifier et supprimer à partir d'ici sont regroupés derrière le bouton « … », dans une feuille : moins de boutons au fil du texte, des cibles plus grandes, et plus de « supprimer » collé à « modifier ». La suppression reste annulable pendant quelques secondes.
+
+### État et suggestions
+
+L'état renvoyé par le modèle s'affiche en **carte sous chaque tour du narrateur**, avec les variations chiffrées depuis le tour précédent (`▲ +2`) et une jauge pour les valeurs bornées. Sur une longue partie, cela allonge le défilement : pour n'afficher la carte que sur le dernier tour, il suffit d'ajouter une condition `last` dans `stCard`.
+
+Chaque suggestion de réponse est une carte à trois zones : crayon à gauche pour la reprendre dans la saisie, texte au centre, flèche à droite pour l'envoyer. La carte elle-même est cliquable et envoie aussi.
 
 ### Repères dans le fil
 

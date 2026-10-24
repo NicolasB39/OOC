@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="2c6e5cc1d1">
+<meta name="app-version" content="b663f4cde0">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
@@ -88,13 +88,12 @@
 <button id="rd" aria-label="Lecture"><svg class="i"><use href="#i-type"/></svg></button>
 <button id="mo" aria-label="Options de l'histoire"><svg class="i"><use href="#i-more"/></svg></button>
 </header>
-<details id="stp" hidden><summary><span class="stl">État</span><span id="sts"></span></summary><div id="stg"></div></details>
-<div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><button id="bt" hidden aria-label="Aller en bas"><svg class="i"><use href="#i-down"/></svg></button></div>
+<div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><div class="nav"><button id="nvp" aria-label="Tour précédent"><svg class="i rot"><use href="#i-down"/></svg></button><button id="nvn" aria-label="Tour suivant"><svg class="i"><use href="#i-down"/></svg></button></div></div>
 <div id="err" role="status"></div>
 <p id="gst" class="sr" role="status"></p>
 <div id="tk"></div>
 <div id="rl" hidden><i class="bar"><u></u></i><span></span></div>
-<footer><div class="inb"><textarea id="inp" rows="1" placeholder="Votre tour"></textarea><button id="stop" hidden aria-label="Annuler"><svg class="i f"><use href="#i-stop"/></svg></button><button id="send" class="primary" aria-label="Envoyer"><svg class="i" style="stroke-width:2.6"><use href="#i-send"/></svg></button></div></footer>
+<footer><div class="inb"><textarea id="inp" rows="1" placeholder="Votre tour"></textarea><button id="ast" aria-label="Mettre en action">✱</button><button id="stop" hidden aria-label="Annuler"><svg class="i f"><use href="#i-stop"/></svg></button><button id="send" class="primary" aria-label="Envoyer"><svg class="i" style="stroke-width:2.6"><use href="#i-send"/></svg></button></div></footer>
 <div id="tts" hidden><span>Lecture</span><button id="tpp"></button><button id="tst" aria-label="Arrêter la lecture"><svg class="i f"><use href="#i-stop"/></svg></button></div>
 <div id="rbar" hidden>
 <button id="rpp"></button>
