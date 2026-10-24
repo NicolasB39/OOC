@@ -26,6 +26,22 @@ if (dup.length) throw new Error('id dupliqué dans index.html : ' + [...new Set(
 for (const [, f] of html.matchAll(/\sfor="([^"]+)"/g))
   if (!ids.includes(f)) throw new Error('label orphelin : for="' + f + '"');
 
+const dlgIds = [...html.matchAll(/<dialog[^>]*\sid="([^"]+)"/g)].map(m => m[1]);
+const css = readFileSync('css/style.css', 'utf8');
+const hitsDialog = sel => {
+  const last = sel.trim().split(/[\s>+~]+/).pop();
+  if (/::?[a-z-]+$/.test(last) || last.includes('[open]')) return false;
+  return /^dialog\b/.test(last) || dlgIds.some(i => last.startsWith('#' + i));
+};
+for (const [, sel, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  if (!/(^|[;{\s])display\s*:/.test(body)) continue;
+  for (const one of sel.split(','))
+    if (hitsDialog(one))
+      throw new Error(
+        'règle « ' + one.trim() + ' » fixe display sur une feuille fermée : visez le sélecteur [open]'
+      );
+}
+
 const DYN = ['live'];
 for (const f of modules) {
   const src = readFileSync('js/' + f, 'utf8');

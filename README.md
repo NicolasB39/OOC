@@ -8,7 +8,7 @@ Application web installable (PWA) pour jouer des histoires interactives avec une
 2. Copier `index.yml` dans `.github/workflows/index.yml`.
 3. Réglages du dépôt, Pages, Source : **GitHub Actions**.
 
-Le workflow lance les tests (`npm test`), puis `npm run build`, qui calcule un numéro de version à partir du contenu des fichiers et met à jour tout seul le service worker, les préchargements et les numéros de version. Il échoue si `index.html` contient un identifiant dupliqué, un `label for=` orphelin ou si un module vise un élément absent de la page.
+Le workflow lance les tests (`npm test`), puis `npm run build`, qui calcule un numéro de version à partir du contenu des fichiers et met à jour tout seul le service worker, les préchargements et les numéros de version. Il échoue si `index.html` contient un identifiant dupliqué, un `label for=` orphelin, si un module vise un élément absent de la page, ou si une règle CSS fixe `display` sur une feuille (`dialog`) sans viser `[open]` : une feuille fermée reprendrait alors sa place dans le flux et allongerait la page.
 
 Le workflow génère aussi `index.json` (liste des fichiers de `scenarios/`) à chaque push. L'application le lit en priorité, ce qui évite la limite de 60 requêtes par heure de l'API GitHub et fonctionne avec un domaine personnalisé. Sans `index.json`, elle interroge l'API GitHub (dépôt déduit de l'URL, ou saisi dans Réglages IA).
 
@@ -139,7 +139,7 @@ Si votre fournisseur ne pratique pas le cache, ce placement ne change rien au to
 
 La fenêtre n'avance pas d'un message à la fois : quand le budget est dépassé, elle recule d'un bloc, puis ne bouge plus pendant plusieurs tours. Le début du prompt reste ainsi identique d'un tour à l'autre, ce que les fournisseurs facturent moins cher et comptent moins dans les quotas par minute.
 
-Quand au moins 6 messages ne sont plus envoyés, ils sont résumés dans la mémoire, pour que l'IA n'en perde pas le fil. Le compteur sous la conversation indique par exemple « ≈ 6 953 / 7 000 tokens envoyés (réel : 7 012) · 4 anciens messages non envoyés ». Si le prompt de base dépasse à lui seul la limite, le compteur passe en rouge.
+Quand au moins 6 messages ne sont plus envoyés, ils sont résumés dans la mémoire, pour que l'IA n'en perde pas le fil. Le compteur sous la conversation indique par exemple « ≈ 6 953 / 7 000 tokens envoyés (réel : 7 012) · 10 messages envoyés sur 16 », et une ligne « l'IA lit à partir d'ici » marque la limite dans le fil. Si le prompt de base dépasse à lui seul la limite, le compteur passe en rouge.
 
 ### Jauge de débit
 
@@ -151,7 +151,9 @@ Quand le tour suivant ne tient pas dans ce qui reste, l'application **attend d'e
 
 Le compteur affiche aussi les tokens servis depuis le cache du fournisseur quand il les rapporte. C'est le moyen de vérifier que le préfixe stable du prompt est bien réutilisé : chez certains fournisseurs, les tokens en cache ne comptent pas dans la limite par minute.
 
-Changer de fournisseur ou de modèle remet le suivi à zéro, les limites n'étant pas les mêmes.
+Le suivi est tenu **par modèle**, parce que les limites le sont aussi : confier les résumés à un autre modèle lui donne son propre compteur, et la jauge de la narration n'en voit rien.
+
+En cas de refus pour dépassement (429), l'application relance jusqu'à trois fois. Le délai est lu dans le message du fournisseur (« Please try again in 4.2s »), à défaut dans l'en-tête `retry-after` ou `x-ratelimit-reset-tokens`, et plafonné à 90 secondes. Le décompte est affiché pendant l'attente, y compris pour la requête de mémoire.
 
 Le décompte part de 3,4 caractères par token, puis **se calibre tout seul** : chaque réponse du fournisseur indique le nombre réel de tokens de l'entrée, et l'application ajuste son rapport caractères/token. La valeur courante s'affiche dans Réglages IA. Au bout de quelques messages, l'estimation colle au modèle que vous utilisez.
 

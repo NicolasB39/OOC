@@ -1,5 +1,5 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
-import { note, wait } from './rate.js';
+import { hit429, note, resetDur, wait } from './rate.js';
 import { PROVIDERS, S, app } from './state.js';
 import { getOne, put } from './store.js';
 import { err, strip } from './util.js';
@@ -28,13 +28,17 @@ export async function chat(
     k = S.keys[p];
   if (!k) throw new Error('clé API manquante');
   let jm = json;
+  const mdl = model || S.models[p] || PROVIDERS[p].m;
   const est = ms.reduce((a, m) => a + estTok(m.content), 0) + (max || 500);
-  for (let w = wait(est); w > 0 && !ac.signal.aborted; w = wait(est)) {
-    onWait?.(w);
-    await pause(1000, ac.signal);
-  }
-  onWait?.(0);
-  if (ac.signal.aborted) throw new Error('Annulé.');
+  const hold = async next => {
+    for (let w = next(); w > 0 && !ac.signal.aborted; w = next()) {
+      onWait?.(w);
+      await pause(1000, ac.signal);
+    }
+    onWait?.(0);
+    if (ac.signal.aborted) throw new Error('Annulé.');
+  };
+  await hold(() => wait(est, mdl));
   let tm;
   const arm = () => {
     clearTimeout(tm);
@@ -49,7 +53,7 @@ export async function chat(
         signal: ac.signal,
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + k },
         body: JSON.stringify({
-          model: model || S.models[p] || PROVIDERS[p].m,
+          model: mdl,
           messages: ms,
           ...(max ? { max_tokens: max } : {}),
           ...(temp != null ? { temperature: +temp } : {}),
@@ -108,7 +112,7 @@ export async function chat(
         if (!out)
           throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
         calib(ms, us);
-        note(r.headers, us);
+        note(r.headers, us, mdl);
         return {
           t: out,
           cut: fr == 'length',
@@ -119,13 +123,27 @@ export async function chat(
         };
       }
       const j = await r.json().catch(() => ({}));
-      if (r.status == 429 && a < 1) {
-        await new Promise(x =>
-          setTimeout(x, Math.min(+r.headers.get('retry-after') || 5, 20) * 1000)
-        );
+      const er = (Array.isArray(j) ? j[0] : j)?.error;
+      if (r.status == 429 && a < 3) {
+        const txt = er?.message || '',
+          mm = txt.match(/(?:in|après)\s+((?:[\d.]+\s*[hms]\s*)+)/i),
+          secs = Math.min(
+            90,
+            Math.max(
+              3,
+              Math.round(
+                (resetDur(mm?.[1]) ||
+                  (+r.headers.get('retry-after') || 0) * 1000 ||
+                  resetDur(r.headers.get('x-ratelimit-reset-tokens')) ||
+                  (a + 1) * 15000) / 1000
+              )
+            )
+          );
+        hit429(mdl, secs * 1000);
+        let left = secs;
+        await hold(() => left--);
         continue;
       }
-      const er = (Array.isArray(j) ? j[0] : j)?.error;
       if (!r.ok && jm && /response_format|json/i.test(er?.message || '')) {
         jm = false;
         (S.nj ??= {})[p] = 1;
@@ -134,7 +152,7 @@ export async function chat(
       if (!r.ok || er) throw new Error(er?.message || 'Erreur ' + r.status);
       const ch = j.choices?.[0];
       calib(ms, j.usage);
-      note(r.headers, j.usage);
+      note(r.headers, j.usage, mdl);
       const out = strip(ch?.message?.content ?? '');
       if (!out)
         throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
@@ -261,7 +279,18 @@ export async function summarize(s) {
               parts.map((x, i) => i + 1 + '. ' + x).join('\n\n')
           }
         ],
-        { model: S.memModels?.[S.provider] || '', json: useJson }
+        {
+          model: S.memModels?.[S.provider] || '',
+          json: useJson,
+          onWait: w => {
+            if (app.cur === s && !app.busy)
+              err(
+                w
+                  ? 'Mémoire : quota du fournisseur atteint, nouvel essai dans ' + w + ' s…'
+                  : 'Mise à jour de la mémoire…'
+              );
+          }
+        }
       );
       const j = useJson ? asJson(t) : null;
       if (useJson && !j) {

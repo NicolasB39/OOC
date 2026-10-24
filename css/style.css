@@ -1187,6 +1187,10 @@ dialog input[type='range'] {
 .dl.dn {
   color: var(--dg);
 }
+#dpic[open] {
+  display: grid;
+  place-items: center;
+}
 #dpic {
   width: 100%;
   max-width: none;
@@ -1196,8 +1200,6 @@ dialog input[type='range'] {
   padding: 0;
   border-radius: 0;
   background: #000;
-  display: grid;
-  place-items: center;
 }
 #dpic::before {
   display: none;

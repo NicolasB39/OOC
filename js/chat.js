@@ -2,7 +2,7 @@ import { chat, summarize } from './ai.js';
 import { body, lastEtat, raw, split } from './format.js';
 import { showList } from './list.js';
 import { buildInfo, statOn } from './prompt.js';
-import { conflicts } from './protocol.js';
+import { conflicts, modelOf } from './protocol.js';
 import { last as rlLast, status, wait } from './rate.js';
 import {
   autoRead,
@@ -46,14 +46,16 @@ export async function openScenario(id) {
   fit();
   render(true);
 }
-export function tk() {
+export function tk(info) {
   const e = $('#tk');
   if (!app.cur || !app.cur.mem) {
     e.textContent = '';
     $('#rl').hidden = true;
     return;
   }
-  const r = buildInfo(app.cur),
+  const r = info || buildInfo(app.cur),
+    n = app.cur.messages.length,
+    sentN = n - r.omitted,
     f = x => x.toLocaleString('fr-FR');
   e.className = r.over ? 'w' : '';
   e.textContent = r.over
@@ -68,25 +70,21 @@ export function tk() {
       ' tokens envoyés' +
       (app.pt ? ' (réel : ' + f(app.pt) + ')' : '') +
       (rlLast.cached ? ' · ' + f(rlLast.cached) + ' en cache' : '') +
-      (r.omitted
-        ? ' · ' +
-          r.omitted +
-          (r.omitted > 1 ? ' anciens messages non envoyés' : ' ancien message non envoyé')
-        : '');
+      (n ? ' · ' + sentN + (sentN > 1 ? ' messages envoyés' : ' message envoyé') + ' sur ' + n : '');
   rlView(r.used);
 }
 let rlEst = 0;
 function rlView(est) {
   if (est != null) rlEst = est;
   const g = $('#rl'),
-    s = status();
+    s = status(modelOf());
   if (!s) {
     g.hidden = true;
     return;
   }
   const f = x => x.toLocaleString('fr-FR'),
     pc = Math.max(0, Math.min(100, (s.rem / s.lim) * 100)),
-    w = wait(rlEst + (+app.cur?.maxTok || 500));
+    w = wait(rlEst + (+app.cur?.maxTok || 500), modelOf());
   g.className = w ? 'w' : '';
   g.firstChild.firstChild.style.width = pc + '%';
   g.lastChild.textContent =
@@ -148,6 +146,7 @@ export function render(sc) {
     ms = app.cur.messages,
     n = ms.length,
     st = Math.max(0, n - app.LIM);
+  const info = app.cur.mem ? buildInfo(app.cur) : null;
   const cv = !st && coverOf(app.cur);
   head.replaceChildren(
     ...[
@@ -155,7 +154,7 @@ export function render(sc) {
       st && el('button', { class: 'more', text: 'Afficher les messages précédents' })
     ].filter(Boolean)
   );
-  const wi = app.cur.mem?.win > st ? app.cur.mem.win : -1;
+  const wi = info && info.win > st && info.win < n ? info.win : -1;
   let cur = [...w.querySelectorAll(':scope > .m[data-i]')];
   for (const e of cur) {
     const i = +e.dataset.i;
@@ -212,7 +211,7 @@ export function render(sc) {
             { once: true }
           );
   }
-  tk();
+  tk(info);
   stateView();
   refreshSpeech();
 }
