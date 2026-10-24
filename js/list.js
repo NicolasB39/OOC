@@ -4,7 +4,7 @@ import { coverOf, getTree } from './scenarios.js';
 import { openSc } from './settings.js';
 import { S, app } from './state.js';
 import { del, getAll, getOne, put, saveSet } from './store.js';
-import { $, LS, ago, dlg, esc, hue, ic, nz, plain, uid } from './util.js';
+import { $, LS, ago, dlg, el, hue, ic, nz, plain, uid } from './util.js';
 
 export async function showList() {
   app.cur = null;
@@ -41,15 +41,44 @@ export async function draw() {
   const hero = !q && app.FIL == 'all' ? f.find(s => s.n > 0) : null;
   const card = (s, h) => {
     const cv = coverOf(s);
-    return `<div class="item ${h ? 'hero' : 'card'}">${cv ? `<img class="cv" src="${esc(cv)}" alt="" loading="lazy" decoding="async">` : `<div class="art" style="--h:${hue(s.name)}"></div>`}${!s.n && !h ? '<span class="tag">Nouveau</span>' : ''}<div class="t" role="button" tabindex="0" data-id="${esc(s.id)}"><b>${esc(s.name)}</b>${h ? `<small class="pv">${esc(s.pv || '')}</small><span class="go">Reprendre</span>` : `<small>${s.n ? s.n + ' message' + (s.n > 1 ? 's' : '') + ' · ' + ago(s.updated) : ''}</small>`}</div><button class="menu" data-id="${esc(s.id)}" aria-label="Options">${ic('more', 18)}</button></div>`;
+    return el(
+      'div',
+      { class: 'item ' + (h ? 'hero' : 'card') },
+      cv
+        ? el('img', { class: 'cv', src: cv, alt: '', loading: 'lazy', decoding: 'async' })
+        : el('div', { class: 'art', style: '--h:' + hue(s.name) }),
+      !s.n && !h && el('span', { class: 'tag', text: 'Nouveau' }),
+      el(
+        'div',
+        { class: 't', role: 'button', tabindex: '0', data: { id: s.id } },
+        el('b', { text: s.name }),
+        h
+          ? [
+              el('small', { class: 'pv', text: s.pv || '' }),
+              el('span', { class: 'go', text: 'Reprendre' })
+            ]
+          : el('small', {
+              text: s.n ? s.n + ' message' + (s.n > 1 ? 's' : '') + ' · ' + ago(s.updated) : ''
+            })
+      ),
+      el('button', { class: 'menu', data: { id: s.id }, 'aria-label': 'Options' }, ic('more', 18))
+    );
   };
-  $('#items').innerHTML =
-    (hero ? card(hero, 1) : '') +
-      f
-        .filter(s => s !== hero)
-        .map(s => card(s))
-        .join('') ||
-    `<div class="empty">${ic('logo', 44)}<p>${a.length ? 'Aucun résultat.' : 'Aucun scénario. Créez-en un pour commencer.'}</p></div>`;
+  const list = [hero && card(hero, 1), ...f.filter(s => s !== hero).map(s => card(s))].filter(Boolean);
+  $('#items').replaceChildren(
+    ...(list.length
+      ? list
+      : [
+          el(
+            'div',
+            { class: 'empty' },
+            ic('logo', 44),
+            el('p', {
+              text: a.length ? 'Aucun résultat.' : 'Aucun scénario. Créez-en un pour commencer.'
+            })
+          )
+        ])
+  );
   $('#bk').hidden = !(
     a.some(s => s.n > 0) &&
     Date.now() - (+LS.get('bk') || +LS.get('first') || Date.now()) > 2592e6 &&
@@ -100,7 +129,7 @@ $('#mt').onclick = async () => {
     s.name +
     '\n\n' +
     s.messages
-      .map(m => '**' + (m.role == 'user' ? nm : 'Narrateur') + '**\n\n' + plain(m.content))
+      .map(m => '**' + (m.role == 'user' ? nm : 'Narrateur') + '**\n\n' + plain(m.content, nm))
       .join('\n\n---\n\n') +
     '\n';
   const a = document.createElement('a');

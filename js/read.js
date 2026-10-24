@@ -1,14 +1,19 @@
 import { S, app } from './state.js';
 import { saveSet } from './store.js';
-import { $, esc, ic, plain } from './util.js';
+import { $, el, ic, plain, toast } from './util.js';
 
 const ok = typeof speechSynthesis != 'undefined' && typeof SpeechSynthesisUtterance != 'undefined';
 export const ttsOk = ok;
 const T = { q: [], pos: 0, run: 0, state: 'idle', msg: -1 };
 const FS = [14, 30];
 
-export const applyFs = () =>
-  document.documentElement.style.setProperty('--fs', (S.fs || 17) + 'px');
+export const applyFs = () => {
+  const d = document.documentElement.style;
+  d.setProperty('--fs', (S.fs || 17) + 'px');
+  d.setProperty('--lh', S.lh || 1.7);
+  d.setProperty('--cw', (S.cw || 45) + 'em');
+  d.setProperty('--rf', S.ff == 'sans' ? 'var(--sans)' : 'var(--ser)');
+};
 const fsLabel = () => {
   $('#lfv').textContent = (S.fs || 17) + ' px';
   $('#lfs').value = S.fs || 17;
@@ -21,8 +26,7 @@ const setFs = n => {
 };
 
 const speakable = t =>
-  plain(t)
-    .replace(/\{\{user\}\}/gi, app.cur?.pname?.trim() || 'Joueur')
+  plain(t, app.cur?.pname)
     .replace(/<[^>]*>/g, '')
     .replace(/^-{3,}$/gm, '')
     .replace(/^>\s?/gm, '')
@@ -77,7 +81,7 @@ function ttsUI() {
   $('#rbar').hidden = !app.reading;
   $('#rpp').hidden = $('#rst').hidden = !ok;
   for (const id of ['#tpp', '#rpp']) {
-    $(id).innerHTML = ic(pl ? 'pause' : 'play', 20);
+    $(id).replaceChildren(ic(pl ? 'pause' : 'play', 20));
     $(id).setAttribute(
       'aria-label',
       pl ? 'Mettre en pause' : T.state == 'paused' ? 'Reprendre la lecture' : 'Lire à voix haute'
@@ -167,9 +171,11 @@ export function autoRead(i) {
   if (S.tts?.auto && app.cur?.messages[i]) start(items([i]));
 }
 export function setReading(on) {
+  const was = app.reading;
   app.reading = !!on;
   $('#chat').classList.toggle('reading', app.reading);
   ttsUI();
+  if (app.reading && !was && ok) toast('Touchez un message pour lire à partir de là');
 }
 const visibleStart = () => {
   const m = $('#msgs'),
@@ -186,16 +192,25 @@ function fillVoices() {
     fr = vs.filter(v => v.lang?.toLowerCase().startsWith('fr')),
     rest = vs.filter(v => !fr.includes(v)),
     sel = $('#lvo');
-  sel.innerHTML =
-    '<option value="">Automatique (français)</option>' +
-    [...fr, ...rest]
-      .map(v => `<option value="${esc(v.voiceURI)}">${esc(v.name)} (${esc(v.lang)})</option>`)
-      .join('');
+  sel.replaceChildren(
+    el('option', { value: '', text: 'Automatique (français)' }),
+    ...[...fr, ...rest].map(v =>
+      el('option', { value: v.voiceURI, text: v.name + ' (' + v.lang + ')' })
+    )
+  );
   sel.value = S.tts?.voice || '';
   if (sel.value !== (S.tts?.voice || '')) sel.value = '';
 }
+const lhLabel = () => {
+  $('#llv').textContent = (S.lh || 1.7).toFixed(2);
+  $('#lcv').textContent = (S.cw || 45) + ' em';
+};
 function openLec() {
   fsLabel();
+  lhLabel();
+  $('#llh').value = S.lh || 1.7;
+  $('#lcw').value = S.cw || 45;
+  $('#lff').value = S.ff || 'ser';
   $('#lrm').checked = app.reading;
   $('#lfo').checked = !!S.follow;
   $('#ltt').hidden = !ok;
@@ -216,6 +231,22 @@ $('#lfs').oninput = () => {
   fsLabel();
 };
 $('#lfs').onchange = () => saveSet();
+$('#llh').oninput = () => {
+  S.lh = +$('#llh').value;
+  applyFs();
+  lhLabel();
+};
+$('#lcw').oninput = () => {
+  S.cw = +$('#lcw').value;
+  applyFs();
+  lhLabel();
+};
+$('#llh').onchange = $('#lcw').onchange = () => saveSet();
+$('#lff').onchange = () => {
+  S.ff = $('#lff').value;
+  applyFs();
+  saveSet();
+};
 $('#lfm').onclick = () => setFs((S.fs || 17) - 1);
 $('#lfp').onclick = () => setFs((S.fs || 17) + 1);
 $('#rm').onclick = () => setFs((S.fs || 17) - 1);

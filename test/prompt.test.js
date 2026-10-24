@@ -1,0 +1,293 @@
+import { test, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { clean } from '../js/store.js';
+import { buildInfo, estTok } from '../js/prompt.js';
+import { parseEtat, choicesOf, lastEtat, split, raw } from '../js/format.js';
+import { S, ctx } from '../js/state.js';
+
+const sc = (o = {}) =>
+  clean({ id: 's', name: 'S', system: 'SYS', messages: [], ...o });
+
+beforeEach(() => {
+  S.ctxLim = 0;
+  S.reserve = 0;
+  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '' });
+});
+
+test('clean rejette ce qui n’est pas un scénario', () => {
+  assert.equal(clean(null), null);
+  assert.equal(clean({ id: '', messages: [] }), null);
+  assert.equal(clean({ id: 'a' }), null);
+});
+
+test('clean filtre les messages invalides et borne mem.upto', () => {
+  const r = clean({
+    id: 'a',
+    messages: [
+      { role: 'user', content: 'ok' },
+      { role: 'system', content: 'non' },
+      { role: 'assistant', content: 42 }
+    ],
+    mem: { upto: 99, memories: ['m', 7] }
+  });
+  assert.equal(r.messages.length, 1);
+  assert.equal(r.mem.upto, 1);
+  assert.deepEqual(r.mem.memories, ['m']);
+  assert.equal(r.name, 'Sans titre');
+});
+
+test('clean normalise les variantes', () => {
+  const r = clean({
+    id: 'a',
+    messages: [{ role: 'assistant', content: 'b', alts: ['a', 'b'], ai: 9 }]
+  });
+  assert.equal(r.messages[0].ai, 1);
+  const u = clean({ id: 'a', messages: [{ role: 'assistant', content: 'b', alts: ['b'], ai: 0 }] });
+  assert.equal(u.messages[0].alts, undefined);
+});
+
+test('sans limite, tous les messages partent', () => {
+  const s = sc({
+    noChoices: true,
+    messages: Array.from({ length: 6 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: 'm' + i
+    }))
+  });
+  const r = buildInfo(s);
+  assert.equal(r.omitted, 0);
+  assert.equal(r.msgs.length, 7);
+  assert.equal(r.msgs[0].role, 'system');
+  assert.equal(r.over, false);
+});
+
+test('avec une limite, les anciens messages sont coupés et la suite démarre sur le joueur', () => {
+  S.ctxLim = 1000;
+  S.reserve = 400;
+  const long = 'x'.repeat(600);
+  const s = sc({
+    noChoices: true,
+    messages: Array.from({ length: 8 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: long + i
+    }))
+  });
+  const r = buildInfo(s);
+  assert.ok(r.omitted > 0);
+  assert.ok(r.used <= r.budget);
+  assert.equal(r.msgs[1].role, 'user');
+});
+
+test('la réserve est plafonnée à la moitié de la limite', () => {
+  S.ctxLim = 1000;
+  S.reserve = 900;
+  const r = buildInfo(sc({ noChoices: true, messages: [{ role: 'user', content: 'a' }] }));
+  assert.equal(r.budget, 500);
+});
+
+test('un prompt de base trop long lève le drapeau over', () => {
+  S.ctxLim = 200;
+  S.reserve = 50;
+  const s = sc({ noChoices: true, system: 'y'.repeat(5000), messages: [{ role: 'user', content: 'a' }] });
+  const r = buildInfo(s);
+  assert.equal(r.over, true);
+});
+
+test('le format des choix vit dans le système, le rappel sur le dernier message', () => {
+  const s = sc({ messages: [{ role: 'user', content: 'bonjour' }] });
+  const r = buildInfo(s);
+  assert.match(r.msgs[0].content, /# Format des choix/);
+  assert.match(r.msgs.at(-1).content, /^bonjour/);
+  assert.match(r.msgs.at(-1).content, /<rappel>/);
+  assert.doesNotMatch(r.msgs[0].content, /<rappel>/);
+});
+
+test('le prompt système ne bouge pas quand l’historique avance', () => {
+  const base = { noChoices: true, system: 'SYS' };
+  const a = buildInfo(sc({ ...base, messages: [{ role: 'user', content: 'un' }] }));
+  const b = buildInfo(
+    sc({
+      ...base,
+      messages: [
+        { role: 'user', content: 'un' },
+        { role: 'assistant', content: 'deux' },
+        { role: 'user', content: 'trois' }
+      ]
+    })
+  );
+  assert.equal(a.msgs[0].content, b.msgs[0].content);
+});
+
+test('la fenêtre reste collante tant qu’elle tient dans le budget', () => {
+  S.ctxLim = 1000;
+  S.reserve = 400;
+  const msgs = Array.from({ length: 10 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    content: 'x'.repeat(300) + i
+  }));
+  const s = sc({ noChoices: true, messages: msgs });
+  const first = buildInfo(s);
+  s.mem.win = first.win;
+  s.messages.push({ role: 'assistant', content: 'court' }, { role: 'user', content: 'court' });
+  assert.equal(buildInfo(s).win, first.win);
+});
+
+test('la fenêtre avance par blocs quand le budget est dépassé', () => {
+  S.ctxLim = 900;
+  S.reserve = 300;
+  const s = sc({
+    noChoices: true,
+    messages: Array.from({ length: 20 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: 'y'.repeat(400) + i
+    }))
+  });
+  s.mem.win = 0;
+  const r = buildInfo(s);
+  assert.ok(r.win > 0);
+  assert.equal(r.msgs[1].role, 'user');
+  assert.ok(r.used <= r.budget);
+});
+
+test('le casting liste tous les personnages, les fiches ne suivent que les actifs', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'herboriste', text: 'A'.repeat(4000), always: false, images: ['alice_x'], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] },
+    { name: 'Bob', sum: 'garde', text: 'B'.repeat(4000), always: false, images: [], keys: [/(^|[^a-z0-9])bob(?![a-z0-9])/] }
+  ];
+  ctx.images = [{ code: 'alice_x', url: 'u' }];
+  const r = buildInfo(sc({ noChoices: true, remote: true, messages: [{ role: 'user', content: 'je parle à Alice' }] }));
+  assert.match(r.msgs[0].content, /- Alice : herboriste/);
+  assert.match(r.msgs[0].content, /- Bob : garde/);
+  const last = r.msgs.at(-1).content;
+  assert.match(last, /## Alice/);
+  assert.doesNotMatch(last, /## Bob/);
+  assert.match(last, /alice_x/);
+});
+
+test('en dessous du seuil, aucune fiche n’est filtrée', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'a', text: 'court', always: false, images: [], keys: [/zzz/] },
+    { name: 'Bob', sum: 'b', text: 'court', always: false, images: [], keys: [/zzz/] }
+  ];
+  const r = buildInfo(sc({ noChoices: true, remote: true, messages: [{ role: 'user', content: 'rien' }] }));
+  assert.match(r.msgs.at(-1).content, /## Alice/);
+  assert.match(r.msgs.at(-1).content, /## Bob/);
+});
+
+test('les trois étages de mémoire vivent dans le préfixe, pas dans la queue', () => {
+  const s = sc({
+    noChoices: true,
+    note: 'ma note',
+    messages: [{ role: 'user', content: 'suite' }],
+    mem: { summary: 'ancien', lines: ['il a ouvert la porte'], memories: ['la fiole est verte'], relations: {} }
+  });
+  const r = buildInfo(s),
+    sys = r.msgs[0].content,
+    last = r.msgs.at(-1).content;
+  for (const t of ['previous_history', 'recent_history', 'long_term_memory', 'system_note']) {
+    assert.match(sys, new RegExp('<' + t + '>'));
+    assert.doesNotMatch(last, new RegExp('<' + t + '>'));
+  }
+});
+
+test('la mémoire ne change pas le préfixe tant que le résumé ne bouge pas', () => {
+  const mem = { summary: 'ancien', lines: ['a'], memories: ['m'], relations: {} };
+  const a = buildInfo(sc({ noChoices: true, mem, messages: [{ role: 'user', content: 'un' }] }));
+  const b = buildInfo(
+    sc({
+      noChoices: true,
+      mem,
+      messages: [
+        { role: 'user', content: 'un' },
+        { role: 'assistant', content: 'deux' },
+        { role: 'user', content: 'trois' }
+      ]
+    })
+  );
+  assert.equal(a.msgs[0].content, b.msgs[0].content);
+});
+
+test('tous les souvenirs récents partent, plafonnés par memN', () => {
+  const memories = Array.from({ length: 30 }, (_, i) => 'fait ' + i);
+  const all = buildInfo(sc({ noChoices: true, mem: { memories }, messages: [{ role: 'user', content: 'x' }] }));
+  assert.equal((all.msgs[0].content.match(/^- fait /gm) || []).length, 20);
+  const few = buildInfo(
+    sc({ noChoices: true, memN: 3, mem: { memories }, messages: [{ role: 'user', content: 'x' }] })
+  );
+  assert.equal((few.msgs[0].content.match(/^- fait /gm) || []).length, 3);
+  assert.match(few.msgs[0].content, /fait 29/);
+});
+
+test('lorebook et fiches restent en queue, où ils n’invalident rien', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'a', text: 'A'.repeat(4000), always: false, images: [], keys: [/alice/] },
+    { name: 'Bob', sum: 'b', text: 'B'.repeat(4000), always: false, images: [], keys: [/bob/] }
+  ];
+  ctx.lore = [{ keys: [/porte/], always: false, pr: 0, text: 'La porte grince.' }];
+  const r = buildInfo(
+    sc({ noChoices: true, remote: true, messages: [{ role: 'user', content: 'alice ouvre la porte' }] })
+  );
+  assert.doesNotMatch(r.msgs[0].content, /## Alice/);
+  assert.doesNotMatch(r.msgs[0].content, /<lorebook>/);
+  assert.match(r.msgs.at(-1).content, /## Alice/);
+  assert.match(r.msgs.at(-1).content, /<lorebook>/);
+});
+
+test('split sépare narration, état et choix', () => {
+  const r = split('Il pleut.\n<etat>\nLieu: Quai\n</etat>\n<choix>\n1. partir\n2. rester\n</choix>');
+  assert.equal(r.content, 'Il pleut.');
+  assert.deepEqual(r.state, [['Lieu', 'Quai']]);
+  assert.deepEqual(r.choices, ['partir', 'rester']);
+});
+
+test('raw reconstruit un message éditable sans perte', () => {
+  const m = { role: 'assistant', content: 'Texte.', state: [['Lieu', 'Quai']], choices: ['a', 'b'] };
+  assert.deepEqual(split(raw(m)), { content: 'Texte.', choices: ['a', 'b'], state: [['Lieu', 'Quai']] });
+});
+
+test('clean migre les anciens messages en champs séparés', () => {
+  const r = clean({
+    id: 'a',
+    messages: [{ role: 'assistant', content: 'Récit.\n<choix>\n1. a\n</choix>' }]
+  });
+  assert.equal(r.messages[0].content, 'Récit.');
+  assert.deepEqual(r.messages[0].choices, ['a']);
+});
+
+test('clean migre les variantes au format chaîne', () => {
+  const r = clean({
+    id: 'a',
+    messages: [
+      { role: 'assistant', content: 'deux', alts: ['un<choix>\n1. x\n</choix>', 'deux'], ai: 1 }
+    ]
+  });
+  assert.equal(r.messages[0].alts[0].content, 'un');
+  assert.deepEqual(r.messages[0].alts[0].choices, ['x']);
+  assert.equal(r.messages[0].ai, 1);
+});
+
+test('estTok croît avec la longueur', () => {
+  assert.ok(estTok('a'.repeat(320)) > estTok('a'.repeat(32)));
+});
+
+test('parseEtat lit les paires et ignore les puces', () => {
+  assert.deepEqual(parseEtat('<etat>\n- **Lieu**: Forêt\nSanté: 72/100\nvide\n</etat>'), [
+    ['Lieu', 'Forêt'],
+    ['Santé', '72/100']
+  ]);
+  assert.deepEqual(parseEtat('rien'), []);
+});
+
+test('lastEtat remonte le dernier état du narrateur', () => {
+  const ms = [
+    { role: 'assistant', content: 'a', state: [['Lieu', 'A']] },
+    { role: 'user', content: 'b', state: [['Lieu', 'Z']] },
+    { role: 'assistant', content: 'sans état' }
+  ];
+  assert.deepEqual(lastEtat(ms), [['Lieu', 'A']]);
+});
+
+test('choicesOf retire la numérotation et plafonne à trois', () => {
+  assert.deepEqual(choicesOf('<choix>\n1. a\n2) b\n- c\n4. d\n</choix>'), ['a', 'b', 'c']);
+  assert.deepEqual(choicesOf('aucun bloc'), []);
+});

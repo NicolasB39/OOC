@@ -1,4 +1,5 @@
 import { draw } from './list.js';
+import { merge } from './merge.js';
 import { S } from './state.js';
 import { clean, del, getFull, put, saveSet } from './store.js';
 import { $, LS, ago, dlg, toast, uid } from './util.js';
@@ -190,32 +191,6 @@ const DR = {
     });
   }
 };
-const syncable = s => !(s.remote && !s.messages.length);
-export function merge(loc, rem, t1, t2) {
-  const tomb = { ...t1 };
-  let up = false;
-  for (const k in t2) if ((t2[k] || 0) > (tomb[k] || 0)) tomb[k] = t2[k];
-  for (const k in tomb) if ((t2[k] || 0) < tomb[k]) up = true;
-  const L = new Map(loc.map(s => [s.id, s])),
-    R = new Map(rem.filter(syncable).map(s => [s.id, s]));
-  const keep = [],
-    toLocal = [],
-    delLocal = [];
-  for (const id of new Set([...L.keys(), ...R.keys()])) {
-    const l = L.get(id),
-      r = R.get(id),
-      p = !r || (l && l.updated >= r.updated) ? l : r;
-    if ((tomb[id] || 0) >= p.updated) {
-      if (l) delLocal.push(id);
-      if (r) up = true;
-      continue;
-    }
-    keep.push(p);
-    if (p === r && (!l || r.updated > l.updated)) toLocal.push(r);
-    if (p === l && (!r || l.updated > r.updated)) up = true;
-  }
-  return { keep, toLocal, delLocal, tomb, up };
-}
 export const bkOn = () => {
   const B = S.bk;
   return B && ((B.p == 'gh' && B.repo && B.tok) || (B.p == 'drive' && B.cid)) ? B : null;
@@ -240,7 +215,7 @@ async function syncOnce(B, manual) {
   const rm = await P.get(B, tok);
   const rd = rm?.data;
   const rem = Array.isArray(rd?.scenarios) ? rd.scenarios.map(clean).filter(Boolean) : [];
-  const m = merge((await getFull()).filter(syncable), rem, S.tomb || {}, rd?.tomb || {});
+  const m = merge(await getFull(), rem, S.tomb || {}, rd?.tomb || {}, { seen: S.bkSeen || {} });
   for (const s of m.toLocal) await put(s);
   for (const id of m.delLocal) await del(id);
   S.tomb = m.tomb;
@@ -251,6 +226,7 @@ async function syncOnce(B, manual) {
       rm?.ref,
       tok
     );
+  S.bkSeen = m.seen;
 }
 export async function sync(manual) {
   const B = bkOn();

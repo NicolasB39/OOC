@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="11">
+<meta name="app-version" content="877a034757">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Histoires</title>
 <link rel="manifest" href="manifest.json">
@@ -16,20 +16,25 @@
 <meta name="apple-mobile-web-app-title" content="Histoires">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="css/style.css">
-<link rel="modulepreload" href="js/main.js">
-<link rel="modulepreload" href="js/state.js">
-<link rel="modulepreload" href="js/util.js">
-<link rel="modulepreload" href="js/store.js">
-<link rel="modulepreload" href="js/scenarios.js">
-<link rel="modulepreload" href="js/format.js">
-<link rel="modulepreload" href="js/prompt.js">
+<!--PRELOAD-->
 <link rel="modulepreload" href="js/ai.js">
-<link rel="modulepreload" href="js/chat.js">
-<link rel="modulepreload" href="js/list.js">
-<link rel="modulepreload" href="js/nav.js">
-<link rel="modulepreload" href="js/settings.js">
-<link rel="modulepreload" href="js/read.js">
 <link rel="modulepreload" href="js/backup.js">
+<link rel="modulepreload" href="js/chat.js">
+<link rel="modulepreload" href="js/format.js">
+<link rel="modulepreload" href="js/list.js">
+<link rel="modulepreload" href="js/main.js">
+<link rel="modulepreload" href="js/merge.js">
+<link rel="modulepreload" href="js/nav.js">
+<link rel="modulepreload" href="js/prompt.js">
+<link rel="modulepreload" href="js/protocol.js">
+<link rel="modulepreload" href="js/rate.js">
+<link rel="modulepreload" href="js/read.js">
+<link rel="modulepreload" href="js/scenarios.js">
+<link rel="modulepreload" href="js/settings.js">
+<link rel="modulepreload" href="js/state.js">
+<link rel="modulepreload" href="js/store.js">
+<link rel="modulepreload" href="js/util.js">
+<!--/PRELOAD-->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -58,6 +63,8 @@
 <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
 <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
 </defs></svg>
 
@@ -76,15 +83,13 @@
 <button id="back" aria-label="Retour"><svg class="i"><use href="#i-back"/></svg></button>
 <h1 id="ct"></h1>
 <button id="rd" aria-label="Lecture"><svg class="i"><use href="#i-type"/></svg></button>
-<button id="mb" aria-label="Mémoire"><svg class="i"><use href="#i-mem"/></svg></button>
-<button id="nt" aria-label="Note utilisateur"><svg class="i"><use href="#i-note"/></svg></button>
-<button id="sc" aria-label="Réglages du scénario"><svg class="i"><use href="#i-sliders"/></svg></button>
-<button id="cfg2" aria-label="Réglages IA"><svg class="i"><use href="#i-gear"/></svg></button>
+<button id="mo" aria-label="Options de l'histoire"><svg class="i"><use href="#i-more"/></svg></button>
 </header>
 <details id="stp" hidden><summary><span class="stl">État</span><span id="sts"></span></summary><div id="stg"></div></details>
-<div id="mw"><div id="msgs"></div><button id="bt" hidden aria-label="Aller en bas"><svg class="i"><use href="#i-down"/></svg></button></div>
+<div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><button id="bt" hidden aria-label="Aller en bas"><svg class="i"><use href="#i-down"/></svg></button></div>
 <div id="err" role="status"></div>
 <div id="tk"></div>
+<div id="rl" hidden><i class="bar"><u></u></i><span></span></div>
 <footer><div class="inb"><textarea id="inp" rows="1" placeholder="Votre tour"></textarea><button id="stop" hidden aria-label="Annuler"><svg class="i f"><use href="#i-stop"/></svg></button><button id="send" class="primary" aria-label="Envoyer"><svg class="i" style="stroke-width:2.6"><use href="#i-send"/></svg></button></div></footer>
 <div id="tts" hidden><span>Lecture</span><button id="tpp"></button><button id="tst" aria-label="Arrêter la lecture"><svg class="i f"><use href="#i-stop"/></svg></button></div>
 <div id="rbar" hidden>
@@ -107,38 +112,71 @@
 </div>
 </dialog>
 
+<dialog id="dmn">
+<h2>Options de l'histoire</h2>
+<div class="col">
+<button id="mf"><svg class="i"><use href="#i-search"/></svg>Rechercher dans l'histoire</button>
+<button id="msm"><svg class="i"><use href="#i-list"/></svg>Sommaire</button>
+<button id="mb"><svg class="i"><use href="#i-mem"/></svg>Mémoire</button>
+<button id="nt"><svg class="i"><use href="#i-note"/></svg>Note utilisateur</button>
+<button id="sc"><svg class="i"><use href="#i-sliders"/></svg>Réglages du scénario</button>
+<button id="cfg2"><svg class="i"><use href="#i-gear"/></svg>Réglages IA</button>
+<button id="dmnc">Fermer</button>
+</div>
+</dialog>
+
 <dialog id="ds">
 <h2>Scénario</h2>
 <label for="ssys">Prompt système</label>
 <textarea id="ssys"></textarea>
+<p id="scw" class="note warn" hidden></p>
 <label for="sav">Avatar</label>
 <textarea id="sav" style="min-height:80px"></textarea>
 <label for="snm">Nom du joueur</label>
 <input id="snm">
-<label for="smx">Longueur maximale de la réponse (tokens, vide = par défaut)</label>
-<input id="smx" type="number" min="1" inputmode="numeric">
-<label for="stp">Température (vide = réglages IA)</label>
-<input id="stp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
-<label for="stk">Top P (vide = réglages IA)</label>
-<input id="stk" type="number" min="0" max="1" step="0.05" inputmode="decimal">
-<label for="smm">Souvenirs injectés par réponse (défaut 3)</label>
+<div id="scv">
+<label>Couverture</label>
+<div class="cvr"><img id="scvi" alt="" hidden><button id="scva">Choisir une image</button><button id="scvx" hidden>Retirer</button></div>
+<input id="scvf" type="file" accept="image/*" hidden>
+</div>
+
+<details>
+<summary>Narration</summary>
+<label><input id="spre" type="checkbox">Ignorer le préambule commun</label>
+<label><input id="sch" type="checkbox">Proposer trois choix de réponse</label>
+<label for="scp">Consigne des choix</label>
+<textarea id="scp" style="min-height:70px" placeholder="Trois propositions courtes et variées, écrites à la première personne."></textarea>
+<label><input id="sst" type="checkbox">Panneau d'état (statistiques suivies par l'IA)</label>
+<label for="sstf">Champs à suivre</label>
+<textarea id="sstf" style="min-height:70px" placeholder="Lieu, Objectif, Santé (0/100), Humeur"></textarea>
+</details>
+
+<details>
+<summary>Mémoire et lorebook</summary>
+<label for="smm">Souvenirs injectés (les plus récents, défaut 20)</label>
 <input id="smm" type="number" min="0" inputmode="numeric">
 <label for="sld">Messages scannés pour le lorebook (défaut 2)</label>
 <input id="sld" type="number" min="1" inputmode="numeric">
 <label for="slm">Entrées de lorebook maximum (vide = toutes)</label>
 <input id="slm" type="number" min="1" inputmode="numeric">
-<label><input id="sch" type="checkbox" style="width:auto;padding:0;margin-right:8px">Proposer trois choix de réponse</label>
-<label for="scp">Consigne des choix</label>
-<textarea id="scp" style="min-height:70px" placeholder="Trois propositions courtes et variées, écrites à la première personne."></textarea>
-<label><input id="sst" type="checkbox" style="width:auto;padding:0;margin-right:8px">Panneau d'état (statistiques suivies par l'IA)</label>
-<label for="sstf">Champs à suivre</label>
-<textarea id="sstf" style="min-height:70px" placeholder="Lieu, Santé (0/100), Argent, Humeur"></textarea>
-<div id="simw" hidden>
-<label>Images détectées</label>
+</details>
+
+<details>
+<summary>Génération</summary>
+<label for="smx">Longueur maximale de la réponse (tokens, vide = par défaut)</label>
+<input id="smx" type="number" min="1" inputmode="numeric">
+<label for="stmp">Température (vide = réglages IA)</label>
+<input id="stmp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
+<label for="stk">Top P (vide = réglages IA)</label>
+<input id="stk" type="number" min="0" max="1" step="0.05" inputmode="decimal">
+</details>
+
+<details id="simw" hidden>
+<summary>Images détectées</summary>
 <p id="simn" class="note"></p>
 <div id="simg"></div>
 <div class="row l"><button id="simr">Recharger l'index</button></div>
-</div>
+</details>
 <div class="row"><button id="dsc">Annuler</button><button id="dss" class="primary">Enregistrer</button></div>
 </dialog>
 
@@ -146,10 +184,31 @@
 <h2>Mémoire</h2>
 <label for="msu">Résumé de l'histoire</label>
 <textarea id="msu"></textarea>
-<label for="mme">Souvenirs (un par ligne)</label>
-<textarea id="mme"></textarea>
+<label>Souvenirs</label>
+<div id="mml" class="chips"></div>
+<div class="row l"><input id="mmi" placeholder="Ajouter un souvenir"><button id="mma">Ajouter</button></div>
+<label>Relations</label>
+<div id="mrl" class="rels"></div>
+<div class="row l"><input id="mri" placeholder="Nom"><input id="mrv" placeholder="Relation"><button id="mra">Ajouter</button></div>
 <div class="row"><button id="dmc">Annuler</button><button id="dms" class="primary">Enregistrer</button></div>
 </dialog>
+
+<dialog id="dsr">
+<h2>Rechercher dans l'histoire</h2>
+<label class="sb"><svg class="i"><use href="#i-search"/></svg><input id="sri" type="search" placeholder="Mot ou phrase" aria-label="Rechercher"></label>
+<p id="srn" class="note"></p>
+<div id="srl" class="hits"></div>
+<div class="row"><button id="dsrc" class="primary">Fermer</button></div>
+</dialog>
+
+<dialog id="dsm">
+<h2>Sommaire</h2>
+<p class="note">Une ligne par message déjà résumé. Touchez pour y aller.</p>
+<div id="sml" class="hits"></div>
+<div class="row"><button id="dsmc" class="primary">Fermer</button></div>
+</dialog>
+
+<dialog id="dpic"><img id="dpici" alt=""></dialog>
 
 <dialog id="dq">
 <h2 id="dqt"></h2>
@@ -175,8 +234,16 @@
 <input id="cm" list="cml" autocomplete="off" autocapitalize="off">
 <datalist id="cml"></datalist>
 <div class="row l"><button id="cl">Lister les modèles</button></div>
-<label><input id="cn" type="checkbox" style="width:auto;padding:0;margin-right:8px">Désactiver le streaming pour ce fournisseur</label>
+<label for="cmm">Modèle pour la mémoire (vide = même modèle)</label>
+<input id="cmm" list="cml" autocomplete="off" autocapitalize="off">
+<p class="note">Les résumés de mémoire ne demandent pas votre meilleur modèle : un plus petit coûte moins cher et consomme moins de quota.</p>
+<label><input id="cn" type="checkbox">Désactiver le streaming pour ce fournisseur</label>
 <p id="cst" class="note"></p>
+<label for="cpre">Préambule commun à tous les scénarios</label>
+<textarea id="cpre" style="min-height:90px" placeholder="Vos préférences de narration : longueur, rythme, registre…"></textarea>
+<label for="cpr">Consignes de format</label>
+<select id="cpr"><option value="">Automatique (selon le modèle)</option><option value="full">Détaillées</option><option value="lean">Concises</option></select>
+<p class="note">Les formats de l'état, des choix et des images sont produits par l'application, pas par les scénarios. « Concises » économise des tokens sur les modèles qui suivent bien les consignes.</p>
 <label for="ctp">Température (vide = défaut du fournisseur)</label>
 <input id="ctp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
 <label for="ctk">Top P (vide = défaut du fournisseur)</label>
@@ -185,6 +252,9 @@
 <input id="ccx" type="number" min="1" inputmode="numeric" placeholder="8000">
 <label for="crs">Réserve pour la réponse (tokens, défaut 1000)</label>
 <input id="crs" type="number" min="0" inputmode="numeric" placeholder="1000">
+<label for="ctpm">Tokens par minute du fournisseur (vide = aucune jauge)</label>
+<input id="ctpm" type="number" min="0" inputmode="numeric" placeholder="8000">
+<p class="note">Sert de repli quand le fournisseur n'expose pas ses en-têtes de débit au navigateur. La valeur se corrige toute seule dès qu'une réponse en contient.</p>
 <p class="note">Avec une limite, l'application n'envoie que les messages récents qui tiennent dans « limite − réserve ». Les plus anciens sont résumés dans la mémoire.</p>
 <label for="crp">Dépôt GitHub (proprietaire/depot, vide = automatique)</label>
 <input id="crp" placeholder="proprietaire/depot" autocomplete="off" autocapitalize="off">
@@ -203,15 +273,21 @@
 <h2>Lecture</h2>
 <label for="lfs">Taille du texte : <span id="lfv"></span></label>
 <div class="fsr"><button id="lfm" aria-label="Réduire le texte">A−</button><input id="lfs" type="range" min="14" max="30" step="1"><button id="lfp" aria-label="Agrandir le texte">A+</button></div>
+<label for="llh">Interlignage : <span id="llv"></span></label>
+<input id="llh" type="range" min="1.4" max="2.1" step="0.05">
+<label for="lff">Police du récit</label>
+<select id="lff"><option value="ser">Serif</option><option value="sans">Sans serif</option></select>
+<label for="lcw">Largeur de colonne : <span id="lcv"></span></label>
+<input id="lcw" type="range" min="34" max="52" step="1">
 <p class="lprev">Le vent se lève sur la falaise, et les vagues frappent la roche sans relâche.</p>
-<label><input id="lrm" type="checkbox" style="width:auto;padding:0;margin-right:8px">Mode lecture (masque les boutons)</label>
-<label><input id="lfo" type="checkbox" style="width:auto;padding:0;margin-right:8px">Suivre le texte pendant l'écriture de l'IA (défilement automatique)</label>
+<label><input id="lrm" type="checkbox">Mode lecture (masque les boutons)</label>
+<label><input id="lfo" type="checkbox">Suivre le texte pendant l'écriture de l'IA (défilement automatique)</label>
 <div id="ltt">
 <label for="lvo">Voix</label>
 <select id="lvo"></select>
 <label for="lra">Vitesse : <span id="lrv"></span></label>
 <input id="lra" type="range" min="0.6" max="1.6" step="0.1">
-<label><input id="lau" type="checkbox" style="width:auto;padding:0;margin-right:8px">Lire automatiquement les nouvelles réponses</label>
+<label><input id="lau" type="checkbox">Lire automatiquement les nouvelles réponses</label>
 <div class="row l"><button id="ltest">Écouter un exemple</button></div>
 </div>
 <div class="row"><button id="lcl" class="primary">Fermer</button></div>

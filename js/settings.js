@@ -1,19 +1,32 @@
-import { render, tk } from './chat.js';
+import { jump, render, tk } from './chat.js';
 import { showList } from './list.js';
 import { statOn } from './prompt.js';
+import { conflicts } from './protocol.js';
+import { reset as rlReset } from './rate.js';
 import { TERR, getTree, loadCtx } from './scenarios.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { clean, put, save, saveSet } from './store.js';
-import { $, LS, dlg, esc, num } from './util.js';
+import { $, LS, dlg, el, ic, num, nz } from './util.js';
 
 export function openSc() {
   const c = app.cur.remote ? ctx : app.cur;
   $('#ssys').value = c.system;
   $('#sav').value = c.avatar;
   $('#ssys').readOnly = $('#sav').readOnly = !!app.cur.remote;
+  const cf = conflicts(c.system);
+  $('#scw').hidden = !cf.length;
+  $('#scw').textContent = cf.length
+    ? 'Ce prompt redéfinit ' +
+      cf.join(', ') +
+      " : l'application s'en charge désormais. Retirez ces consignes pour éviter que l'IA reçoive deux versions du même format."
+    : '';
+  $('#spre').checked = !!app.cur.noPre;
   $('#snm').value = app.cur.pname || '';
+  $('#scv').hidden = !!app.cur.remote;
+  COVER = app.cur.cover || '';
+  cvView();
   $('#smx').value = app.cur.maxTok || '';
-  $('#stp').value = app.cur.temp ?? '';
+  $('#stmp').value = app.cur.temp ?? '';
   $('#stk').value = app.cur.top ?? '';
   $('#smm').value = app.cur.memN ?? '';
   $('#sld').value = app.cur.loreDepth || '';
@@ -22,19 +35,23 @@ export function openSc() {
   $('#scp').value = app.cur.choicePrompt || '';
   $('#sst').checked = statOn(app.cur);
   $('#sstf').value = app.cur.statFields || '';
-  $('#sstf').placeholder = ctx.stat || 'Lieu, Santé (0/100), Argent, Humeur';
+  $('#sstf').placeholder = ctx.stat || 'Lieu, Objectif, Santé (0/100), Humeur';
   const im = ctx.images;
   $('#simw').hidden = !app.cur.remote;
   $('#simn').textContent =
     (im.length
       ? im.length + (im.length > 1 ? ' images détectées.' : ' image détectée.')
       : 'Aucune image détectée dans personnages/<Nom>/.') + (TERR ? ' Index : ' + TERR + '.' : '');
-  $('#simg').innerHTML = im
-    .map(
-      i =>
-        `<figure><img src="${esc(i.url)}" alt="" loading="lazy" decoding="async"><figcaption>${esc(i.code)}</figcaption></figure>`
+  $('#simg').replaceChildren(
+    ...im.map(i =>
+      el(
+        'figure',
+        null,
+        el('img', { src: i.url, alt: '', loading: 'lazy', decoding: 'async' }),
+        el('figcaption', { text: i.code })
+      )
     )
-    .join('');
+  );
   if (!$('#ds').open) $('#ds').showModal();
 }
 $('#simr').onclick = async () => {
@@ -43,23 +60,96 @@ $('#simr').onclick = async () => {
   openSc();
   render();
 };
-$('#sc').onclick = openSc;
+$('#mo').onclick = () => $('#dmn').showModal();
+$('#dmnc').onclick = () => $('#dmn').close();
+$('#sc').onclick = () => {
+  $('#dmn').close();
+  openSc();
+};
+let MM = [],
+  MR = [];
+const memView = () => {
+  $('#mml').replaceChildren(
+    ...(MM.length
+      ? MM.map((t, i) =>
+          el(
+            'span',
+            { class: 'chip2' },
+            t,
+            el(
+              'button',
+              {
+                'aria-label': 'Retirer',
+                onclick: () => {
+                  MM.splice(i, 1);
+                  memView();
+                }
+              },
+              ic('x', 14)
+            )
+          )
+        )
+      : [el('p', { class: 'note', text: 'Aucun souvenir pour le moment.' })])
+  );
+  $('#mrl').replaceChildren(
+    ...(MR.length
+      ? MR.map((r, i) =>
+          el(
+            'div',
+            { class: 'rel' },
+            el('b', { text: r.k }),
+            el('input', { value: r.v, oninput: e => (MR[i].v = e.target.value) }),
+            el(
+              'button',
+              {
+                'aria-label': 'Retirer',
+                onclick: () => {
+                  MR.splice(i, 1);
+                  memView();
+                }
+              },
+              ic('trash', 16)
+            )
+          )
+        )
+      : [el('p', { class: 'note', text: 'Aucune relation suivie.' })])
+  );
+};
 $('#mb').onclick = () => {
+  $('#dmn').close();
   $('#msu').value = app.cur.mem.summary;
-  $('#mme').value = app.cur.mem.memories.join('\n');
+  MM = [...app.cur.mem.memories];
+  MR = Object.entries(app.cur.mem.relations || {}).map(([k, v]) => ({ k, v }));
+  $('#mmi').value = $('#mri').value = $('#mrv').value = '';
+  memView();
   $('#dm').showModal();
+};
+$('#mma').onclick = () => {
+  const v = $('#mmi').value.trim();
+  if (!v) return;
+  MM.push(v);
+  $('#mmi').value = '';
+  memView();
+};
+$('#mra').onclick = () => {
+  const k = $('#mri').value.trim(),
+    v = $('#mrv').value.trim();
+  if (!k || !v) return;
+  MR.push({ k, v });
+  $('#mri').value = $('#mrv').value = '';
+  memView();
 };
 $('#dmc').onclick = () => $('#dm').close();
 $('#dms').onclick = async () => {
   app.cur.mem.summary = $('#msu').value;
-  app.cur.mem.memories = $('#mme')
-    .value.split('\n')
-    .map(x => x.trim())
-    .filter(Boolean);
+  app.cur.mem.memories = MM;
+  app.cur.mem.relations = Object.fromEntries(MR.filter(r => r.k && r.v).map(r => [r.k, r.v]));
   await save();
+  render();
   $('#dm').close();
 };
 $('#nt').onclick = () => {
+  $('#dmn').close();
   $('#nti').value = app.cur.note || '';
   $('#dn').showModal();
 };
@@ -76,13 +166,15 @@ $('#dss').onclick = async () => {
     app.cur.avatar = $('#sav').value;
   }
   app.cur.pname = $('#snm').value.trim();
+  app.cur.cover = COVER;
   app.cur.maxTok = +$('#smx').value || 0;
-  app.cur.temp = num('#stp');
+  app.cur.temp = num('#stmp');
   app.cur.top = num('#stk');
   app.cur.memN = num('#smm');
   app.cur.loreDepth = +$('#sld').value || 0;
   app.cur.loreMax = +$('#slm').value || 0;
   app.cur.noChoices = !$('#sch').checked;
+  app.cur.noPre = $('#spre').checked;
   app.cur.choicePrompt = $('#scp').value.trim();
   app.cur.stat = $('#sst').checked;
   app.cur.statFields = $('#sstf').value.trim();
@@ -90,14 +182,16 @@ $('#dss').onclick = async () => {
   render();
   $('#ds').close();
 };
-$('#cp').innerHTML = Object.entries(PROVIDERS)
-  .map(([k, v]) => `<option value="${k}">${v.n}</option>`)
-  .join('');
+$('#cp').replaceChildren(
+  ...Object.entries(PROVIDERS).map(([k, v]) => el('option', { value: k, text: v.n }))
+);
 function fillCfg() {
   const p = $('#cp').value;
   $('#ck').value = S.keys[p] || '';
   $('#cm').value = S.models[p] || '';
   $('#cm').placeholder = PROVIDERS[p].m;
+  $('#cmm').value = S.memModels?.[p] || '';
+  $('#cmm').placeholder = S.models[p] || PROVIDERS[p].m;
   $('#cn').checked = !!S.ns?.[p];
 }
 const streamInfo = () => {
@@ -125,16 +219,27 @@ const streamInfo = () => {
 function openCfg() {
   $('#cp').value = S.provider;
   fillCfg();
-  $('#cst').textContent = streamInfo();
+  $('#cst').textContent =
+    streamInfo() +
+    (S.cpt ? ' Estimation calibrée : ' + S.cpt.toFixed(2) + ' caractères par token.' : '') +
+    (S.nj?.[S.provider]
+      ? ' Mémoire : réponses en texte balisé (ce fournisseur refuse le mode JSON).'
+      : ' Mémoire : réponses en JSON.');
   $('#ctp').value = S.temp ?? '';
   $('#ctk').value = S.top ?? '';
   $('#ccx').value = S.ctxLim || '';
   $('#crs').value = S.reserve || '';
+  $('#ctpm').value = S.tpm || '';
   $('#crp').value = S.repo || '';
+  $('#cpre').value = S.pre || '';
+  $('#cpr').value = S.proto || '';
   $('#dc').showModal();
 }
 $('#cfg').onclick = openCfg;
-$('#cfg2').onclick = openCfg;
+$('#cfg2').onclick = () => {
+  $('#dmn').close();
+  openCfg();
+};
 $('#cp').onchange = fillCfg;
 $('#cl').onclick = async () => {
   const p = $('#cp').value,
@@ -153,7 +258,7 @@ $('#cl').onclick = async () => {
       .filter(Boolean)
       .sort();
     if (!a.length) throw new Error(j.error?.message || 'liste vide');
-    $('#cml').innerHTML = a.map(x => `<option value="${esc(x)}">`).join('');
+    $('#cml').replaceChildren(...a.map(x => el('option', { value: x })));
     dlg(a.length + ' modèles', {
       m: 'Effacez le champ Modèle puis touchez-le pour choisir dans la liste.'
     });
@@ -187,18 +292,136 @@ $('#imf').onchange = async e => {
 $('#dcc').onclick = () => $('#dc').close();
 $('#dcs').onclick = async () => {
   const p = $('#cp').value;
+  if (p !== S.provider || $('#cm').value.trim() !== (S.models[S.provider] || '')) rlReset();
   S.provider = p;
   S.keys[p] = $('#ck').value.trim();
   S.models[p] = $('#cm').value.trim();
+  (S.memModels ??= {})[p] = $('#cmm').value.trim();
   (S.ns ??= {})[p] = $('#cn').checked;
   const rp = $('#crp').value.trim();
   if (rp !== (S.repo || '')) LS.del('tree');
   S.repo = rp;
   S.temp = num('#ctp');
   S.top = num('#ctk');
+  S.pre = $('#cpre').value.trim();
+  S.proto = $('#cpr').value;
   S.ctxLim = +$('#ccx').value || 0;
   S.reserve = +$('#crs').value || 0;
+  S.tpm = +$('#ctpm').value || 0;
   await saveSet();
   $('#dc').close();
   if (app.cur) tk();
+};
+
+const SNIP = (t, q) => {
+  const i = nz(t).indexOf(q);
+  if (i < 0) return t.slice(0, 90);
+  const a = Math.max(0, i - 30);
+  return (a ? '…' : '') + t.slice(a, i + q.length + 60).trim() + '…';
+};
+const hit = (i, role, text, onGo) =>
+  el(
+    'button',
+    { class: 'hit', onclick: onGo },
+    el('span', { class: 'who', text: role == 'user' ? 'Joueur' : 'Récit' }),
+    el('span', { text })
+  );
+function srRun() {
+  const q = nz($('#sri').value.trim());
+  if (q.length < 2) {
+    $('#srn').textContent = 'Saisissez au moins deux caractères.';
+    $('#srl').replaceChildren();
+    return;
+  }
+  const r = app.cur.messages
+    .map((m, i) => ({ m, i }))
+    .filter(x => nz(x.m.content).includes(q))
+    .slice(-60)
+    .reverse();
+  $('#srn').textContent = r.length
+    ? r.length + (r.length > 1 ? ' messages trouvés.' : ' message trouvé.')
+    : 'Aucun résultat.';
+  $('#srl').replaceChildren(
+    ...r.map(x =>
+      hit(x.i, x.m.role, SNIP(x.m.content, q), () => {
+        $('#dsr').close();
+        jump(x.i);
+      })
+    )
+  );
+}
+$('#mf').onclick = () => {
+  $('#dmn').close();
+  $('#sri').value = '';
+  $('#srn').textContent = '';
+  $('#srl').replaceChildren();
+  $('#dsr').showModal();
+  $('#sri').focus();
+};
+let srT;
+$('#sri').oninput = () => {
+  clearTimeout(srT);
+  srT = setTimeout(srRun, 180);
+};
+$('#dsrc').onclick = () => $('#dsr').close();
+$('#msm').onclick = () => {
+  $('#dmn').close();
+  const L = app.cur.mem.lines || [];
+  $('#sml').replaceChildren(
+    ...(L.length
+      ? L.map(x =>
+          hit(x.i, 'assistant', x.t, () => {
+            $('#dsm').close();
+            if (x.i >= 0) jump(x.i);
+          })
+        )
+      : [el('p', { class: 'note', text: 'Le sommaire se remplit à mesure que la mémoire résume les messages.' })])
+  );
+  $('#dsm').showModal();
+};
+$('#dsmc').onclick = () => $('#dsm').close();
+
+const shrink = f =>
+  new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const w = Math.min(600, im.width),
+          h = Math.round((im.height * w) / im.width),
+          c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(im, 0, 0, w, h);
+        res(c.toDataURL('image/webp', 0.75));
+      };
+      im.onerror = () => res('');
+      im.src = r.result;
+    };
+    r.onerror = () => res('');
+    r.readAsDataURL(f);
+  });
+let COVER = '';
+const cvView = () => {
+  $('#scvi').hidden = !COVER;
+  $('#scvi').src = COVER || '';
+  $('#scvx').hidden = !COVER;
+  $('#scva').textContent = COVER ? 'Changer' : 'Choisir une image';
+};
+$('#scva').onclick = () => $('#scvf').click();
+$('#scvx').onclick = () => {
+  COVER = '';
+  cvView();
+};
+$('#scvf').onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const d = await shrink(f);
+  if (!d) {
+    dlg('Image illisible');
+    return;
+  }
+  COVER = d;
+  cvView();
 };

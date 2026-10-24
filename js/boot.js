@@ -111,6 +111,9 @@
     warn: function (m) {
       add(m, true);
     },
+    fail: function (m) {
+      add(m, false);
+    },
     repair: repair
   };
   setTimeout(function () {

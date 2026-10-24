@@ -10,7 +10,7 @@ import './nav.js';
 import './settings.js';
 import './backup.js';
 
-const VERSION = '11';
+const VERSION = '877a034757';
 const pv = document.querySelector('meta[name="app-version"]')?.content;
 if (pv !== VERSION)
   window.__boot?.warn(
@@ -31,4 +31,9 @@ openDB()
   .then(() => {
     if (S.bk?.p == 'drive') gis().catch(() => {});
     sync();
-  });
+  })
+  .catch(e =>
+    window.__boot?.fail(
+      'Stockage local indisponible (navigation privée ?) : ' + (e?.message || e)
+    )
+  );

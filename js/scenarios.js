@@ -4,6 +4,7 @@ import { LS, ikey, nz } from './util.js';
 let TREE = null;
 export let TERR = '';
 export const coverOf = s => {
+  if (s.cover) return s.cover;
   if (!s.remote || !s.folder) return '';
   let T = TREE;
   if (!T) {
@@ -91,9 +92,32 @@ export async function getTree(force) {
   if (TERR && !TREE && c) TREE = c.p;
   return TREE || [];
 }
+const fiche = t => {
+  const ls = t.split(/\r?\n/);
+  let sum = '',
+    always = false,
+    keys = [],
+    i = 0;
+  for (; i < ls.length; i++) {
+    const m = ls[i].match(/^\s*(r[ée]sum[ée]|toujours|mots[-\s]?cl[ée]s)\s*(?::\s*(.*))?$/i);
+    if (!m) break;
+    const n = nz(m[1]),
+      v = (m[2] || '').trim();
+    if (n.startsWith('res')) sum = v;
+    else if (n == 'toujours') always = !/^(non|false|0)$/i.test(v);
+    else keys = v.split(',').map(x => x.trim()).filter(Boolean);
+  }
+  const text = ls.slice(i).join('\n').trim();
+  return {
+    sum: sum || text.split(/\n+/)[0]?.replace(/^#+\s*/, '').slice(0, 140) || '',
+    always,
+    keys,
+    text
+  };
+};
 export async function loadCtx() {
   for (const k in IMG) delete IMG[k];
-  Object.assign(ctx, { system: '', avatar: '', extra: '', lore: [], images: [], stat: '' });
+  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '' });
   if (!app.cur.remote) return;
   const base = 'scenarios/' + app.cur.folder + '/',
     pb = base + 'personnages/';
@@ -110,11 +134,10 @@ export async function loadCtx() {
     if (!file || rest.length) continue;
     (ch[n] ??= []).push(file);
   }
-  let extra = '',
-    codes = [];
-  const images = [];
-  const fp = [];
+  const images = [],
+    fp = [];
   for (const [n, files] of Object.entries(ch)) {
+    const own = [];
     for (const f of files) {
       const m = f.match(/^(.+)\.(webp|png|jpe?g|gif)$/i);
       if (m) {
@@ -122,18 +145,36 @@ export async function loadCtx() {
         IMG[c] = encodeURI(pb + n + '/' + f);
         IMG[ikey(c)] ??= IMG[c];
         images.push({ code: c, url: IMG[c] });
-        codes.push(c);
+        own.push(c);
       }
     }
     if (files.includes('fiche.md'))
-      fp.push(txt(pb + n + '/fiche.md').then(t => '\n\n# Personnage : ' + n + '\n' + t));
+      fp.push(
+        txt(pb + n + '/fiche.md').then(t => {
+          const F = fiche(t);
+          return {
+            name: n,
+            sum: F.sum,
+            text: F.text,
+            always: F.always,
+            images: own,
+            keys: [n, ...F.keys].map(k => kre(nz(k))).filter(Boolean)
+          };
+        })
+      );
+    else if (own.length)
+      fp.push(
+        Promise.resolve({
+          name: n,
+          sum: '',
+          text: '',
+          always: false,
+          images: own,
+          keys: [kre(nz(n))].filter(Boolean)
+        })
+      );
   }
-  extra = (await Promise.all(fp)).join('');
-  if (codes.length)
-    extra +=
-      '\n\n# Images\nCodes disponibles : ' +
-      codes.join(', ') +
-      '\nPour afficher une image, écris {{img::code}} seul sur sa propre ligne, avec un code de cette liste.';
+  const chars = (await Promise.all(fp)).filter(x => x.text || x.images.length);
   const lb = base + 'lorebook/';
   const lore = (
     await Promise.all(
@@ -166,5 +207,5 @@ export async function loadCtx() {
     })
     .filter(Boolean);
   images.sort((x, y) => x.code.localeCompare(y.code));
-  Object.assign(ctx, { system, avatar, extra, lore, images, stat });
+  Object.assign(ctx, { system, avatar, chars, lore, images, stat });
 }

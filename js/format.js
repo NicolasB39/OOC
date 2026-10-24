@@ -1,13 +1,6 @@
 import { IMG, app, ctx } from './state.js';
-import { esc, ikey } from './util.js';
+import { el, ikey } from './util.js';
 
-const fmt = t =>
-  t
-    .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
-    .replace(/\*([^*]+?)\*/g, '<span class="act">$1</span>')
-    .replace(/(^|[\s(])_([^_\n]+?)_(?=$|[\s.,;:!?)])/g, '$1<span class="act">$2</span>')
-    .replace(/\n?^-{3,}$\n?/gm, '<hr>')
-    .replace(/^&gt; ?(.*)$\n?/gm, '<span class="q">$1</span>');
 export const CHX = /<choix>[\s\S]*?(?:<\/choix>|$)/gi;
 export const ETX = /<etat>[\s\S]*?(?:<\/etat>|$)/gi;
 export const parseEtat = t => {
@@ -23,27 +16,6 @@ export const parseEtat = t => {
     .filter(e => e && e[0] && e[1])
     .slice(0, 12);
 };
-export const lastEtat = ms => {
-  for (let i = ms.length - 1; i >= 0; i--) {
-    if (ms[i].role != 'assistant') continue;
-    const e = parseEtat(ms[i].content);
-    if (e.length) return e;
-  }
-  return null;
-};
-const imgFor = c => {
-  c = c.trim();
-  const k = ikey(c);
-  if (IMG[c.toLowerCase()] || IMG[k]) return IMG[c.toLowerCase()] || IMG[k];
-  const m = ctx.images.filter(i => ikey(i.code).endsWith('_' + k));
-  return m.length == 1 ? m[0].url : '';
-};
-const imgTag = c => {
-  const u = imgFor(c);
-  return u
-    ? `<img class="pic" src="${esc(u)}" alt="" loading="lazy" decoding="async">`
-    : `<span class="miss">image introuvable : ${esc(c.trim())}</span>`;
-};
 export const choicesOf = t => {
   const m = t.match(/<choix>([\s\S]*?)<\/choix>/i);
   return m
@@ -54,11 +26,81 @@ export const choicesOf = t => {
         .slice(0, 3)
     : [];
 };
-export const body = t =>
-  t
-    .replace(CHX, '')
+export const split = raw => {
+  const o = { content: raw.replace(CHX, '').replace(ETX, '').trim() },
+    c = choicesOf(raw),
+    s = parseEtat(raw);
+  if (c.length) o.choices = c;
+  if (s.length) o.state = s;
+  return o;
+};
+export const raw = m =>
+  m.content +
+  (m.state?.length ? '\n\n<etat>\n' + m.state.map(([k, v]) => k + ': ' + v).join('\n') + '\n</etat>' : '') +
+  (m.choices?.length
+    ? '\n\n<choix>\n' + m.choices.map((c, i) => i + 1 + '. ' + c).join('\n') + '\n</choix>'
+    : '');
+export const lastEtat = ms => {
+  for (let i = ms.length - 1; i >= 0; i--)
+    if (ms[i].role == 'assistant' && ms[i].state?.length) return ms[i].state;
+  return null;
+};
+const imgFor = c => {
+  c = c.trim();
+  const k = ikey(c);
+  if (IMG[c.toLowerCase()] || IMG[k]) return IMG[c.toLowerCase()] || IMG[k];
+  const m = ctx.images.filter(i => ikey(i.code).endsWith('_' + k));
+  return m.length == 1 ? m[0].url : '';
+};
+const imgNode = c => {
+  const u = imgFor(c);
+  return u
+    ? el('img', { class: 'pic', src: u, alt: '', loading: 'lazy', decoding: 'async' })
+    : el('span', { class: 'miss', text: 'image introuvable : ' + c.trim() });
+};
+const INL = /\*\*([^*]+?)\*\*|\*([^*]+?)\*|(^|[\s(])_([^_\n]+?)_(?=$|[\s.,;:!?)])/g;
+const inline = (s, out) => {
+  let i = 0,
+    m;
+  INL.lastIndex = 0;
+  while ((m = INL.exec(s))) {
+    if (m.index > i) out.push(s.slice(i, m.index));
+    if (m[1] != null) out.push(el('b', { text: m[1] }));
+    else if (m[2] != null) out.push(el('span', { class: 'act', text: m[2] }));
+    else {
+      if (m[3]) out.push(m[3]);
+      out.push(el('span', { class: 'act', text: m[4] }));
+    }
+    i = INL.lastIndex;
+  }
+  if (i < s.length) out.push(s.slice(i));
+};
+const blocks = (s, out) => {
+  let buf = [];
+  const flush = nl => {
+    if (!buf.length) return;
+    inline(buf.join('\n') + (nl ? '\n' : ''), out);
+    buf = [];
+  };
+  for (const ln of s.split('\n')) {
+    if (/^-{3,}$/.test(ln)) {
+      flush(false);
+      out.push(el('hr'));
+    } else if (/^> ?/.test(ln)) {
+      flush(true);
+      const q = [];
+      inline(ln.replace(/^> ?/, ''), q);
+      out.push(el('span', { class: 'q' }, q));
+    } else buf.push(ln);
+  }
+  flush(false);
+};
+export const body = t => {
+  const out = [];
+  t.replace(CHX, '')
     .replace(ETX, '')
     .replace(/\{\{user\}\}/gi, app.cur?.pname?.trim() || 'Joueur')
     .split(/\{\{img::([^}]*)\}\}/g)
-    .map((s, i) => (i % 2 ? imgTag(s) : fmt(esc(s.replace(/^\n+|\n+$/g, '')))))
-    .join('');
+    .forEach((x, i) => (i % 2 ? out.push(imgNode(x)) : blocks(x.replace(/^\n+|\n+$/g, ''), out)));
+  return out;
+};

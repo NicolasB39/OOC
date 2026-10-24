@@ -23,8 +23,35 @@ export const $ = s => {
   (window.__missing ??= new Set()).add(s);
   return stub;
 };
-export const ic = (n, s) =>
-  `<svg class="i${n == 'logo' ? ' logo' : ''}"${s ? ` style="width:${s}px;height:${s}px"` : ''} aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const NS = 'http://www.w3.org/2000/svg';
+export const el = (t, p, ...c) => {
+  const e = document.createElement(t);
+  for (const k in p || {}) {
+    const v = p[k];
+    if (v == null || v === false) continue;
+    if (k == 'class') e.className = v;
+    else if (k == 'text') e.textContent = v;
+    else if (k == 'data') for (const d in v) e.dataset[d] = v[d];
+    else if (k.startsWith('on')) e[k] = v;
+    else if (k in e && typeof e[k] == 'boolean') e[k] = !!v;
+    else e.setAttribute(k, v);
+  }
+  for (const x of c.flat(9)) if (x != null && x !== false) e.append(x);
+  return e;
+};
+export const ic = (n, s) => {
+  const e = document.createElementNS(NS, 'svg'),
+    u = document.createElementNS(NS, 'use');
+  e.setAttribute('class', 'i' + (n == 'logo' ? ' logo' : ''));
+  e.setAttribute('aria-hidden', 'true');
+  if (s) {
+    e.style.width = s + 'px';
+    e.style.height = s + 'px';
+  }
+  u.setAttribute('href', '#i-' + n);
+  e.append(u);
+  return e;
+};
 export const hue = s => {
   let x = 0;
   for (const c of s) x = (x * 31 + c.charCodeAt(0)) % 360;
@@ -43,8 +70,6 @@ export const ago = t => {
       ? 'il y a ' + d + ' j'
       : new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 };
-export const esc = t =>
-  String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 export const LS = {
   get: k => {
     try {
@@ -87,12 +112,18 @@ export const dlg = (t, { m = '', v = null, ok = 'OK', no = 'Annuler' } = {}) =>
   });
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 export const strip = t => t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim();
-export const plain = t =>
+export const plain = (t, nm) =>
   t
     .replace(/<choix>[\s\S]*?(?:<\/choix>|$)/gi, '')
     .replace(/<etat>[\s\S]*?(?:<\/etat>|$)/gi, '')
     .replace(/\{\{img::[^}]*\}\}/g, '')
+    .replace(/\{\{user\}\}/gi, nm?.trim() || 'Joueur')
     .trim();
+export const err = (t, bad) => {
+  const e = $('#err');
+  e.textContent = t;
+  e.className = t && bad ? 'e' : '';
+};
 export const num = s => ($(s).value === '' ? null : +$(s).value);
 export const fit = () => {
   const i = $('#inp');

@@ -1,7 +1,19 @@
 import { S, app } from './state.js';
-import { LS } from './util.js';
+import { split } from './format.js';
+import { LS, plain } from './util.js';
 
 let db;
+const one = m => {
+  const r = { role: m.role, content: m.content };
+  if (Array.isArray(m.choices) || Array.isArray(m.state)) {
+    const c = (m.choices || []).filter(x => typeof x == 'string').slice(0, 3),
+      t = (m.state || []).filter(e => Array.isArray(e) && e.length == 2).slice(0, 12);
+    if (c.length) r.choices = c;
+    if (t.length) r.state = t;
+    return r;
+  }
+  return { role: m.role, ...split(m.content) };
+};
 export const clean = x => {
   if (!x || typeof x.id != 'string' || !x.id || !Array.isArray(x.messages)) return null;
   const s = v => (typeof v == 'string' ? v : ''),
@@ -10,14 +22,27 @@ export const clean = x => {
   const messages = x.messages
     .filter(m => m && (m.role == 'user' || m.role == 'assistant') && typeof m.content == 'string')
     .map(m => {
-      const r = { role: m.role, content: m.content };
-      if (Array.isArray(m.alts) && m.alts.length > 1 && m.alts.every(a => typeof a == 'string')) {
-        r.alts = m.alts;
-        r.ai = Math.min(Math.max(0 | m.ai, 0), m.alts.length - 1);
+      const r = one(m);
+      const a = Array.isArray(m.alts)
+        ? m.alts.map(v =>
+            typeof v == 'string'
+              ? { role: m.role, ...split(v) }
+              : v && typeof v.content == 'string'
+                ? one({ ...v, role: m.role })
+                : null
+          )
+        : null;
+      if (a && a.length > 1 && a.every(Boolean)) {
+        r.alts = a.map(({ role, ...rest }) => rest);
+        r.ai = Math.min(Math.max(0 | m.ai, 0), r.alts.length - 1);
       }
       return r;
     });
   const mm = x.mem || {};
+  const rel = {};
+  if (mm.relations && typeof mm.relations == 'object')
+    for (const k of Object.keys(mm.relations).slice(0, 20))
+      if (typeof mm.relations[k] == 'string') rel[k] = mm.relations[k];
   return {
     id: x.id,
     name: s(x.name).trim() || 'Sans titre',
@@ -30,6 +55,8 @@ export const clean = x => {
     note: s(x.note),
     choicePrompt: s(x.choicePrompt),
     noChoices: !!x.noChoices,
+    noPre: !!x.noPre,
+    cover: typeof x.cover == 'string' && x.cover.startsWith('data:') ? x.cover : '',
     maxTok: n(x.maxTok),
     temp: o(x.temp),
     top: o(x.top),
@@ -42,6 +69,15 @@ export const clean = x => {
     mem: {
       summary: s(mm.summary),
       memories: Array.isArray(mm.memories) ? mm.memories.filter(v => typeof v == 'string') : [],
+      lines: Array.isArray(mm.lines)
+        ? mm.lines
+            .map(v => (typeof v == 'string' ? { i: -1, t: v } : v))
+            .filter(v => v && typeof v.t == 'string')
+            .map(v => ({ i: 0 | v.i, t: v.t }))
+            .slice(-24)
+        : [],
+      relations: rel,
+      win: Math.min(n(mm.win), messages.length),
       upto: Math.min(n(mm.upto), messages.length)
     }
   };
@@ -49,10 +85,7 @@ export const clean = x => {
 const pvOf = s => {
   const m = s.messages?.at(-1);
   return m
-    ? m.content
-        .replace(/<choix>[\s\S]*?(?:<\/choix>|$)/gi, '')
-        .replace(/<etat>[\s\S]*?(?:<\/etat>|$)/gi, '')
-        .replace(/\{\{img::[^}]*\}\}/g, '')
+    ? plain(m.content, s.pname)
         .replace(/[*_#>]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
@@ -65,6 +98,7 @@ const META = s => ({
   updated: s.updated,
   remote: s.remote,
   folder: s.folder,
+  cover: s.cover || '',
   n: s.messages?.length || 0,
   pv: pvOf(s)
 });
@@ -103,7 +137,7 @@ const tx = (st, m, fn) =>
   });
 export const getAll = () => tx('meta', 'readonly', s => s.getAll());
 export const getFull = () => tx('scenarios', 'readonly', s => s.getAll());
-export const getOne = id => tx('scenarios', 'readonly', s => s.get(id));
+export const getOne = id => tx('scenarios', 'readonly', s => s.get(id)).then(r => (r ? clean(r) : r));
 const both = fn =>
   new Promise((res, rej) => {
     const t = db.transaction(['scenarios', 'meta'], 'readwrite');
@@ -120,6 +154,7 @@ export const put = o => {
 };
 export const del = id => {
   LS.set('bkd', 1);
+  LS.del('draft:' + id);
   return both((a, m) => {
     a.delete(id);
     m.delete(id);
