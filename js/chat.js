@@ -337,6 +337,7 @@ export function render(sc) {
           );
   }
   tk(info);
+  navView();
   refreshSpeech();
 }
 async function delFrom(i) {
@@ -603,6 +604,11 @@ const goTurn = d => {
   if (e) e.scrollIntoView({ block: 'start', behavior: 'smooth' });
   else w.scrollTo({ top: d < 0 ? 0 : w.scrollHeight, behavior: 'smooth' });
 };
+const navView = () => {
+  const m = $('#msgs');
+  $('#nav').hidden = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
+};
+$('#msgs').onscroll = navView;
 $('#nvp').onclick = () => goTurn(-1);
 $('#nvn').onclick = () => goTurn(1);
 $('#ast').onclick = () => {

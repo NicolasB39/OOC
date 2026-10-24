@@ -724,7 +724,7 @@ hr {
     opacity: 0.25;
   }
 }
-.nav {
+#nav {
   position: absolute;
   right: 12px;
   bottom: 16px;
@@ -733,7 +733,7 @@ hr {
   gap: 8px;
   opacity: 0.86;
 }
-.nav button {
+#nav button {
   width: 42px;
   height: 42px;
   padding: 0;

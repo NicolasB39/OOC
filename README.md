@@ -97,7 +97,7 @@ Thème sombre inspiré des applications de fiction interactive : fond noir, acce
 
 La conversation, elle, **n'utilise pas de bulles** : chaque tour occupe la largeur de la colonne et un filet le sépare du suivant, pour qu'une longue partie se lise comme une page plutôt que comme une messagerie. Le tour du joueur se distingue par son alignement à droite. Le texte entre astérisques (`*un geste*`) s'affiche en gris, la parole en blanc : c'est le même deux-tons dans le récit et dans les suggestions de réponse.
 
-Les deux ronds en bas à droite sautent d'un tour au précédent ou au suivant, et le bouton `✱` du composer encadre la sélection d'astérisques.
+Les deux ronds en bas à droite sautent d'un tour au précédent ou au suivant ; ils disparaissent dès qu'on atteint le bas du fil, là où ils ne serviraient qu'à masquer les propositions de réponse. Le bouton `✱` du composer encadre la sélection d'astérisques.
 
 Le laiton `#e8b45c` est réservé aux **actions** : bouton « Nouveau », « Reprendre », boutons Enregistrer. Les **états** (onglet actif, badge « Nouveau », avertissement) n'en prennent qu'une version teintée, bordée, sur fond sombre, pour qu'un badge ne pèse pas autant qu'un bouton. Le rouge `#ff6b6b` reste réservé aux erreurs et aux actions destructrices. Les surfaces s'étagent du fond vers les cartes, les champs et les menus, et les contrôles (champ de saisie, listes, cartes de choix) portent une bordure plus claire que les simples séparateurs, pour rester visibles en plein soleil.
 
