@@ -16,7 +16,6 @@
   color-scheme: dark;
   --pg: 0.7em;
   --pin: 0;
-  --hl: calc((var(--lh) - 1) * 0.5em);
   --fs: 17px;
   --lh: 1.7;
   --cw: 45em;
@@ -559,7 +558,17 @@ header button:hover {
 }
 .b p:has(+ .pic),
 .b p:has(+ .miss) {
-  margin-bottom: 0;
+  margin-bottom: 3px;
+}
+.b .pic + p,
+.b .miss + p {
+  margin-top: 3px;
+}
+.b .pic + .pic,
+.b .pic + .miss,
+.b .miss + .pic,
+.b .miss + .miss {
+  margin-top: 10px;
 }
 .b b {
   color: #fff;
@@ -584,7 +593,7 @@ hr {
   max-width: 100%;
   max-height: 60vh;
   border-radius: 14px;
-  margin-block: calc(0.15em - var(--hl));
+  margin-block: 0;
 }
 .m .a {
   display: flex;
@@ -638,18 +647,26 @@ hr {
   align-items: stretch;
   gap: 6px;
 }
-.ch .cht {
+.chb {
   flex: 1;
   min-width: 0;
-  text-align: left;
-  padding: 13px 15px;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 11px 11px 11px 15px;
   border: 1px solid var(--bdi);
   border-radius: 16px;
   background: var(--s1);
+}
+.ch .cht {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  text-align: left;
+  border-radius: 10px;
   font: calc(var(--fs) - 1px) / 1.5 var(--rf);
 }
-.ch .che,
-.ch .chs {
+.ch .che {
   flex: none;
   width: 44px;
   display: grid;
@@ -661,6 +678,15 @@ hr {
   color: var(--mu);
 }
 .ch .chs {
+  flex: none;
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 12px;
+  background: var(--s2);
   color: var(--ac);
 }
 .ch .che:hover,
@@ -1066,7 +1092,7 @@ dialog label:has(> input[type='checkbox']) {
 .miss {
   display: block;
   width: fit-content;
-  margin-block: calc(0.15em - var(--hl));
+  margin-block: 0;
   padding: 4px 12px;
   border: 1px dashed var(--bd);
   border-radius: 999px;

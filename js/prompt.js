@@ -81,6 +81,7 @@ export function buildInfo(s, cont) {
     fields: statFields(s).replace(/\s*\n+\s*/g, ', '),
     choices: !s.noChoices,
     prompt: s.choicePrompt?.trim(),
+    style: !s.noStyle,
     images: (ctx.images || []).length > 0
   });
   sys += P.sys;

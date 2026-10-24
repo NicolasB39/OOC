@@ -43,8 +43,13 @@ test('le rappel ne liste que les blocs activés', () => {
 });
 
 test('aucun format n’est émis pour ce qui est désactivé', () => {
-  const p = protocol({ stat: false, choices: false, images: false });
+  const p = protocol({ stat: false, choices: false, images: false, style: false });
   assert.equal(p.sys, '');
+});
+
+test('la consigne de style est émise par défaut', () => {
+  assert.match(protocol({ stat: false, choices: false, images: false }).sys, /astérisques/);
+  assert.match(protocol({ choices: true }).sys, /\*un geste\*/);
 });
 
 test('conflicts repère les formats redéfinis par un scénario', () => {

@@ -307,11 +307,15 @@ export function render(sc) {
                 { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c.replace(/\*/g, '') },
                 ic('edit', 17)
               ),
-              el('button', { class: 'cht', data: { t: c } }, line(c)),
               el(
-                'button',
-                { class: 'chs', 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
-                ic('send', 17)
+                'div',
+                { class: 'chb' },
+                el('button', { class: 'cht', data: { t: c } }, line(c)),
+                el(
+                  'button',
+                  { class: 'chs', 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
+                  ic('send', 17)
+                )
               )
             )
           )

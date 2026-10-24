@@ -57,6 +57,7 @@ export const clean = x => {
     note: s(x.note),
     choicePrompt: s(x.choicePrompt),
     noChoices: !!x.noChoices,
+    noStyle: !!x.noStyle,
     noPre: !!x.noPre,
     cover: typeof x.cover == 'string' && x.cover.startsWith('data:') ? x.cover : '',
     maxTok: n(x.maxTok),

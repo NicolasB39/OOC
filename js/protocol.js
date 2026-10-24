@@ -23,18 +23,25 @@ const choiceBlock = (prompt, lean) =>
       prompt +
       '\nUtilise exactement ce format, sans rien écrire après :\n<choix>\n1. …\n2. …\n3. …\n</choix>';
 
+const styleBlock = lean =>
+  lean
+    ? '\n\n# Style\nGestes et actions entre astérisques (*il repose sa tasse*), paroles en texte simple. Dans un tour, le geste précède la parole.'
+    : "\n\n# Style du texte\nÉcris les gestes, les actions et les didascalies entre astérisques, par exemple *il repose sa tasse*. Laisse les paroles en texte simple, éventuellement entre guillemets. Quand un personnage fait puis dit quelque chose dans le même tour, le geste vient avant la parole.";
+
 const imageBlock = lean =>
   lean
     ? '\n\n# Images\nAffiche une image avec {{img::code}} seul sur sa ligne, codes fournis au tour courant.'
     : "\n\n# Images\nPour afficher une image, écris {{img::code}} seul sur sa propre ligne, avec un code de la liste fournie dans le tour courant.";
 
-export const DEFAULT_CHOICE = 'Trois propositions courtes et variées, écrites à la première personne.';
+export const DEFAULT_CHOICE =
+  'Trois propositions courtes et variées, écrites à la première personne, chacune sous la forme *un geste* suivi de ce que dit le personnage.';
 export const DEFAULT_FIELDS = 'Lieu, Objectif, Humeur';
 
-export function protocol({ model = modelOf(), stat = false, fields = '', choices = false, prompt = '', images = false } = {}) {
+export function protocol({ model = modelOf(), stat = false, fields = '', choices = false, prompt = '', images = false, style = true } = {}) {
   const lean = family(model) == 'lean',
     tail = [];
   let sys = '';
+  if (style) sys += styleBlock(lean);
   if (images) sys += imageBlock(lean);
   if (stat) {
     sys += stateBlock(fields || DEFAULT_FIELDS, lean, choices);

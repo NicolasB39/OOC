@@ -33,6 +33,7 @@ export function openSc() {
   $('#sld').value = app.cur.loreDepth || '';
   $('#slm').value = app.cur.loreMax || '';
   $('#sch').checked = !app.cur.noChoices;
+  $('#sgs').checked = !app.cur.noStyle;
   $('#scp').value = app.cur.choicePrompt || '';
   $('#sst').checked = statOn(app.cur);
   $('#sstf').value = app.cur.statFields || '';
@@ -184,6 +185,7 @@ $('#dss').onclick = async () => {
   app.cur.loreDepth = +$('#sld').value || 0;
   app.cur.loreMax = +$('#slm').value || 0;
   app.cur.noChoices = !$('#sch').checked;
+  app.cur.noStyle = !$('#sgs').checked;
   app.cur.noPre = $('#spre').checked;
   app.cur.choicePrompt = $('#scp').value.trim();
   app.cur.stat = $('#sst').checked;
