@@ -1,3 +1,4 @@
+import { sameName } from './memory.js';
 import { DEFAULT_FIELDS, protocol } from './protocol.js';
 import { S, ctx } from './state.js';
 import { nz } from './util.js';
@@ -57,13 +58,14 @@ const memBlock = s => {
   return t;
 };
 const relOf = (mem, name) => {
-  const k = nz(name);
-  for (const r in mem.relations || {}) if (nz(r) == k) return '\nRelation : ' + mem.relations[r];
+  for (const r in mem.relations || {})
+    if (sameName(r, name)) return '\nRelation : ' + mem.relations[r];
   return '';
 };
 const looseRel = (mem, used) => {
-  const u = used.map(c => nz(c.name)),
-    a = Object.entries(mem.relations || {}).filter(([k]) => !u.includes(nz(k)));
+  const a = Object.entries(mem.relations || {}).filter(
+    ([k]) => !used.some(c => sameName(c.name, k))
+  );
   return a.length ? '\n\n<relations>\n' + a.map(([k, v]) => '- ' + k + ' : ' + v).join('\n') + '\n</relations>' : '';
 };
 export function buildInfo(s, cont) {

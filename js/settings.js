@@ -1,6 +1,7 @@
 import { jump, render, tk } from './chat.js';
 import { showList } from './list.js';
 import { statOn } from './prompt.js';
+import { mergeRel } from './memory.js';
 import { conflicts } from './protocol.js';
 import { reset as rlReset } from './rate.js';
 import { TERR, getTree, loadCtx } from './scenarios.js';
@@ -97,8 +98,17 @@ const memView = () => {
           el(
             'div',
             { class: 'rel' },
-            el('b', { text: r.k }),
-            el('input', { value: r.v, oninput: e => (MR[i].v = e.target.value) }),
+            el('input', {
+              class: 'who',
+              value: r.k,
+              'aria-label': 'Nom',
+              oninput: e => (MR[i].k = e.target.value)
+            }),
+            el('input', {
+              value: r.v,
+              'aria-label': 'Relation',
+              oninput: e => (MR[i].v = e.target.value)
+            }),
             el(
               'button',
               {
@@ -143,7 +153,7 @@ $('#dmc').onclick = () => $('#dm').close();
 $('#dms').onclick = async () => {
   app.cur.mem.summary = $('#msu').value;
   app.cur.mem.memories = MM;
-  app.cur.mem.relations = Object.fromEntries(MR.filter(r => r.k && r.v).map(r => [r.k, r.v]));
+  app.cur.mem.relations = mergeRel({}, Object.fromEntries(MR.filter(r => r.k.trim() && r.v.trim()).map(r => [r.k.trim(), r.v.trim()])), [], 99);
   await save();
   render();
   $('#dm').close();

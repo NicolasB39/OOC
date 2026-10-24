@@ -511,7 +511,14 @@ hr {
   display: grid;
   gap: 8px;
 }
-.ch button {
+.chr {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.ch .cht {
+  flex: 1;
+  min-width: 0;
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -522,7 +529,23 @@ hr {
   background: var(--s1);
   font: calc(var(--fs) - 1px) / 1.5 var(--rf);
 }
-.ch button::before {
+.ch .che {
+  flex: none;
+  width: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--bd);
+  border-radius: 16px;
+  background: var(--s1);
+  color: var(--mu);
+}
+.ch .che:hover,
+.ch .che:focus-visible {
+  border-color: var(--ac);
+  color: var(--fg);
+}
+.ch .cht::before {
   content: '';
   flex: none;
   width: 13px;
@@ -532,8 +555,8 @@ hr {
   -webkit-mask: var(--ast) center/contain no-repeat;
   mask: var(--ast) center/contain no-repeat;
 }
-.ch button:hover,
-.ch button:focus-visible {
+.ch .cht:hover,
+.ch .cht:focus-visible {
   border-color: var(--ac);
   background: var(--s2);
 }
@@ -1242,15 +1265,16 @@ dialog input[type='range'] {
   align-items: center;
   gap: 8px;
 }
-.rel b {
-  flex: none;
-  min-width: 5.5em;
-  font-size: 13px;
-}
 .rel input {
   flex: 1;
   min-width: 0;
   padding: 8px 10px !important;
+  font-size: 14px;
+}
+.rel input.who {
+  flex: none;
+  width: 7em;
+  font-weight: 600;
 }
 .rel button {
   flex: none;

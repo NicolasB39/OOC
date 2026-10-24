@@ -165,7 +165,13 @@ La mémoire tient sur trois étages, du plus détaillé au plus condensé :
 - **Les lignes récentes** : une phrase par message sorti de la fenêtre, pour garder le détail immédiat sans payer le texte intégral. Les plus anciennes disparaissent au fur et à mesure, une fois absorbées par le résumé.
 - **Le résumé** : le récit condensé de tout ce qui précède, plafonné pour ne pas gonfler avec le temps.
 
-À côté, deux listes indexées : les **souvenirs** (faits durables, dont seuls les plus pertinents pour la scène sont injectés) et les **relations** (une ligne par personnage, envoyée avec sa fiche quand il entre en scène).
+À côté, deux listes : les **souvenirs** (faits durables) et les **relations** (une ligne par personnage, envoyée avec sa fiche quand il entre en scène).
+
+Les modèles reformulent : « Alice », « alice », « Alice, l'herboriste » désignent la même personne, et « la fiole est verte » revient sous la forme « La fiole verte est importante ». L'application rapproche donc les noms dont les mots se recouvrent, et les souvenirs dont le vocabulaire se recouvre à plus de 60 %. Dans les deux cas la formulation la plus récente remplace l'ancienne au lieu de s'y ajouter.
+
+Les deux listes sont plafonnées : 12 relations, 60 souvenirs. Au-delà, les entrées les moins récemment mises à jour disparaissent, sauf les personnages qui ont une fiche dans `personnages/`, qui ne sont jamais évincés. Les figurants de passage finissent donc par sortir d'eux-mêmes. Le résumeur reçoit en plus la liste de ce qu'il connaît déjà, avec la consigne de reprendre les noms tels quels et de ne pas répéter les souvenirs acquis.
+
+Tout reste modifiable à la main dans la feuille Mémoire, noms de relations compris : renommer deux entrées à l'identique les fusionne à l'enregistrement.
 
 L'objectif courant ne vit pas dans la mémoire mais dans le panneau d'état, qui est mis à jour à chaque tour. Ajoutez simplement un champ `Objectif` à la liste.
 
@@ -189,12 +195,12 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 
 ## Gestes
 
-- Toucher un choix l'envoie directement. Un appui long le place dans la zone de saisie pour le modifier avant d'envoyer.
+- Toucher une suggestion l'envoie directement. Le crayon à sa droite la place dans la zone de saisie pour la modifier avant d'envoyer.
 - Balayer horizontalement la dernière réponse passe d'une variante à l'autre, comme les chevrons.
 
 ## Fonctions
 
-- Réponses en streaming (avec diagnostic dans les réglages), trois choix de réponse proposés, bouton annuler.
+- Réponses en streaming (avec diagnostic dans les réglages), trois suggestions de réponse (envoi direct ou crayon pour modifier), bouton annuler.
 - Variantes de réponse (flèches ‹ ›) en régénérant, bouton « continuer » (double chevron) pour prolonger une réponse coupée.
 - Modifier, copier ou supprimer à partir d'un message (corbeille). La suppression est immédiate, avec un bouton « Annuler » pendant 7 secondes tant que la conversation n'a pas changé.
 - Le bouton stop (et la sortie de la conversation) conserve le texte déjà reçu, que « Continuer » peut prolonger.

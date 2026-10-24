@@ -1,4 +1,4 @@
-const C = 'histoires-c39c49b957',
+const C = 'histoires-be5f1c02e6',
   A = [
     './',
     'index.html',
@@ -17,6 +17,7 @@ const C = 'histoires-c39c49b957',
     'js/format.js',
     'js/list.js',
     'js/main.js',
+    'js/memory.js',
     'js/merge.js',
     'js/nav.js',
     'js/prompt.js',

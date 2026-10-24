@@ -1,6 +1,7 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
+import { mergeMem, mergeRel } from './memory.js';
 import { hit429, note, resetDur, wait } from './rate.js';
-import { PROVIDERS, S, app } from './state.js';
+import { PROVIDERS, S, app, ctx } from './state.js';
 import { getOne, put } from './store.js';
 import { err, strip } from './util.js';
 
@@ -181,10 +182,11 @@ const SUMP =
 const SUMJ =
   "Tu mets à jour la mémoire d'une histoire interactive. Réponds uniquement par un objet JSON valide, sans texte autour, avec ces clés :\n" +
   '{"resume": "récit condensé et mis à jour de toute l\'histoire, 1200 caractères maximum, sans les relations ni l\'objectif",\n' +
-  ' "souvenirs": ["un ou deux faits durables à retenir, une phrase chacun"],\n' +
+  ' "souvenirs": ["faits durables NOUVEAUX seulement, une phrase chacun ; ne répète pas ceux déjà connus"],\n' +
   ' "relations": {"Nom du personnage": "état de sa relation avec le joueur, une phrase"},\n' +
   ' "lignes": ["une entrée par message fourni, dans l\'ordre, une phrase courte et factuelle"]}\n' +
-  'Les tableaux et objets peuvent être vides. Écris en français.';
+  'Les tableaux et objets peuvent être vides. Écris en français.\n' +
+  "Pour les relations : uniquement les personnages récurrents, jamais les figurants de passage. Reprends EXACTEMENT les noms déjà connus, sans les reformuler ni y ajouter de titre.";
 const SUMS = new Set();
 const SUM_MAX = 1400;
 const LINES_MAX = 24;
@@ -192,6 +194,7 @@ const sect = (t, n) => {
   const m = t.match(new RegExp('\\[' + n + '\\]([\\s\\S]*?)(?=\\n\\[[A-ZÉÈ]{4,}\\]|$)', 'i'));
   return m ? m[1].trim() : '';
 };
+const known = () => (ctx.chars || []).map(c => c.name);
 const persist = async s => {
   const f = await getOne(s.id);
   if (f) {
@@ -269,10 +272,12 @@ export async function summarize(s) {
             content:
               'Résumé actuel :\n' +
               (s.mem.summary || '(vide)') +
-              '\n\nRelations connues :\n' +
+              '\n\nRelations connues (reprends ces noms tels quels) :\n' +
               (Object.entries(s.mem.relations || {})
                 .map(([k, v]) => '- ' + k + ' : ' + v)
                 .join('\n') || '(aucune)') +
+              '\n\nSouvenirs déjà retenus (ne les répète pas) :\n' +
+              ((s.mem.memories || []).slice(-20).map(x => '- ' + x).join('\n') || '(aucun)') +
               '\n\nMessages à intégrer (' +
               parts.length +
               ') :\n' +
@@ -299,9 +304,8 @@ export async function summarize(s) {
       } else if (useJson) S.jf = 0;
       if (j) {
         s.mem.summary = j.resume.trim().slice(0, SUM_MAX);
-        for (const x of strs(j.souvenirs)) if (!s.mem.memories.includes(x)) s.mem.memories.push(x);
-        const rl = toRel(j.relations);
-        if (Object.keys(rl).length) Object.assign((s.mem.relations ??= {}), rl);
+        s.mem.memories = mergeMem(s.mem.memories, strs(j.souvenirs));
+        s.mem.relations = mergeRel(s.mem.relations, toRel(j.relations), known());
         const ln = strs(j.lignes);
         if (ln.length)
           s.mem.lines = [
@@ -315,16 +319,8 @@ export async function summarize(s) {
       const sum = sect(t, 'R[ÉE]SUM[ÉE]');
       if (!sum) throw new Error('réponse inattendue');
       s.mem.summary = sum.slice(0, SUM_MAX);
-      for (const x of bullets(sect(t, 'SOUVENIRS')))
-        if (!s.mem.memories.includes(x)) s.mem.memories.push(x);
-      const rel = sect(t, 'RELATIONS');
-      if (rel) {
-        s.mem.relations ??= {};
-        for (const x of bullets(rel)) {
-          const i = x.indexOf(':');
-          if (i > 0) s.mem.relations[x.slice(0, i).trim()] = x.slice(i + 1).trim();
-        }
-      }
+      s.mem.memories = mergeMem(s.mem.memories, bullets(sect(t, 'SOUVENIRS')));
+      s.mem.relations = mergeRel(s.mem.relations, toRel(bullets(sect(t, 'RELATIONS'))), known());
       const li = bullets(sect(t, 'LIGNES'));
       if (li.length)
         s.mem.lines = [

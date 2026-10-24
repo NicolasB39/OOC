@@ -194,7 +194,23 @@ export function render(sc) {
     cs = lm?.role == 'assistant' && !app.cur.noChoices ? lm.choices || [] : [];
   foot.replaceChildren(
     ...[
-      cs.length && el('div', { class: 'ch' }, cs.map(c => el('button', { text: c }))),
+      cs.length &&
+        el(
+          'div',
+          { class: 'ch' },
+          cs.map(c =>
+            el(
+              'div',
+              { class: 'chr' },
+              el('button', { class: 'cht', text: c }),
+              el(
+                'button',
+                { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c },
+                ic('edit', 16)
+              )
+            )
+          )
+        ),
       !n && el('p', { class: 'hint', text: "Écrivez votre premier tour pour lancer l'histoire." })
     ].filter(Boolean)
   );
@@ -475,14 +491,15 @@ $('#msgs').onclick = e => {
     m.scrollTop = y + m.scrollHeight - h;
     return;
   }
-  if (b.parentElement.classList.contains('ch')) {
-    if (b.dataset.held) {
-      delete b.dataset.held;
-      $('#inp').value = b.textContent;
+  const row = b.closest('.chr');
+  if (row) {
+    const t = row.querySelector('.cht').textContent;
+    if (b.classList.contains('che')) {
+      $('#inp').value = t;
       fit();
       $('#inp').focus();
     } else if (!app.busy) {
-      $('#inp').value = b.textContent;
+      $('#inp').value = t;
       $('#send').click();
     }
     return;
@@ -537,16 +554,8 @@ $('#des').onclick = async () => {
   $('#de').close();
 };
 $('#dpic').onclick = () => $('#dpic').close();
-let hold, px, py, pel;
+let px, py, pel;
 $('#msgs').addEventListener('pointerdown', e => {
-  const c = e.target.closest('.ch button');
-  if (c) {
-    hold = setTimeout(() => {
-      c.dataset.held = 1;
-      navigator.vibrate?.(12);
-    }, 450);
-    return;
-  }
   const m = e.target.closest('.m[data-i]');
   if (m && !e.target.closest('button') && app.cur?.messages.at(-1)?.alts?.length > 1) {
     pel = +m.dataset.i == app.cur.messages.length - 1 ? m : null;
@@ -555,7 +564,6 @@ $('#msgs').addEventListener('pointerdown', e => {
   }
 });
 $('#msgs').addEventListener('pointerup', e => {
-  clearTimeout(hold);
   if (!pel || app.busy) {
     pel = null;
     return;
@@ -566,6 +574,5 @@ $('#msgs').addEventListener('pointerup', e => {
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) swipe(dx < 0 ? 1 : -1);
 });
 $('#msgs').addEventListener('pointercancel', () => {
-  clearTimeout(hold);
   pel = null;
 });
