@@ -474,6 +474,7 @@ header button:hover {
   font-weight: 600;
 }
 #chat {
+  position: relative;
   max-width: var(--cw);
   margin: 0 auto;
   height: 100dvh;
@@ -516,6 +517,7 @@ header button:hover {
   border-radius: 20px;
 }
 .m {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1487,6 +1489,8 @@ dialog input[type='range'] {
 }
 .sr {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   margin: -1px;
