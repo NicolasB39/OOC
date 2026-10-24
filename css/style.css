@@ -4,16 +4,22 @@
   --lh: 1.7;
   --cw: 45em;
   --bg: #0a0a0b;
-  --s1: #141416;
-  --s2: #1c1c20;
-  --s3: #2a2a31;
-  --bd: #26262c;
+  --s1: #17171d;
+  --s2: #26262f;
+  --s3: #3b3b47;
+  --bd: #3c3c48;
+  --bdi: #70707f;
   --fg: #f2f2ee;
-  --mu: #8d8d98;
+  --mu: #9696a2;
   --mu2: #b6b6bf;
   --ac: #d2f53c;
   --on: #0a0a0b;
   --acs: rgba(210, 245, 60, 0.13);
+  --act: rgba(210, 245, 60, 0.16);
+  --acb: rgba(210, 245, 60, 0.45);
+  --wn: #ffb84d;
+  --wns: rgba(255, 184, 77, 0.12);
+  --wnf: #ffd9a0;
   --dg: #ff6b6b;
   --sans: Inter, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   --ser: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
@@ -130,7 +136,7 @@ header button:hover {
   margin: 4px 16px 0;
   padding: 0 16px;
   background: var(--s1);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bdi);
   border-radius: 999px;
   color: var(--mu);
 }
@@ -161,7 +167,11 @@ header button:hover {
 }
 #tabs button {
   flex: none;
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: var(--s2);
   color: var(--mu2);
@@ -169,8 +179,17 @@ header button:hover {
   font-size: 13.5px;
 }
 #tabs button.on {
-  background: var(--ac);
-  color: var(--on);
+  border-color: var(--acb);
+  background: var(--act);
+  color: var(--ac);
+}
+.cnt {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.cnt:empty {
+  display: none;
 }
 #items {
   padding: 14px 16px 0;
@@ -229,13 +248,30 @@ header button:hover {
   border-radius: 20px;
   cursor: pointer;
 }
-.item b {
+.item h3 {
+  margin: 0;
+  min-width: 0;
+}
+.item .ttl {
+  display: -webkit-box;
+  width: 100%;
+  padding: 0;
+  border-radius: 0;
+  text-align: left;
   font: 700 15px/1.2 var(--sans);
   letter-spacing: -0.01em;
-  display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.item .ttl::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+}
+.item .ttl:active {
+  transform: none;
 }
 .item small {
   color: var(--mu2);
@@ -257,6 +293,29 @@ header button:hover {
   -webkit-mask: var(--ast) center/contain no-repeat;
   mask: var(--ast) center/contain no-repeat;
 }
+.art.v1::before {
+  right: -26%;
+  top: 32%;
+  width: 86%;
+}
+.art.v2::before {
+  right: -4%;
+  top: 44%;
+  width: 52%;
+}
+.art.v3::before {
+  right: -14%;
+  top: -16%;
+  width: 92%;
+}
+.ini {
+  position: absolute;
+  left: 10px;
+  top: 9%;
+  font: 800 clamp(56px, 46%, 130px) / 0.9 var(--ser);
+  letter-spacing: -0.05em;
+  color: hsl(var(--h) 72% 78%/0.26);
+}
 .hero {
   grid-column: 1/-1;
   aspect-ratio: 16/10;
@@ -266,11 +325,17 @@ header button:hover {
   width: min(46%, 300px);
   right: 5%;
   top: 8%;
+  left: auto;
+}
+.hero .ini {
+  left: 20px;
+  top: 12%;
+  font-size: clamp(70px, 34%, 150px);
 }
 .hero .t {
   padding: 20px;
 }
-.hero b {
+.hero .ttl {
   font: 800 25px/1.1 var(--sans);
   letter-spacing: -0.025em;
 }
@@ -299,19 +364,21 @@ header button:hover {
   left: 10px;
   z-index: 2;
   padding: 3px 10px;
+  border: 1px solid var(--acb);
   border-radius: 999px;
-  background: var(--ac);
-  color: var(--on);
+  background: rgba(10, 10, 11, 0.62);
+  backdrop-filter: blur(8px);
+  color: var(--ac);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
 }
 .menu {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  width: 34px;
-  height: 34px;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  width: 40px;
+  height: 40px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -466,12 +533,12 @@ hr {
   max-width: 100%;
   max-height: 60vh;
   border-radius: 14px;
-  margin: 6px 0 10px;
+  margin: 1px 0 3px;
 }
 .m .a {
   display: flex;
   align-items: center;
-  opacity: 0.55;
+  opacity: 0.72;
   transition: opacity 0.15s;
 }
 .m .a:hover,
@@ -479,8 +546,8 @@ hr {
   opacity: 1;
 }
 .m .a button {
-  width: 38px;
-  height: 34px;
+  width: 44px;
+  height: 40px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -524,7 +591,7 @@ hr {
   align-items: flex-start;
   text-align: left;
   padding: 13px 15px;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bdi);
   border-radius: 16px;
   background: var(--s1);
   font: calc(var(--fs) - 1px) / 1.5 var(--rf);
@@ -535,7 +602,7 @@ hr {
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bdi);
   border-radius: 16px;
   background: var(--s1);
   color: var(--mu);
@@ -588,14 +655,14 @@ hr {
   position: absolute;
   right: 14px;
   bottom: 12px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: var(--s2);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bdi);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 #err {
@@ -659,7 +726,7 @@ footer {
   gap: 6px;
   padding: 5px 5px 5px 18px;
   background: var(--s1);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bdi);
   border-radius: 28px;
 }
 .inb:focus-within {
@@ -748,7 +815,7 @@ dialog input,
 dialog select {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bdi);
   border-radius: 14px;
   background: var(--s2);
 }
@@ -882,14 +949,23 @@ dialog label:has(> input[type='checkbox']) {
     animation: none !important;
     transition: none !important;
   }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
 }
 .note.warn {
   margin-top: 8px;
   padding: 9px 12px;
-  border: 1px solid rgba(210, 245, 60, 0.4);
+  border: 1px solid rgba(255, 184, 77, 0.45);
   border-radius: 12px;
-  background: var(--acs);
-  color: var(--fg);
+  background: var(--wns);
+  color: var(--wnf);
 }
 .note {
   margin: 14px 0 0;
@@ -921,7 +997,7 @@ dialog label:has(> input[type='checkbox']) {
 
 .miss {
   display: inline-block;
-  margin: 6px 0;
+  margin: 1px 0;
   padding: 4px 12px;
   border: 1px dashed var(--bd);
   border-radius: 999px;
@@ -1047,7 +1123,7 @@ dialog label:has(> input[type='checkbox']) {
 #simg figcaption {
   margin-top: 3px;
   color: var(--mu);
-  font-size: 11px;
+  font-size: 12px;
   word-break: break-all;
 }
 
@@ -1179,7 +1255,7 @@ dialog input[type='range'] {
   gap: 10px;
   margin: 4px 0;
   color: var(--mu);
-  font: 600 10.5px/1 var(--sans);
+  font: 600 12px/1 var(--sans);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1205,7 +1281,7 @@ dialog input[type='range'] {
 }
 .dl {
   margin-left: 7px;
-  font: 600 11px var(--sans);
+  font: 600 12px var(--sans);
   font-style: normal;
 }
 .dl.up {
@@ -1246,14 +1322,19 @@ dialog input[type='range'] {
   align-items: center;
   gap: 4px;
   max-width: 100%;
-  padding: 6px 6px 6px 12px;
+  padding: 2px 3px 2px 12px;
   border-radius: 999px;
   background: var(--s2);
   font-size: 13px;
 }
 .chip2 button {
   flex: none;
-  padding: 2px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
   color: var(--mu);
 }
 .rels {
@@ -1278,7 +1359,12 @@ dialog input[type='range'] {
 }
 .rel button {
   flex: none;
-  padding: 4px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
   color: var(--mu);
 }
 .hits {
@@ -1299,7 +1385,7 @@ dialog input[type='range'] {
 }
 .hit .who {
   color: var(--mu);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1324,4 +1410,23 @@ dialog input[type='range'] {
 #dsr .sb,
 #dsr .sb:focus-within {
   margin: 0;
+}
+.pclose {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--bdi);
+  background: rgba(16, 16, 20, 0.72);
+  backdrop-filter: blur(8px);
+  color: #fff;
+}
+.col button.danger .i {
+  color: var(--dg);
 }

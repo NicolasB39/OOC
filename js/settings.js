@@ -243,6 +243,7 @@ function openCfg() {
   $('#crp').value = S.repo || '';
   $('#cpre').value = S.pre || '';
   $('#cpr').value = S.proto || '';
+  $('#ctc').checked = !!S.counters;
   $('#dc').showModal();
 }
 $('#cfg').onclick = openCfg;
@@ -318,6 +319,7 @@ $('#dcs').onclick = async () => {
   S.ctxLim = +$('#ccx').value || 0;
   S.reserve = +$('#crs').value || 0;
   S.tpm = +$('#ctpm').value || 0;
+  S.counters = $('#ctc').checked;
   await saveSet();
   $('#dc').close();
   if (app.cur) tk();

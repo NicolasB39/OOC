@@ -4,13 +4,15 @@ import { coverOf, getTree } from './scenarios.js';
 import { openSc } from './settings.js';
 import { S, app } from './state.js';
 import { del, getAll, getOne, put, saveSet } from './store.js';
-import { $, LS, ago, dlg, el, hue, ic, nz, plain, uid } from './util.js';
+import { $, LS, ago, dlg, el, hue, ic, nz, plain, uid, vt } from './util.js';
 
 export async function showList() {
   app.cur = null;
-  $('#chat').hidden = true;
-  $('#list').hidden = false;
   await draw();
+  await vt(() => {
+    $('#chat').hidden = true;
+    $('#list').hidden = false;
+  });
   const T = await getTree();
   const fs = [
     ...new Set(T.map(p => p.match(/^scenarios\/([^/]+)\/systeme\.md$/)?.[1]).filter(Boolean))
@@ -40,18 +42,23 @@ export async function draw() {
   if (q) f = f.filter(s => nz(s.name + ' ' + (s.pv || '')).includes(q));
   const hero = !q && app.FIL == 'all' ? f.find(s => s.n > 0) : null;
   const card = (s, h) => {
-    const cv = coverOf(s);
+    const cv = coverOf(s),
+      hv = hue(s.name);
     return el(
       'div',
       { class: 'item ' + (h ? 'hero' : 'card') },
       cv
         ? el('img', { class: 'cv', src: cv, alt: '', loading: 'lazy', decoding: 'async' })
-        : el('div', { class: 'art', style: '--h:' + hue(s.name) }),
+        : el(
+            'div',
+            { class: 'art v' + (hv % 4), style: '--h:' + hv },
+            el('span', { class: 'ini', text: (s.name.trim()[0] || '?').toUpperCase() })
+          ),
       !s.n && !h && el('span', { class: 'tag', text: 'Nouveau' }),
       el(
         'div',
-        { class: 't', role: 'button', tabindex: '0', data: { id: s.id } },
-        el('b', { text: s.name }),
+        { class: 't' },
+        el('h3', null, el('button', { class: 'ttl', text: s.name, data: { id: s.id } })),
         h
           ? [
               el('small', { class: 'pv', text: s.pv || '' }),
@@ -61,7 +68,11 @@ export async function draw() {
               text: s.n ? s.n + ' message' + (s.n > 1 ? 's' : '') + ' · ' + ago(s.updated) : ''
             })
       ),
-      el('button', { class: 'menu', data: { id: s.id }, 'aria-label': 'Options' }, ic('more', 18))
+      el(
+        'button',
+        { class: 'menu', data: { id: s.id }, 'aria-label': 'Options de ' + s.name },
+        ic('more', 18)
+      )
     );
   };
   const list = [hero && card(hero, 1), ...f.filter(s => s !== hero).map(s => card(s))].filter(Boolean);
@@ -79,6 +90,14 @@ export async function draw() {
           )
         ])
   );
+  const cnt = {
+    all: a.length,
+    play: a.filter(s => s.n > 0).length,
+    lib: a.filter(s => s.remote).length,
+    own: a.filter(s => !s.remote).length
+  };
+  for (const b of $('#tabs').querySelectorAll('button'))
+    b.querySelector('.cnt').textContent = cnt[b.dataset.f] || '';
   $('#bk').hidden = !(
     a.some(s => s.n > 0) &&
     Date.now() - (+LS.get('bk') || +LS.get('first') || Date.now()) > 2592e6 &&
@@ -93,14 +112,8 @@ $('#items').onclick = e => {
     $('#mn').showModal();
     return;
   }
-  const it = e.target.closest('.t');
+  const it = e.target.closest('.ttl');
   if (it) go(it.dataset.id);
-};
-$('#items').onkeydown = e => {
-  if ((e.key == 'Enter' || e.key == ' ') && e.target.classList.contains('t')) {
-    e.preventDefault();
-    go(e.target.dataset.id);
-  }
 };
 let qt;
 $('#q').oninput = () => {
@@ -115,7 +128,7 @@ $('#tabs').onclick = e => {
     .querySelectorAll('button')
     .forEach(x => {
       x.classList.toggle('on', x == b);
-      x.setAttribute('aria-pressed', x == b);
+      x.setAttribute('aria-checked', x == b);
     });
   draw();
 };

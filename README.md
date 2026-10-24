@@ -95,7 +95,15 @@ Ce qui reste au scénario : tout ce qui touche à la voix. Ce qui passe à l'app
 
 Thème sombre inspiré des applications de fiction interactive : fond noir, accent vert citron, cartes de scénarios avec couverture, onglets de filtre, carte « Reprendre » pour la dernière histoire, choix de réponse sous forme de cartes et feuilles de réglages qui montent du bas.
 
-Pour afficher une couverture sur un scénario GitHub, ajoutez une image `cover.webp` (ou `.png`, `.jpg`) dans son dossier. Pour un scénario créé dans l'application, choisissez une image dans ses réglages : elle est réduite à 600 px de large et convertie en WebP avant d'être stockée sur l'appareil. Elle sert de vignette dans la liste et d'en-tête dans la conversation. Sans couverture, un visuel généré à partir du nom est utilisé.
+Le vert citron est réservé aux **actions** : bouton « Nouveau », « Reprendre », boutons Enregistrer. Les **états** (onglet actif, badge « Nouveau ») n'en prennent qu'une version teintée, bordée, sur fond sombre, pour qu'un badge ne pèse pas autant qu'un bouton. Les avertissements utilisent un orangé distinct, jamais l'accent. Les surfaces s'étagent du fond vers les cartes, les champs et les menus, et les contrôles (champ de saisie, listes, cartes de choix) portent une bordure plus claire que les simples séparateurs, pour rester visibles en plein soleil.
+
+Pour afficher une couverture sur un scénario GitHub, ajoutez une image `cover.webp` (ou `.png`, `.jpg`) dans son dossier. Pour un scénario créé dans l'application, choisissez une image dans ses réglages : elle est réduite à 600 px de large et convertie en WebP avant d'être stockée sur l'appareil. Elle sert de vignette dans la liste et d'en-tête dans la conversation. Sans couverture, un visuel est généré à partir du nom : teinte, position du motif (quatre géométries) et initiale du titre en grand, pour que deux scénarios voisins ne se ressemblent pas.
+
+Les onglets de filtre affichent le nombre de scénarios qu'ils contiennent, et la navigation entre la liste et une conversation passe par un fondu (`startViewTransition`) là où le navigateur le gère.
+
+### Actions d'un message
+
+Sous chaque message restent les actions qu'on utilise en lisant : écouter, et sur le dernier message régénérer, continuer et passer d'une variante à l'autre. Copier, modifier et supprimer à partir d'ici sont regroupés derrière le bouton « … », dans une feuille : moins de boutons au fil du texte, des cibles plus grandes, et plus de « supprimer » collé à « modifier ». La suppression reste annulable pendant quelques secondes.
 
 ## Lecture
 
@@ -111,7 +119,9 @@ Limites : la synthèse vocale est celle de l'appareil, donc les voix disponibles
 
 ## Budget de tokens
 
-Pour un modèle qui refuse les requêtes trop grosses (par exemple 8000 tokens), renseignez dans Réglages IA :
+Les Réglages IA sont groupés : fournisseur, clé et modèles en haut, puis « Narration », « Budget de tokens » et « GitHub et sauvegarde » dans des sections repliées.
+
+Pour un modèle qui refuse les requêtes trop grosses (par exemple 8000 tokens), renseignez dans « Budget de tokens » :
 
 - **Limite de tokens de l'IA** : le maximum accepté par le modèle, entrée et réponse comprises (par exemple 8000).
 - **Réserve pour la réponse** : la place gardée pour la réponse de l'IA (1000 par défaut). Si la longueur maximale du scénario est renseignée, elle sert de réserve pour ce scénario. La réserve est plafonnée à la moitié de la limite.
@@ -140,6 +150,8 @@ Si votre fournisseur ne pratique pas le cache, ce placement ne change rien au to
 La fenêtre n'avance pas d'un message à la fois : quand le budget est dépassé, elle recule d'un bloc, puis ne bouge plus pendant plusieurs tours. Le début du prompt reste ainsi identique d'un tour à l'autre, ce que les fournisseurs facturent moins cher et comptent moins dans les quotas par minute.
 
 Quand au moins 6 messages ne sont plus envoyés, ils sont résumés dans la mémoire, pour que l'IA n'en perde pas le fil. Le compteur sous la conversation indique par exemple « ≈ 6 953 / 7 000 tokens envoyés (réel : 7 012) · 10 messages envoyés sur 16 », et une ligne « l'IA lit à partir d'ici » marque la limite dans le fil. Si le prompt de base dépasse à lui seul la limite, le compteur passe en rouge.
+
+Le compteur et la jauge de débit sont **masqués par défaut** : on lit une histoire, pas un tableau de bord. « Afficher les compteurs sous la conversation » (Réglages IA, section « Budget de tokens ») les rend permanents. Masqués, ils réapparaissent d'eux-mêmes dans les deux cas où ils servent : prompt de base au-dessus de la limite, et envoi qui doit attendre la minute suivante.
 
 ### Jauge de débit
 
@@ -223,7 +235,7 @@ Fonctionnement : à chaque synchronisation, l'application télécharge le fichie
 
 - Si la dernière synchronisation a échoué, un **point rouge** apparaît sur le nuage. Touchez le nuage : le message d'erreur propose « Modifier la configuration ».
 - Après « Enregistrer », la synchronisation se lance tout de suite et affiche son résultat (« Sauvegarde à jour » ou l'erreur).
-- La configuration est aussi accessible par la roue dentée (Réglages IA), premier bouton « Sauvegarde en ligne… ».
+- La configuration est aussi accessible par la roue dentée (Réglages IA), section « GitHub et sauvegarde », bouton « Configurer… ».
 - « Effacer la configuration » remet le service, le jeton et la connexion Google à zéro sur l'appareil. Les histoires et le fichier de sauvegarde en ligne ne sont pas touchés.
 
 ### GitHub (recommandé)

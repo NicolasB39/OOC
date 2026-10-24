@@ -110,6 +110,20 @@ export const dlg = (t, { m = '', v = null, ok = 'OK', no = 'Annuler' } = {}) =>
     d.showModal();
     if (v !== null) i.focus();
   });
+export const vt = fn => {
+  if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    fn();
+    return Promise.resolve();
+  }
+  try {
+    const t = document.startViewTransition(fn);
+    t.finished.catch(() => {});
+    return t.updateCallbackDone;
+  } catch (e) {
+    fn();
+    return Promise.resolve();
+  }
+};
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 export const strip = t => t.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim();
 export const plain = (t, nm) =>

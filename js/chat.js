@@ -16,7 +16,7 @@ import {
 import { TERR, coverOf, loadCtx } from './scenarios.js';
 import { S, app, ctx } from './state.js';
 import { getOne, save, saveSet } from './store.js';
-import { $, LS, el, err, fit, ic, plain, strip, toast } from './util.js';
+import { $, LS, el, err, fit, ic, plain, strip, toast, vt } from './util.js';
 
 export async function openScenario(id) {
   stopSpeech();
@@ -29,8 +29,6 @@ export async function openScenario(id) {
   app.LIM = 50;
   app.cur.mem ??= { summary: '', memories: [], upto: 0 };
   await loadCtx();
-  $('#list').hidden = true;
-  $('#chat').hidden = false;
   const cf = conflicts(app.cur.remote ? ctx.system : app.cur.system);
   const warn = cf.length
     ? 'Le prompt système redéfinit ' + cf.join(', ') + " : l'application s'en charge, retirez ces consignes."
@@ -41,15 +39,20 @@ export async function openScenario(id) {
       : app.cur.remote && TERR
         ? 'GitHub indisponible (' + TERR + ') : fiches, images et lorebooks peuvent manquer.'
         : '';
-  err(bad || warn, !!bad);
-  $('#inp').value = LS.get('draft:' + id) || '';
-  fit();
-  render(true);
+  await vt(() => {
+    $('#list').hidden = true;
+    $('#chat').hidden = false;
+    err(bad || warn, !!bad);
+    $('#inp').value = LS.get('draft:' + id) || '';
+    fit();
+    render(true);
+  });
 }
 export function tk(info) {
   const e = $('#tk');
   if (!app.cur || !app.cur.mem) {
     e.textContent = '';
+    e.hidden = true;
     $('#rl').hidden = true;
     return;
   }
@@ -71,6 +74,7 @@ export function tk(info) {
       (app.pt ? ' (réel : ' + f(app.pt) + ')' : '') +
       (rlLast.cached ? ' · ' + f(rlLast.cached) + ' en cache' : '') +
       (n ? ' · ' + sentN + (sentN > 1 ? ' messages envoyés' : ' message envoyé') + ' sur ' + n : '');
+  e.hidden = !S.counters && !r.over;
   rlView(r.used);
 }
 let rlEst = 0;
@@ -94,7 +98,7 @@ function rlView(est) {
     ' tokens par minute' +
     (s.src == 'local' ? ' (estimation locale)' : '') +
     (w ? ' · prochain tour dans ~' + w + ' s' : '');
-  g.hidden = false;
+  g.hidden = !S.counters && !w;
 }
 setInterval(() => {
   if (!$('#chat').hidden && app.cur) rlView();
@@ -110,11 +114,11 @@ const act = (i, m, last) => {
   const b = (a, lbl, icon) =>
     el('button', { data: { a, i }, 'aria-label': lbl }, ic(icon, 17));
   if (ttsOk) r.append(b('v', 'Lire à voix haute', 'vol'));
-  r.append(b('c', 'Copier', 'copy'), b('e', 'Modifier', 'edit'), b('d', "Supprimer à partir d'ici", 'trash'));
   if (last) {
     r.append(b('r', 'Régénérer', 'refresh'));
     if (m.role == 'assistant') r.append(b('k', 'Continuer', 'chevsr'));
   }
+  r.append(b('m', 'Autres actions', 'more'));
   return r;
 };
 const msgNode = (i, m, last) => {
@@ -507,28 +511,17 @@ $('#msgs').onclick = e => {
   }
   const a = b.dataset.a,
     i = +b.dataset.i;
-  if (a == 'c') {
-    navigator.clipboard
-      ?.writeText(plain(app.cur.messages[i].content, app.cur.pname))
-      .then(() => {
-        const o = b.firstChild;
-        b.replaceChildren(ic('check', 17));
-        setTimeout(() => b.replaceChildren(o), 1200);
-      })
-      .catch(() => {});
-    return;
-  }
   if (a == 'v') {
     speakMsg(i);
     return;
   }
+  if (a == 'm') {
+    app.actI = i;
+    $('#dma').showModal();
+    return;
+  }
   if (app.busy) return;
-  if (a == 'e') {
-    app.editI = i;
-    $('#et').value = raw(app.cur.messages[i]);
-    $('#de').showModal();
-  } else if (a == 'd') delFrom(i);
-  else if (a == 'r') regen();
+  if (a == 'r') regen();
   else if (a == 'k') ask(null, true);
   else swipe(a == 'p' ? -1 : 1);
 };
@@ -555,6 +548,25 @@ $('#des').onclick = async () => {
   $('#de').close();
 };
 $('#dpic').onclick = () => $('#dpic').close();
+$('#damc').onclick = () => $('#dma').close();
+$('#mac').onclick = () => {
+  $('#dma').close();
+  navigator.clipboard
+    ?.writeText(plain(app.cur.messages[app.actI].content, app.cur.pname))
+    .then(() => toast('Message copié'))
+    .catch(() => toast('Copie impossible'));
+};
+$('#mae').onclick = () => {
+  $('#dma').close();
+  if (app.busy) return;
+  app.editI = app.actI;
+  $('#et').value = raw(app.cur.messages[app.editI]);
+  $('#de').showModal();
+};
+$('#mad').onclick = () => {
+  $('#dma').close();
+  if (!app.busy) delFrom(app.actI);
+};
 let px, py, pel;
 $('#msgs').addEventListener('pointerdown', e => {
   const m = e.target.closest('.m[data-i]');

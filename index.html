@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="a140ae8bc6">
+<meta name="app-version" content="7c8fd51ca9">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Histoires</title>
 <link rel="manifest" href="manifest.json">
@@ -74,7 +74,7 @@
 <header><h1><svg class="i logo" style="width:28px;height:28px"><use href="#i-logo"/></svg>Histoires</h1><button id="rf" aria-label="Actualiser GitHub"><svg class="i"><use href="#i-refresh"/></svg></button><button id="sy" aria-label="Synchroniser la sauvegarde"><svg class="i"><use href="#i-cloud"/></svg></button><button id="cfg" aria-label="Réglages IA"><svg class="i"><use href="#i-gear"/></svg></button></header>
 <div id="bk" class="bk" hidden><span>Pensez à sauvegarder vos histoires.</span><button id="bke">Exporter</button><button id="bkl">Plus tard</button></div>
 <label class="sb"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" placeholder="Rechercher" aria-label="Rechercher un scénario"></label>
-<div id="tabs" role="group" aria-label="Filtrer"><button class="on" data-f="all" aria-pressed="true">Tous</button><button data-f="play" aria-pressed="false">En cours</button><button data-f="lib" aria-pressed="false">Bibliothèque</button><button data-f="own" aria-pressed="false">Perso</button></div>
+<div id="tabs" role="radiogroup" aria-label="Filtrer"><button class="on" data-f="all" role="radio" aria-checked="true">Tous<span class="cnt"></span></button><button data-f="play" role="radio" aria-checked="false">En cours<span class="cnt"></span></button><button data-f="lib" role="radio" aria-checked="false">Bibliothèque<span class="cnt"></span></button><button data-f="own" role="radio" aria-checked="false">Perso<span class="cnt"></span></button></div>
 <div id="items"></div>
 <button id="new" class="primary"><svg class="i"><use href="#i-plus"/></svg>Nouveau</button>
 </main>
@@ -102,7 +102,7 @@
 </div>
 </main>
 
-<dialog id="mn">
+<dialog id="mn" aria-labelledby="mnt">
 <h2 id="mnt"></h2>
 <div class="col">
 <button id="mr">Renommer</button>
@@ -113,8 +113,8 @@
 </div>
 </dialog>
 
-<dialog id="dmn">
-<h2>Options de l'histoire</h2>
+<dialog id="dmn" aria-labelledby="hdmn">
+<h2 id="hdmn">Options de l'histoire</h2>
 <div class="col">
 <button id="mf"><svg class="i"><use href="#i-search"/></svg>Rechercher dans l'histoire</button>
 <button id="msm"><svg class="i"><use href="#i-list"/></svg>Sommaire</button>
@@ -126,8 +126,8 @@
 </div>
 </dialog>
 
-<dialog id="ds">
-<h2>Scénario</h2>
+<dialog id="ds" aria-labelledby="hds">
+<h2 id="hds">Scénario</h2>
 <label for="ssys">Prompt système</label>
 <textarea id="ssys"></textarea>
 <p id="scw" class="note warn" hidden></p>
@@ -181,8 +181,8 @@
 <div class="row"><button id="dsc">Annuler</button><button id="dss" class="primary">Enregistrer</button></div>
 </dialog>
 
-<dialog id="dm">
-<h2>Mémoire</h2>
+<dialog id="dm" aria-labelledby="hdm">
+<h2 id="hdm">Mémoire</h2>
 <label for="msu">Résumé de l'histoire</label>
 <textarea id="msu"></textarea>
 <label>Souvenirs</label>
@@ -194,39 +194,48 @@
 <div class="row"><button id="dmc">Annuler</button><button id="dms" class="primary">Enregistrer</button></div>
 </dialog>
 
-<dialog id="dsr">
-<h2>Rechercher dans l'histoire</h2>
+<dialog id="dsr" aria-labelledby="hdsr">
+<h2 id="hdsr">Rechercher dans l'histoire</h2>
 <label class="sb"><svg class="i"><use href="#i-search"/></svg><input id="sri" type="search" placeholder="Mot ou phrase" aria-label="Rechercher"></label>
 <p id="srn" class="note"></p>
 <div id="srl" class="hits"></div>
 <div class="row"><button id="dsrc" class="primary">Fermer</button></div>
 </dialog>
 
-<dialog id="dsm">
-<h2>Sommaire</h2>
+<dialog id="dsm" aria-labelledby="hdsm">
+<h2 id="hdsm">Sommaire</h2>
 <p class="note">Une ligne par message déjà résumé. Touchez pour y aller.</p>
 <div id="sml" class="hits"></div>
 <div class="row"><button id="dsmc" class="primary">Fermer</button></div>
 </dialog>
 
-<dialog id="dpic"><img id="dpici" alt=""></dialog>
+<dialog id="dpic" aria-label="Image en plein écran"><img id="dpici" alt=""><button class="pclose" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button></dialog>
 
-<dialog id="dq">
+<dialog id="dma" aria-labelledby="hdma">
+<h2 id="hdma">Message</h2>
+<div class="col">
+<button id="mac"><svg class="i"><use href="#i-copy"/></svg>Copier</button>
+<button id="mae"><svg class="i"><use href="#i-edit"/></svg>Modifier</button>
+<button id="mad" class="danger"><svg class="i"><use href="#i-trash"/></svg>Supprimer à partir d'ici</button>
+<button id="damc">Fermer</button>
+</div>
+</dialog>
+
+<dialog id="dq" aria-labelledby="dqt">
 <h2 id="dqt"></h2>
 <p id="dqm" style="margin:0 0 8px;color:var(--mu)"></p>
 <input id="dqi">
 <div class="row"><button id="dqc">Annuler</button><button id="dqo" class="primary">OK</button></div>
 </dialog>
 
-<dialog id="dn">
-<h2>Note utilisateur</h2>
+<dialog id="dn" aria-labelledby="hdn">
+<h2 id="hdn">Note utilisateur</h2>
 <textarea id="nti"></textarea>
 <div class="row"><button id="dnc">Annuler</button><button id="dns" class="primary">Enregistrer</button></div>
 </dialog>
 
-<dialog id="dc">
-<h2>Réglages IA</h2>
-<div class="row l"><button id="bko">Sauvegarde en ligne…</button></div>
+<dialog id="dc" aria-labelledby="hdc">
+<h2 id="hdc">Réglages IA</h2>
 <label for="cp">Fournisseur</label>
 <select id="cp"></select>
 <label for="ck">Clé API</label>
@@ -235,43 +244,63 @@
 <input id="cm" list="cml" autocomplete="off" autocapitalize="off">
 <datalist id="cml"></datalist>
 <div class="row l"><button id="cl">Lister les modèles</button></div>
-<label for="cmm">Modèle pour la mémoire (vide = même modèle)</label>
+<label for="cmm">Modèle pour la mémoire</label>
 <input id="cmm" list="cml" autocomplete="off" autocapitalize="off">
-<p class="note">Les résumés de mémoire ne demandent pas votre meilleur modèle : un plus petit coûte moins cher et consomme moins de quota.</p>
+<p class="note">Vide : le même modèle. Les résumés de mémoire ne demandent pas votre meilleur modèle, un plus petit coûte moins cher et consomme moins de quota.</p>
 <label><input id="cn" type="checkbox">Désactiver le streaming pour ce fournisseur</label>
 <p id="cst" class="note"></p>
+
+<details>
+<summary>Narration</summary>
 <label for="cpre">Préambule commun à tous les scénarios</label>
 <textarea id="cpre" style="min-height:90px" placeholder="Vos préférences de narration : longueur, rythme, registre…"></textarea>
 <label for="cpr">Consignes de format</label>
 <select id="cpr"><option value="">Automatique (selon le modèle)</option><option value="full">Détaillées</option><option value="lean">Concises</option></select>
 <p class="note">Les formats de l'état, des choix et des images sont produits par l'application, pas par les scénarios. « Concises » économise des tokens sur les modèles qui suivent bien les consignes.</p>
-<label for="ctp">Température (vide = défaut du fournisseur)</label>
+<label for="ctp">Température</label>
 <input id="ctp" type="number" min="0" max="2" step="0.05" inputmode="decimal">
-<label for="ctk">Top P (vide = défaut du fournisseur)</label>
+<label for="ctk">Top P</label>
 <input id="ctk" type="number" min="0" max="1" step="0.05" inputmode="decimal">
-<label for="ccx">Limite de tokens de l'IA (entrée + réponse, vide = aucune)</label>
+<p class="note">Laissés vides, les deux prennent la valeur par défaut du fournisseur.</p>
+</details>
+
+<details>
+<summary>Budget de tokens</summary>
+<label for="ccx">Limite de tokens de l'IA</label>
 <input id="ccx" type="number" min="1" inputmode="numeric" placeholder="8000">
-<label for="crs">Réserve pour la réponse (tokens, défaut 1000)</label>
+<p class="note">Le maximum accepté par le modèle, entrée et réponse comprises. Vide : aucune limite.</p>
+<label for="crs">Réserve pour la réponse</label>
 <input id="crs" type="number" min="0" inputmode="numeric" placeholder="1000">
-<label for="ctpm">Tokens par minute du fournisseur (vide = aucune jauge)</label>
+<p class="note">La place gardée pour la réponse, en tokens (1000 par défaut). L'application n'envoie alors que les messages récents qui tiennent dans « limite − réserve » ; les plus anciens sont résumés dans la mémoire.</p>
+<label for="ctpm">Tokens par minute du fournisseur</label>
 <input id="ctpm" type="number" min="0" inputmode="numeric" placeholder="8000">
-<p class="note">Sert de repli quand le fournisseur n'expose pas ses en-têtes de débit au navigateur. La valeur se corrige toute seule dès qu'une réponse en contient.</p>
-<p class="note">Avec une limite, l'application n'envoie que les messages récents qui tiennent dans « limite − réserve ». Les plus anciens sont résumés dans la mémoire.</p>
-<label for="crp">Dépôt GitHub (proprietaire/depot, vide = automatique)</label>
+<p class="note">Vide : aucune jauge. Sert de repli quand le fournisseur n'expose pas ses en-têtes de débit au navigateur. La valeur se corrige toute seule dès qu'une réponse en contient.</p>
+<label><input id="ctc" type="checkbox">Afficher les compteurs sous la conversation</label>
+<p class="note">Tokens envoyés et jauge de débit. Masqués, ils réapparaissent quand le prompt dépasse la limite ou qu'un envoi doit attendre.</p>
+</details>
+
+<details>
+<summary>GitHub et sauvegarde</summary>
+<label for="crp">Dépôt GitHub des scénarios</label>
 <input id="crp" placeholder="proprietaire/depot" autocomplete="off" autocapitalize="off">
-<label>Sauvegarde (clés API exclues)</label>
+<p class="note">Vide : déduit de l'adresse du site.</p>
+<label>Sauvegarde en ligne</label>
+<div class="row l"><button id="bko">Configurer…</button></div>
+<label>Sauvegarde dans un fichier (clés API exclues)</label>
 <div class="row l"><button id="ex">Exporter</button><button id="im">Importer</button><input id="imf" type="file" accept="application/json" hidden></div>
+</details>
+
 <div class="row"><button id="dcc">Annuler</button><button id="dcs" class="primary">Enregistrer</button></div>
 </dialog>
 
-<dialog id="de">
-<h2>Modifier le message</h2>
+<dialog id="de" aria-labelledby="hde">
+<h2 id="hde">Modifier le message</h2>
 <textarea id="et"></textarea>
 <div class="row"><button id="dec">Annuler</button><button id="des" class="primary">Enregistrer</button></div>
 </dialog>
 
-<dialog id="dlc">
-<h2>Lecture</h2>
+<dialog id="dlc" aria-labelledby="hdlc">
+<h2 id="hdlc">Lecture</h2>
 <label for="lfs">Taille du texte : <span id="lfv"></span></label>
 <div class="fsr"><button id="lfm" aria-label="Réduire le texte">A−</button><input id="lfs" type="range" min="14" max="30" step="1"><button id="lfp" aria-label="Agrandir le texte">A+</button></div>
 <label for="llh">Interlignage : <span id="llv"></span></label>
@@ -294,8 +323,8 @@
 <div class="row"><button id="lcl" class="primary">Fermer</button></div>
 </dialog>
 
-<dialog id="dbk">
-<h2>Sauvegarde en ligne</h2>
+<dialog id="dbk" aria-labelledby="hdbk">
+<h2 id="hdbk">Sauvegarde en ligne</h2>
 <label for="bp">Service</label>
 <select id="bp"><option value="">Désactivée</option><option value="gh">GitHub (dépôt privé)</option><option value="drive">Google Drive</option></select>
 <div id="bgh" hidden>

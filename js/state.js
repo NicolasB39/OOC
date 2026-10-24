@@ -15,6 +15,7 @@ export const app = {
   cur: null,
   menuId: null,
   editI: null,
+  actI: null,
   busy: false,
   ctl: null,
   LIM: 50,
