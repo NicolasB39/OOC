@@ -1,6 +1,7 @@
 import { jump, render, tk } from './chat.js';
 import { showList } from './list.js';
 import { statOn } from './prompt.js';
+import { fillLec, setReading } from './read.js';
 import { mergeRel } from './memory.js';
 import { conflicts } from './protocol.js';
 import { reset as rlReset } from './rate.js';
@@ -231,6 +232,7 @@ const streamInfo = () => {
 function openCfg() {
   $('#cp').value = S.provider;
   fillCfg();
+  fillLec();
   $('#cst').textContent =
     streamInfo() +
     (S.cpt ? ' Estimation calibrée : ' + S.cpt.toFixed(2) + ' caractères par token.' : '') +
@@ -267,6 +269,10 @@ function openCfg() {
 }
 $('#cfg').onclick = openCfg;
 $('#akb').onclick = openCfg;
+$('#mlr').onclick = () => {
+  $('#dmn').close();
+  setReading(true);
+};
 $('#cfg2').onclick = () => {
   $('#dmn').close();
   openCfg();

@@ -30,6 +30,10 @@ const loreFor = (ms, max) => {
   if (max) a = a.slice(0, max);
   return a.length ? '\n\n<lorebook>\n' + a.map(e => e.text).join('\n\n') + '\n</lorebook>' : '';
 };
+export const inScene = ms => {
+  const t = textOf(ms);
+  return (ctx.chars || []).filter(c => (c.keys || []).some(r => r.test(t)));
+};
 const charsFor = ms => {
   const C = ctx.chars || [];
   if (!C.length) return [];

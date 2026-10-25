@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="d3ba0cef94">
+<meta name="app-version" content="2c00141263">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
@@ -20,6 +20,7 @@
 <!--PRELOAD-->
 <link rel="modulepreload" href="js/ai.js">
 <link rel="modulepreload" href="js/backup.js">
+<link rel="modulepreload" href="js/cast.js">
 <link rel="modulepreload" href="js/chat.js">
 <link rel="modulepreload" href="js/format.js">
 <link rel="modulepreload" href="js/list.js">
@@ -61,6 +62,7 @@
 <symbol id="i-send" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
 <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
 <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M8 16v-4M13 16V8M18 16v-7"/></symbol>
 <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
 <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
@@ -75,9 +77,9 @@
 
 <div id="toast" role="status" hidden></div>
 <main id="list">
-<header><h1><svg class="i logo" style="width:28px;height:28px"><use href="#i-logo"/></svg>Nocturne</h1><button id="rf" aria-label="Actualiser GitHub"><svg class="i"><use href="#i-refresh"/></svg></button><button id="sy" aria-label="Synchroniser la sauvegarde"><svg class="i"><use href="#i-cloud"/></svg></button><button id="usb" aria-label="Statistiques d’utilisation"><svg class="i"><use href="#i-chart"/></svg></button><button id="cfg" aria-label="Réglages IA"><svg class="i"><use href="#i-gear"/></svg></button></header>
+<header><h1><svg class="i logo" style="width:28px;height:28px"><use href="#i-logo"/></svg>Nocturne</h1><button id="rf" aria-label="Actualiser GitHub"><svg class="i"><use href="#i-refresh"/></svg></button><button id="sy" aria-label="Synchroniser la sauvegarde"><svg class="i"><use href="#i-cloud"/></svg></button><button id="usb" aria-label="Statistiques d’utilisation"><svg class="i"><use href="#i-chart"/></svg></button><button id="cfg" aria-label="Réglages"><svg class="i"><use href="#i-gear"/></svg></button></header>
 <div id="bk" class="bk" hidden><span>Pensez à sauvegarder vos histoires.</span><button id="bke">Exporter</button><button id="bkl">Plus tard</button></div>
-<div id="ak" class="bk" hidden><span>Aucune clé API : l'IA ne pourra pas répondre.</span><button id="akb">Réglages IA</button></div>
+<div id="ak" class="bk" hidden><span>Aucune clé API : l'IA ne pourra pas répondre.</span><button id="akb">Réglages</button></div>
 <label class="sb"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" placeholder="Rechercher" aria-label="Rechercher un scénario"></label>
 <div id="tabs" role="radiogroup" aria-label="Filtrer"><button class="on" data-f="all" role="radio" aria-checked="true">Tous<span class="cnt"></span></button><button data-f="play" role="radio" aria-checked="false">En cours<span class="cnt"></span></button><button data-f="lib" role="radio" aria-checked="false">Bibliothèque<span class="cnt"></span></button><button data-f="own" role="radio" aria-checked="false">Perso<span class="cnt"></span></button></div>
 <div id="items"></div>
@@ -88,7 +90,7 @@
 <header>
 <button id="back" aria-label="Retour"><svg class="i"><use href="#i-back"/></svg></button>
 <h1 id="ct"></h1>
-<button id="rd" aria-label="Lecture"><svg class="i"><use href="#i-type"/></svg></button>
+<button id="pe" aria-label="Personnages"><svg class="i"><use href="#i-users"/></svg></button>
 <button id="mo" aria-label="Options de l'histoire"><svg class="i"><use href="#i-more"/></svg></button>
 </header>
 <div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><div id="nav"><button id="nvp" aria-label="Tour précédent"><svg class="i rot"><use href="#i-down"/></svg></button><button id="nvn" aria-label="Tour suivant"><svg class="i"><use href="#i-down"/></svg></button></div></div>
@@ -127,7 +129,8 @@
 <button id="mb"><svg class="i"><use href="#i-mem"/></svg>Mémoire</button>
 <button id="nt"><svg class="i"><use href="#i-note"/></svg>Note utilisateur</button>
 <button id="sc"><svg class="i"><use href="#i-sliders"/></svg>Réglages du scénario</button>
-<button id="cfg2"><svg class="i"><use href="#i-gear"/></svg>Réglages IA</button>
+<button id="mlr"><svg class="i"><use href="#i-type"/></svg>Mode lecture</button>
+<button id="cfg2"><svg class="i"><use href="#i-gear"/></svg>Réglages</button>
 <button id="dmnc">Fermer</button>
 </div>
 </dialog>
@@ -209,6 +212,13 @@
 <div class="row"><button id="dsrc" class="primary">Fermer</button></div>
 </dialog>
 
+<dialog id="dpe" aria-labelledby="hdpe">
+<h2 id="hdpe">Personnages</h2>
+<p id="pes" class="note"></p>
+<div id="pel"></div>
+<div class="row"><button id="pec" class="primary">Fermer</button></div>
+</dialog>
+
 <dialog id="dus" aria-labelledby="hdus">
 <h2 id="hdus">Statistiques</h2>
 <p class="note">Tokens consommés, par modèle. Enregistrés sur cet appareil seulement : ils ne font pas partie des sauvegardes.</p>
@@ -263,7 +273,7 @@
 </dialog>
 
 <dialog id="dc" aria-labelledby="hdc">
-<h2 id="hdc">Réglages IA</h2>
+<h2 id="hdc">Réglages</h2>
 <label for="cp">Fournisseur</label>
 <select id="cp"></select>
 <label for="ck">Clé API</label>
@@ -277,6 +287,31 @@
 <p class="note">Vide : le même modèle. Les résumés de mémoire ne demandent pas votre meilleur modèle, un plus petit coûte moins cher et consomme moins de quota.</p>
 <label><input id="cn" type="checkbox">Désactiver le streaming pour ce fournisseur</label>
 <p id="cst" class="note"></p>
+
+<details>
+<summary>Lecture</summary>
+<p class="note">Appliqué et enregistré immédiatement, sans passer par « Enregistrer ».</p>
+<label for="lfs">Taille du texte : <span id="lfv"></span></label>
+<div class="fsr"><button id="lfm" aria-label="Réduire le texte">A−</button><input id="lfs" type="range" min="14" max="30" step="1"><button id="lfp" aria-label="Agrandir le texte">A+</button></div>
+<label for="llh">Interlignage : <span id="llv"></span></label>
+<input id="llh" type="range" min="1.4" max="2.1" step="0.05">
+<label for="lff">Police du récit</label>
+<select id="lff"><option value="ser">Serif</option><option value="sans">Sans serif</option></select>
+<label for="lpm">Paragraphes</label>
+<select id="lpm"><option value="sp">Espacés</option><option value="in">Alinéa</option></select>
+<label for="lcw">Largeur de colonne : <span id="lcv"></span></label>
+<input id="lcw" type="range" min="34" max="52" step="1">
+<p class="lprev">Le vent se lève sur la falaise, et les vagues frappent la roche sans relâche.</p>
+<label><input id="lfo" type="checkbox">Suivre le texte pendant l'écriture de l'IA (défilement automatique)</label>
+<div id="ltt">
+<label for="lvo">Voix</label>
+<select id="lvo"></select>
+<label for="lra">Vitesse : <span id="lrv"></span></label>
+<input id="lra" type="range" min="0.6" max="1.6" step="0.1">
+<label><input id="lau" type="checkbox">Lire automatiquement les nouvelles réponses</label>
+<div class="row l"><button id="ltest">Écouter un exemple</button></div>
+</div>
+</details>
 
 <details>
 <summary>Narration</summary>
@@ -328,31 +363,6 @@
 <div class="row"><button id="dec">Annuler</button><button id="des" class="primary">Enregistrer</button></div>
 </dialog>
 
-<dialog id="dlc" aria-labelledby="hdlc">
-<h2 id="hdlc">Lecture</h2>
-<label for="lfs">Taille du texte : <span id="lfv"></span></label>
-<div class="fsr"><button id="lfm" aria-label="Réduire le texte">A−</button><input id="lfs" type="range" min="14" max="30" step="1"><button id="lfp" aria-label="Agrandir le texte">A+</button></div>
-<label for="llh">Interlignage : <span id="llv"></span></label>
-<input id="llh" type="range" min="1.4" max="2.1" step="0.05">
-<label for="lff">Police du récit</label>
-<select id="lff"><option value="ser">Serif</option><option value="sans">Sans serif</option></select>
-<label for="lpm">Paragraphes</label>
-<select id="lpm"><option value="sp">Espacés</option><option value="in">Alinéa</option></select>
-<label for="lcw">Largeur de colonne : <span id="lcv"></span></label>
-<input id="lcw" type="range" min="34" max="52" step="1">
-<p class="lprev">Le vent se lève sur la falaise, et les vagues frappent la roche sans relâche.</p>
-<label><input id="lrm" type="checkbox">Mode lecture (masque les boutons)</label>
-<label><input id="lfo" type="checkbox">Suivre le texte pendant l'écriture de l'IA (défilement automatique)</label>
-<div id="ltt">
-<label for="lvo">Voix</label>
-<select id="lvo"></select>
-<label for="lra">Vitesse : <span id="lrv"></span></label>
-<input id="lra" type="range" min="0.6" max="1.6" step="0.1">
-<label><input id="lau" type="checkbox">Lire automatiquement les nouvelles réponses</label>
-<div class="row l"><button id="ltest">Écouter un exemple</button></div>
-</div>
-<div class="row"><button id="lcl" class="primary">Fermer</button></div>
-</dialog>
 
 <dialog id="dbk" aria-labelledby="hdbk">
 <h2 id="hdbk">Sauvegarde en ligne</h2>

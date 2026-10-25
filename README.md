@@ -10,7 +10,7 @@ Application web installable (PWA) pour jouer des histoires interactives avec une
 
 Le workflow lance les tests (`npm test`), puis `npm run build`, qui calcule un numéro de version à partir du contenu des fichiers et met à jour tout seul le service worker, les préchargements et les numéros de version. Il échoue si `index.html` contient un identifiant dupliqué, un `label for=` orphelin, si un module vise un élément absent de la page, ou si une règle CSS fixe `display` sur une feuille (`dialog`) sans viser `[open]` : une feuille fermée reprendrait alors sa place dans le flux et allongerait la page.
 
-Le workflow génère aussi `index.json` (liste des fichiers de `scenarios/`) à chaque push. L'application le lit en priorité, ce qui évite la limite de 60 requêtes par heure de l'API GitHub et fonctionne avec un domaine personnalisé. Sans `index.json`, elle interroge l'API GitHub (dépôt déduit de l'URL, ou saisi dans Réglages IA).
+Le workflow génère aussi `index.json` (liste des fichiers de `scenarios/`) à chaque push. L'application le lit en priorité, ce qui évite la limite de 60 requêtes par heure de l'API GitHub et fonctionne avec un domaine personnalisé. Sans `index.json`, elle interroge l'API GitHub (dépôt déduit de l'URL, ou saisi dans Réglages).
 
 ## Structure des scénarios
 
@@ -86,10 +86,10 @@ L'application est propriétaire du **protocole** : les formats du bloc `<etat>`,
 Conséquences :
 
 - Faire évoluer un format se fait en un seul endroit, pour tous les scénarios à la fois.
-- Le protocole peut s'adapter au modèle. Réglages IA, « Consignes de format » : **Automatique** choisit des consignes détaillées pour les modèles moyens et concises pour les gros, **Détaillées** et **Concises** forcent l'un ou l'autre. Le mode concis raccourcit les consignes et supprime le rappel de fin, ce qui économise environ 250 caractères par requête.
+- Le protocole peut s'adapter au modèle. Réglages, « Consignes de format » : **Automatique** choisit des consignes détaillées pour les modèles moyens et concises pour les gros, **Détaillées** et **Concises** forcent l'un ou l'autre. Le mode concis raccourcit les consignes et supprime le rappel de fin, ce qui économise environ 250 caractères par requête.
 - Si un `systeme.md` contient encore `<choix>`, `<etat>` ou `{{img::`, l'application le signale à l'ouverture de la conversation et dans la feuille Scénario : l'IA recevrait deux versions du même format, et arbitrerait mal. Retirez ces lignes.
 
-Le **préambule commun** (Réglages IA) est votre texte à vous, ajouté au prompt système de tous les scénarios : longueur des réponses, personne, registre, manies de narration. Un scénario peut s'en affranchir avec « Ignorer le préambule commun » dans sa section Narration.
+Le **préambule commun** (Réglages) est votre texte à vous, ajouté au prompt système de tous les scénarios : longueur des réponses, personne, registre, manies de narration. Un scénario peut s'en affranchir avec « Ignorer le préambule commun » dans sa section Narration.
 
 Ce qui reste au scénario : tout ce qui touche à la voix. Ce qui passe à l'application : tout ce qui touche à la forme des blocs.
 
@@ -121,7 +121,7 @@ Le récit est composé en **Literata** (SIL Open Font License, `fonts/LICENSE-Li
 
 « Nouveau » demande un nom, puis propose un point de départ : enquête contemporaine, fantasy de voyage, huis clos, ou page blanche. Le canevas choisi remplit le prompt système, qui s'ouvre aussitôt pour être réécrit. Les canevas ne décrivent que la fiction : aucun ne touche au protocole (voir « Protocole et préambule »).
 
-Tant qu'aucune clé API n'est enregistrée pour le fournisseur courant, un bandeau le signale en haut de la liste et mène aux Réglages IA.
+Tant qu'aucune clé API n'est enregistrée pour le fournisseur courant, un bandeau le signale en haut de la liste et mène aux Réglages.
 
 ### Actions d'un message
 
@@ -153,15 +153,25 @@ En quittant une conversation, l'application retient le message en haut de l'écr
 
 Au bout de trois secondes sans texte, le bloc en cours affiche « Réflexion… 12 s ». C'est surtout utile quand le streaming est coupé ou que le modèle raisonne avant de répondre : sans cela, rien ne bouge. Un message d'état invisible, destiné aux lecteurs d'écran, annonce le début et la fin de la réponse, et l'auteur de chaque message est annoncé avant son texte.
 
+## Personnages
+
+Le bouton en forme de silhouettes, dans l'en-tête de la conversation, ouvre la fenêtre **Personnages** : une ligne par personnage du scénario, avec son portrait (sa première image, ou une pastille à son initiale), son nom et son résumé. Ceux qui sont nommés dans les six derniers messages passent en tête, avec l'étiquette « En scène », et le premier d'entre eux est déplié.
+
+Toucher une ligne la déplie : la galerie de ses images (chacune s'ouvre en grand, avec le nom de l'expression tiré du nom de fichier) et **votre relation avec lui**, telle que la mémoire l'a retenue. Seul le résumé de la fiche (`résumé:`) est montré, jamais la fiche complète, qui est écrite pour l'IA et peut contenir des secrets.
+
+En bas, **Personnes croisées** liste les relations mémorisées avec des gens qui n'ont pas de fiche, par exemple un aubergiste inventé par le modèle en cours de partie. Un scénario créé dans l'application, qui n'a pas de fiches, n'affiche que cette section.
+
+Cette fenêtre ne coûte rien : elle n'interroge pas l'IA et ne change pas le prompt.
+
 ## Lecture
 
-Bouton « T » dans l'en-tête de la conversation (feuille Lecture) :
+Section « Lecture » des Réglages (roue dentée de la liste, ou menu « … » de la conversation, puis Réglages). Ces réglages s'appliquent et s'enregistrent immédiatement, sans passer par « Enregistrer », et la ligne d'aperçu permet d'en juger, puisque la feuille floute la conversation derrière elle :
 
 - **Taille du texte** de 14 à 30 px, **interlignage** de 1,4 à 2,1, **police du récit** (serif ou sans serif), **largeur de colonne** et **paragraphes**, avec aperçu. Les réglages sont conservés sur l'appareil.
 - La largeur de colonne est une vraie mesure : elle vaut le nombre choisi multiplié par la taille du texte, donc agrandir le texte élargit la colonne et le nombre de caractères par ligne reste constant.
 - **Paragraphes** : *Espacés* laisse un blanc entre les paragraphes, *Alinéa* les colle et décale la première ligne, comme dans un livre imprimé. Le récit est découpé en vrais paragraphes par l'application, l'espacement ne dépend donc plus des lignes vides écrites par le modèle. Les images portent une marge nulle : l'écart vient de leurs voisins, 3 px côté texte (qui s'ajoutent au demi-interligne de la ligne voisine) et 10 px entre deux images consécutives, pour qu'elles ne se touchent pas.
 - **Défilement pendant la réponse** : par défaut, l'écran ne suit pas le texte pendant que l'IA écrit. Le début de la nouvelle réponse se place en haut de l'écran, puis l'écran ne bouge plus et ne saute pas en bas à la fin. Si vous faites défiler vous-même, l'application ne vous ramène jamais en bas, et le bouton flèche permet d'y aller quand vous voulez. L'option « Suivre le texte pendant l'écriture de l'IA » rétablit le défilement automatique.
-- **Mode lecture** : masque les boutons des messages, la saisie, les choix, le panneau d'état et les réglages. Il reste le retour, le bouton Lecture et une barre flottante (lire ou mettre en pause, arrêter, A−, A+, quitter). Le mode lecture n'est pas conservé : il se désactive en quittant la conversation.
+- **Mode lecture** (menu « … » de la conversation) : masque les boutons des messages, la saisie, les choix et les cartes d'état. Il reste l'en-tête et une barre flottante (lire ou mettre en pause, arrêter, A−, A+, quitter). Le mode lecture n'est pas conservé : il se désactive en quittant la conversation.
 - **Lecture à voix haute** : un bouton haut-parleur sous chaque message lit ce message. En mode lecture, toucher un message lit la suite de l'histoire (réponses de l'IA seulement), et le bouton Lire de la barre démarre depuis le haut de l'écran. Le texte lu est nettoyé (sans astérisques, état ni choix) et `{{user}}` est remplacé par le nom du joueur.
 - Réglages de la voix : choix de la voix (les voix françaises en premier), vitesse de 0,6 à 1,6, bouton pour écouter un exemple, et lecture automatique des nouvelles réponses.
 
@@ -169,7 +179,7 @@ Limites : la synthèse vocale est celle de l'appareil, donc les voix disponibles
 
 ## Budget de tokens
 
-Les Réglages IA sont groupés : fournisseur, clé et modèles en haut, puis « Narration », « Budget de tokens » et « GitHub et sauvegarde » dans des sections repliées.
+Les Réglages sont groupés : fournisseur, clé et modèles en haut, puis « Narration », « Budget de tokens » et « GitHub et sauvegarde » dans des sections repliées.
 
 Pour un modèle qui refuse les requêtes trop grosses (par exemple 8000 tokens), renseignez dans « Budget de tokens » :
 
@@ -201,13 +211,13 @@ La fenêtre n'avance pas d'un message à la fois : quand le budget est dépassé
 
 Quand au moins 6 messages ne sont plus envoyés, ils sont résumés dans la mémoire, pour que l'IA n'en perde pas le fil. Le compteur sous la conversation indique par exemple « ≈ 6 953 / 7 000 tokens envoyés (réel : 7 012) · 10 messages envoyés sur 16 », et une ligne « l'IA lit à partir d'ici » marque la limite dans le fil. Si le prompt de base dépasse à lui seul la limite, le compteur passe en rouge.
 
-Le compteur et la jauge de débit sont **masqués par défaut** : on lit une histoire, pas un tableau de bord. « Afficher les compteurs sous la conversation » (Réglages IA, section « Budget de tokens ») les rend permanents. Masqués, ils réapparaissent d'eux-mêmes dans les deux cas où ils servent : prompt de base au-dessus de la limite, et envoi qui doit attendre la minute suivante.
+Le compteur et la jauge de débit sont **masqués par défaut** : on lit une histoire, pas un tableau de bord. « Afficher les compteurs sous la conversation » (Réglages, section « Budget de tokens ») les rend permanents. Masqués, ils réapparaissent d'eux-mêmes dans les deux cas où ils servent : prompt de base au-dessus de la limite, et envoi qui doit attendre la minute suivante.
 
 ### Jauge de débit
 
 Sous le compteur, une barre indique les tokens restants dans la minute en cours : « 2 400 / 8 000 tokens par minute · prochain tour dans ~7 s ». Elle passe en rouge quand le tour suivant ne tient pas dans ce qui reste.
 
-Deux sources, dans cet ordre. Si le fournisseur expose ses en-têtes `x-ratelimit-*` au navigateur, la jauge part de son chiffre exact et mémorise la limite. Entre deux réponses, elle ne recrédite que les tokens de vos propres requêtes qui viennent réellement de sortir de la fenêtre de soixante secondes, jamais un réapprovisionnement théorique. Sinon elle retombe sur une fenêtre glissante de soixante secondes calculée à partir des `usage` de vos propres requêtes, et le signale par « estimation locale ». Dans ce cas, renseignez « Tokens par minute du fournisseur » dans Réglages IA pour lui donner un plafond ; la valeur se corrigera toute seule si un jour les en-têtes arrivent.
+Deux sources, dans cet ordre. Si le fournisseur expose ses en-têtes `x-ratelimit-*` au navigateur, la jauge part de son chiffre exact et mémorise la limite. Entre deux réponses, elle ne recrédite que les tokens de vos propres requêtes qui viennent réellement de sortir de la fenêtre de soixante secondes, jamais un réapprovisionnement théorique. Sinon elle retombe sur une fenêtre glissante de soixante secondes calculée à partir des `usage` de vos propres requêtes, et le signale par « estimation locale ». Dans ce cas, renseignez « Tokens par minute du fournisseur » dans Réglages pour lui donner un plafond ; la valeur se corrigera toute seule si un jour les en-têtes arrivent.
 
 Quand le tour suivant ne tient pas dans ce qui reste, l'application **attend d'elle-même** au lieu de partir dans une erreur de limite. Le décompte s'affiche sous la conversation (« envoi dans 55 s… »), rien n'est envoyé pendant ce temps, et le bouton d'arrêt annule l'attente et vous rend la main. Votre message reste dans la conversation, prêt à être renvoyé. L'attente s'applique aussi à la requête de mémoire, dont les tokens sont décomptés comme les autres.
 
@@ -219,7 +229,7 @@ En cas de refus pour dépassement (429), l'application relance jusqu'à trois fo
 
 Deux messages distincts selon l'origine de l'attente : « Pause pour respecter la limite de débit du fournisseur » quand l'application temporise d'elle-même, avant l'envoi, parce que le tour ne tiendrait pas dans ce qui reste de la minute ; « Le fournisseur a refusé l'envoi » quand il a réellement répondu 429. Après un refus, la jauge est remise à zéro le temps de l'attente, puis rétablie dès qu'une réponse passe, même si le fournisseur n'expose pas ses en-têtes de débit.
 
-Le décompte part de 3,4 caractères par token, puis **se calibre tout seul** : chaque réponse du fournisseur indique le nombre réel de tokens de l'entrée, et l'application ajuste son rapport caractères/token. La valeur courante s'affiche dans Réglages IA. Au bout de quelques messages, l'estimation colle au modèle que vous utilisez.
+Le décompte part de 3,4 caractères par token, puis **se calibre tout seul** : chaque réponse du fournisseur indique le nombre réel de tokens de l'entrée, et l'application ajuste son rapport caractères/token. La valeur courante s'affiche dans Réglages. Au bout de quelques messages, l'estimation colle au modèle que vous utilisez.
 
 ## Mémoire
 
@@ -239,9 +249,9 @@ Tout reste modifiable à la main dans la feuille Mémoire, noms de relations com
 
 L'objectif courant ne vit pas dans la mémoire mais dans le panneau d'état, qui est mis à jour à chaque tour. Ajoutez simplement un champ `Objectif` à la liste.
 
-Tout est régénéré par une requête de résumé lancée pendant que vous lisez la réponse précédente. Dans Réglages IA, « Modèle pour la mémoire » permet de confier ce travail à un modèle plus petit que celui de la narration.
+Tout est régénéré par une requête de résumé lancée pendant que vous lisez la réponse précédente. Dans Réglages, « Modèle pour la mémoire » permet de confier ce travail à un modèle plus petit que celui de la narration.
 
-Cette requête demande une réponse **en JSON**, avec `response_format` quand le fournisseur le gère. La narration, elle, reste en texte balisé : le JSON empêcherait l'affichage au fil de l'eau et abîmerait l'écriture, alors que la mémoire n'est jamais affichée telle quelle et gagne beaucoup en fiabilité. Trois filets successifs : si le fournisseur refuse le paramètre, la requête est rejouée sans lui et la note des Réglages IA le signale ; si la réponse n'est pas du JSON exploitable, l'application retombe sur le format balisé ; si rien ne passe, la mémoire reste inchangée et l'essai reprend au tour suivant.
+Cette requête demande une réponse **en JSON**, avec `response_format` quand le fournisseur le gère. La narration, elle, reste en texte balisé : le JSON empêcherait l'affichage au fil de l'eau et abîmerait l'écriture, alors que la mémoire n'est jamais affichée telle quelle et gagne beaucoup en fiabilité. Trois filets successifs : si le fournisseur refuse le paramètre, la requête est rejouée sans lui et la note des Réglages le signale ; si la réponse n'est pas du JSON exploitable, l'application retombe sur le format balisé ; si rien ne passe, la mémoire reste inchangée et l'essai reprend au tour suivant.
 
 Avec un modèle **à raisonnement**, trois précautions. Le JSON est cherché à plusieurs endroits du texte, et non plus seulement à partir de la première accolade : un modèle qui cite le schéma dans sa réflexion (`{"resume": …}`) ne fait plus échouer la lecture. Une balise `</think>` isolée, sans balise ouvrante, est traitée comme la fin de la réflexion et tout ce qui la précède est écarté, ce qui vaut aussi pour la narration. Enfin, cette requête n'est pas diffusée, donc son délai maximal est de 5 minutes au lieu de 2. Si le modèle épuise sa limite de jetons en réfléchissant et ne répond rien, le message indique de choisir un modèle sans raisonnement dans « Modèle pour la mémoire ».
 
@@ -271,17 +281,17 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 - Modifier, copier ou supprimer à partir d'un message (corbeille). La suppression est immédiate, avec un bouton « Annuler » pendant 7 secondes tant que la conversation n'a pas changé.
 - Le bouton stop (et la sortie de la conversation) conserve le texte déjà reçu, que « Continuer » peut prolonger.
 - Mémoire à trois étages, éditable : résumé, lignes récentes, souvenirs (ajout et retrait à l'unité), relations par personnage, note utilisateur (menu « … » de la conversation). Nombre de souvenirs injectés réglable.
-- Température et Top P : globaux (Réglages IA) ou par scénario.
+- Température et Top P : globaux (Réglages) ou par scénario.
 - Modèle distinct pour les résumés de mémoire.
 - Protocole de sortie centralisé, adapté au modèle, et préambule commun à tous les scénarios.
-- Liste des modèles du fournisseur (Réglages IA, Lister les modèles).
+- Liste des modèles du fournisseur (Réglages, Lister les modèles).
 - Budget de tokens : limite réglable et estimation des tokens envoyés dans le compteur sous la conversation (voir ci-dessous).
 - Recherche dans la liste, export d'une histoire en `.md`, sauvegarde JSON (clés API exclues) avec rappel tous les 30 jours, synchronisation en ligne (GitHub ou Google Drive).
 - Bouton retour du téléphone géré, fonctionnement hors ligne.
 
 ## Sauvegarde en ligne
 
-Les histoires restent d'abord sur l'appareil. La sauvegarde en ligne les copie dans un fichier JSON et les synchronise entre vos appareils. Réglages IA, Sauvegarde en ligne (ou icône nuage de la liste).
+Les histoires restent d'abord sur l'appareil. La sauvegarde en ligne les copie dans un fichier JSON et les synchronise entre vos appareils. Réglages, Sauvegarde en ligne (ou icône nuage de la liste).
 
 Fonctionnement : à chaque synchronisation, l'application télécharge le fichier distant, garde pour chaque scénario la version la plus récente, applique les suppressions, puis renvoie le résultat. Rien n'est écrasé à l'aveugle. Si la même histoire a été jouée des deux côtés depuis la dernière synchronisation, la version la plus ancienne n'est pas perdue : elle est conservée à part sous le même nom suivi de « (conflit) », à vous de choisir laquelle garder. Un fichier distant illisible n'est jamais remplacé. Les clés API ne sont pas sauvegardées. La synchronisation se lance à l'ouverture, en quittant une conversation, en quittant l'application et au toucher du nuage. Elle repose sur l'horloge des appareils : gardez-les à l'heure.
 
@@ -289,9 +299,9 @@ Fonctionnement : à chaque synchronisation, l'application télécharge le fichie
 
 - Si la dernière synchronisation a échoué, un **point rouge** apparaît sur le nuage. Touchez le nuage : le message d'erreur propose « Modifier la configuration ».
 - Après « Enregistrer », la synchronisation se lance tout de suite et affiche son résultat (« Sauvegarde à jour » ou l'erreur).
-- La configuration est aussi accessible par la roue dentée (Réglages IA), section « GitHub et sauvegarde », bouton « Configurer… ».
+- La configuration est aussi accessible par la roue dentée (Réglages), section « GitHub et sauvegarde », bouton « Configurer… ».
 - « Effacer la configuration » remet le service, le jeton et la connexion Google à zéro sur l'appareil. Les histoires et le fichier de sauvegarde en ligne ne sont pas touchés.
-- Réglages IA, section « GitHub et sauvegarde », indique l'espace occupé sur l'appareil et si le navigateur a accordé la **conservation** des données. Sans elle, le navigateur peut effacer les histoires quand l'espace manque : c'est la vraie raison de configurer une sauvegarde en ligne.
+- Réglages, section « GitHub et sauvegarde », indique l'espace occupé sur l'appareil et si le navigateur a accordé la **conservation** des données. Sans elle, le navigateur peut effacer les histoires quand l'espace manque : c'est la vraie raison de configurer une sauvegarde en ligne.
 
 ### GitHub (recommandé)
 
@@ -330,6 +340,7 @@ js/
   ai.js             appel au fournisseur d'IA (streaming) et résumé de mémoire
   format.js         mise en forme du texte (Markdown léger, images, choix, état)
   read.js           lecture : taille du texte, mode lecture, lecture à voix haute
+  cast.js           fenêtre Personnages
   chat.js           conversation : affichage, envoi, variantes, suppression, continuation
   list.js           liste des scénarios : recherche, onglets, menu, création
   nav.js            navigation (bouton retour du téléphone)
@@ -385,7 +396,7 @@ Si l'application ne répond plus malgré tout :
 
 ## Streaming
 
-Le texte s'affiche au fur et à mesure quand le fournisseur le diffuse. Si ce n'est pas le cas, Réglages IA indique comment la dernière réponse est arrivée : diffusée en N morceaux, reçue d'un seul bloc (le service ne diffuse pas) ou streaming désactivé. Les modèles « à raisonnement » réfléchissent avant de répondre : l'application affiche alors « Réflexion… » et le texte n'apparaît qu'ensuite.
+Le texte s'affiche au fur et à mesure quand le fournisseur le diffuse. Si ce n'est pas le cas, Réglages indique comment la dernière réponse est arrivée : diffusée en N morceaux, reçue d'un seul bloc (le service ne diffuse pas) ou streaming désactivé. Les modèles « à raisonnement » réfléchissent avant de répondre : l'application affiche alors « Réflexion… » et le texte n'apparaît qu'ensuite.
 
 ## Sécurité
 

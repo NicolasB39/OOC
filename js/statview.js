@@ -13,6 +13,7 @@ import {
 import { $, dlg, el } from './util.js';
 
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 let mode = 'session',
   cur = new Date();
 
@@ -92,20 +93,22 @@ export function view() {
     $('#usl').textContent = '';
   } else if (mode == 'day') {
     map = dayMap(dayKey(cur));
-    $('#usl').textContent = cur.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+    $('#usl').textContent = cap(
+      cur.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      })
+    );
   } else {
     ym = monthKey(dayKey(cur));
     map = monthMap(ym);
-    $('#usl').textContent = cur.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    $('#usl').textContent = cap(cur.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }));
   }
   const t = total(map),
     est = t[3];
-  $('#usv').replaceChildren(
+  const parts = [
     el(
       'div',
       { class: 'ut' },
@@ -122,15 +125,17 @@ export function view() {
       })
     ),
     ym && t[2] ? bars(ym) : null,
-    t[2]
+    ...(t[2]
       ? rows(map)
-      : el('p', {
-          class: 'hint',
-          text:
-            mode == 'session'
-              ? 'Rien depuis l’ouverture de l’application.'
-              : 'Aucune utilisation sur cette période.'
-        }),
+      : [
+          el('p', {
+            class: 'hint',
+            text:
+              mode == 'session'
+                ? 'Rien depuis l’ouverture de l’application.'
+                : 'Aucune utilisation sur cette période.'
+          })
+        ]),
     est
       ? el('p', {
           class: 'note',
@@ -146,7 +151,8 @@ export function view() {
           text: 'Une session court depuis l’ouverture de l’application, jusqu’à sa fermeture complète.'
         })
       : null
-  );
+  ].filter(Boolean);
+  $('#usv').replaceChildren(...parts);
 }
 
 $('#usb').onclick = () => {

@@ -4,6 +4,7 @@ import { S } from './state.js';
 import { STATS, load as loadUsage, watch } from './stats.js';
 import { loadSet, loadStats, openDB, saveStats } from './store.js';
 import './statview.js';
+import './cast.js';
 import { LS, toast } from './util.js';
 import { applyFs } from './read.js';
 import './list.js';
@@ -12,7 +13,7 @@ import './nav.js';
 import './settings.js';
 import './backup.js';
 
-const VERSION = 'd3ba0cef94';
+const VERSION = '2c00141263';
 const pv = document.querySelector('meta[name="app-version"]')?.content;
 if (pv !== VERSION)
   window.__boot?.warn(

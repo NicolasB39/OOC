@@ -214,14 +214,13 @@ const lhLabel = () => {
   $('#llv').textContent = (S.lh || 1.7).toFixed(2);
   $('#lcv').textContent = (S.cw || 45) + ' em';
 };
-function openLec() {
+export function fillLec() {
   fsLabel();
   lhLabel();
   $('#llh').value = S.lh || 1.7;
   $('#lcw').value = S.cw || 45;
   $('#lff').value = S.ff || 'ser';
   $('#lpm').value = S.pm || 'sp';
-  $('#lrm').checked = app.reading;
   $('#lfo').checked = !!S.follow;
   $('#ltt').hidden = !ok;
   if (ok) {
@@ -231,10 +230,8 @@ function openLec() {
     $('#lrv').textContent = (t.rate || 1).toFixed(1) + '×';
     $('#lau').checked = !!t.auto;
   }
-  if (!$('#dlc').open) $('#dlc').showModal();
 }
 if (ok) speechSynthesis.addEventListener?.('voiceschanged', fillVoices);
-$('#rd').onclick = openLec;
 $('#lfs').oninput = () => {
   S.fs = +$('#lfs').value;
   applyFs();
@@ -266,10 +263,6 @@ $('#lfm').onclick = () => setFs((S.fs || 17) - 1);
 $('#lfp').onclick = () => setFs((S.fs || 17) + 1);
 $('#rm').onclick = () => setFs((S.fs || 17) - 1);
 $('#rp').onclick = () => setFs((S.fs || 17) + 1);
-$('#lrm').onchange = () => {
-  setReading($('#lrm').checked);
-  if ($('#lrm').checked) $('#dlc').close();
-};
 $('#rx').onclick = () => setReading(false);
 $('#lfo').onchange = () => {
   S.follow = $('#lfo').checked;
@@ -289,7 +282,6 @@ $('#lau').onchange = () => {
   saveSet();
 };
 $('#ltest').onclick = () => start([{ m: -1, t: 'Voici un exemple de lecture à voix haute.' }]);
-$('#lcl').onclick = () => $('#dlc').close();
 $('#rpp').onclick = () => {
   if (T.state == 'play') pause();
   else if (T.state == 'paused') resume();
