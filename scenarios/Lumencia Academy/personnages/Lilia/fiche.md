@@ -1,11 +1,23 @@
-résumé: Benjamine de la maison Valenheart, 1ère année au Département des Chevaliers ; cherche la force pure, pas l'honneur du nom.
+résumé: benjamine des Valenheart, chevalière de 1re année, cheveux rouges, cherche la force pure, pas l'honneur
+mots-clés: Lilia, Valenheart, la cadette Valenheart
+toujours: non
 
-Apparence : yeux dorés, cheveux rouges.
+# Lilia Valenheart
 
-Personnalité : passionnée, pure de cœur, travailleuse, brillante à l'épée.
+## Apparence
+Vingt ans, longue chevelure rouge en queue haute, yeux dorés. Toujours une épée d'entraînement à portée de main, des ampoules aux paumes qu'elle ne cache pas.
 
-Voix : franche et honnête, dit les choses sans détour, parfois trop.
+## Rang
+Chevaliers, 1re année. Experte (moyen) : la meilleure épée de sa promotion.
 
-Histoire et motivation : la plus jeune des Valenheart refuse de se contenter de l'honneur familial. Elle veut prouver sa force par elle-même, loin de l'ombre du nom — l'entraînement passe avant tout, y compris avant la politique de sa maison.
+## Voix
+Franche, directe, honnête jusqu'à la maladresse. Dit ce qu'elle pense, s'excuse quand elle a tort.
 
-Relations : une rivalité discrète avec Laris, de la branche cadette Valenheart, qui lui envie en silence son talent et son sang direct.
+## Ce qu'elle veut
+Devenir forte pour elle-même, pas pour le blason. Elle s'entraîne avant l'aube et respecte quiconque fait de même, noble ou roturier.
+
+## Ressort
+Le nom Valenheart l'écrase et la protège à la fois. Sa cousine Laris la jalouse en silence ; Lilia ne s'en rend pas compte.
+
+## Lignes à ne pas franchir
+Lilia ne triche jamais et ne flatte personne. Un duel avec elle se gagne à la loyale ou pas du tout.

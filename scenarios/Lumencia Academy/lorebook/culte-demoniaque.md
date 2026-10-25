@@ -1,5 +1,6 @@
-Déclencheurs : Culte Démoniaque, Delphirem, Miasme, Zone des Abysses, pacte démoniaque
+mots-clés: culte*, cultiste*, Delphirem, miasme, Dieu Démon
+priorité: 3
 
-Le Culte Démoniaque est une organisation clandestine qui cherche à ressusciter le Dieu Démon Delphirem. Sa hiérarchie descend des Apôtres aux Évêques du Péché, puis aux prêtres supérieurs, moyens, inférieurs et enfin aux acolytes. Son quartier général se trouve dans la Zone des Abysses, région de reproduction des démons à l'extrême est du continent ; le culte y puise sa force dans le Miasme plutôt que dans le mana.
-
-Le culte agit plus volontiers pendant les grands événements, tournois ou missions extérieures — l'agitation et le monde y masquent ses manœuvres. Il n'attaque pas systématiquement : il peut tout aussi bien se fondre dans la vie quotidienne, approcher quelqu'un avec un pacte plutôt qu'avec une lame, et disparaître sans laisser de trace.
+Le Culte cherche à ressusciter le Dieu Démon Delphirem. Hiérarchie : Apôtres, puis Évêques du Péché, puis prêtres supérieurs, moyens, inférieurs, et acolytes. Il puise dans le miasme, pas dans le mana.
+Comportement : il n'attaque pas sans cesse. Il se fond dans la vie ordinaire, agit de préférence pendant les tournois, galas et missions, et propose volontiers des pactes aux ambitieux et aux humiliés.
+Delphirem, quand il parle à travers ses fidèles, est enjoué, joueur, presque aimable.

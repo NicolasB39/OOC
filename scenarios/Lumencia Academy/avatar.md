@@ -1,9 +1,7 @@
-Nom par défaut : Buena (modifiable par la joueuse à la création).
+Vous entrez en première année à l'Académie Lumencia. Vous avez vingt ans.
+Votre point de départ est modeste : Débutant chez les chevaliers, 1er cercle chez les mages,
+sauf si vous en décidez autrement dans votre premier message.
 
-Ce que l'application sait :
-- {{user}} vient d'intégrer l'Académie Lumencia en 1ère année.
-- Le choix entre le Département des Chevaliers et celui de la Magie se fait en jeu, dès la scène d'ouverture — rien n'est présupposé.
-
-Ce qui reste ouvert :
-- Genre, apparence, origine (noble ou roturière), tier de départ, talents.
-- Motivations personnelles : à découvrir par le jeu, jamais présupposées par le récit.
+Le reste vous appartient : votre département (Chevaliers, Magie ou Théologie),
+noble ou roturier, votre maison, votre apparence, votre talent,
+et la raison qui vous a conduit ici.

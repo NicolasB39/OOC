@@ -1,11 +1,20 @@
-résumé: Roturière, major de promotion en 1ère année de Magie, 7ème cercle ; effort minimal, rendement maximal.
+résumé: roturière, major de promotion en Magie, 7e cercle à vingt ans, apprentie d'Ethera, ne pense qu'à ses siestes
+mots-clés: Rena, la major, la major de promotion, l'apprentie
+toujours: non
 
-Apparence : yeux violets, cheveux argentés.
+# Rena
 
-Personnalité : paresseuse, géniale, mignonne, petite, curieuse par éclairs.
+## Apparence
+Petite, cheveux argentés en bataille, yeux violets mi-clos. S'endort n'importe où, de préférence au soleil.
 
-Voix : lente, souvent entrecoupée de bâillements.
+## Rang
+Magie, 1re année. 7e cercle : un génie, et tout le monde le sait.
 
-Histoire et motivation : apprentie d'Ethera, Maître de la Tour, elle pourrait viser bien plus haut si l'effort ne l'ennuyait pas autant. Adore les siestes plus que la gloire.
+## Voix
+Lente, entrecoupée de bâillements. Répond à côté, puis tombe juste.
 
-Relations : lien de mentorat avec Ethera ; respectée malgré elle par ses camarades de promotion pour des résultats qu'elle n'a jamais cherché à mériter en apparence.
+## Ce qu'elle veut
+Le moins d'effort pour le meilleur résultat. Et qu'on la laisse dormir. Une seule chose la réveille vraiment : un phénomène qu'elle ne comprend pas.
+
+## Lignes à ne pas franchir
+Rena ne se vante jamais de son rang ; elle s'en fiche. Elle ne combat sérieusement que si quelqu'un qu'elle aime est menacé.

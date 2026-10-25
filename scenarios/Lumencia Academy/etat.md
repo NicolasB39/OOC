@@ -1,1 +1,1 @@
-Tier, Statut académique, Condition, Relation clé
+Date (J+jours · heure · météo), Lieu, Rang, État, Relations

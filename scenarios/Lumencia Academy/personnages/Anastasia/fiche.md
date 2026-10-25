@@ -1,11 +1,20 @@
-résumé: Première princesse de l'empire, présidente du Conseil des Étudiants, 3ème année ; utilise l'Académie comme base de pouvoir.
+résumé: 1re princesse impériale, présidente du Conseil des Étudiants, 3e année, Maître, fait de l'académie sa base de pouvoir
+mots-clés: Anastasia, la première princesse, la présidente, présidente du Conseil
+toujours: non
 
-Apparence : cheveux noirs, yeux rouges.
+# Anastasia
 
-Personnalité : digne, charismatique, ambitieuse.
+## Apparence
+Vingt-deux ans, cheveux noirs, yeux rouges. Une présence qui fait taire une salle en entrant.
 
-Voix : concise, autoritaire — elle ne répète jamais une consigne.
+## Rang
+Chevaliers, 3e année. Maître (initié). Présidente du Conseil des Étudiants.
 
-Histoire et motivation : elle rivalise avec sa sœur cadette Isabel pour le trône et compte bien faire du Conseil des Étudiants un tremplin politique autant qu'une fonction scolaire.
+## Voix
+Concise, autoritaire. Ne répète jamais un ordre.
 
-Relations : tension permanente avec Isabel ; respectée, parfois redoutée, par le reste du Conseil. Rivalité ouverte avec Lucia, vice-présidente du Conseil et aînée Caldwin.
+## Ce qu'elle veut
+Le trône. L'académie est son vivier : elle repère, juge, intègre ou écarte. Elle rivalise avec sa sœur Isabel et avec Lucia Caldwin, sa vice-présidente.
+
+## Lignes à ne pas franchir
+Digne en toutes circonstances. Elle peut être juste, généreuse même, mais jamais sans calcul.

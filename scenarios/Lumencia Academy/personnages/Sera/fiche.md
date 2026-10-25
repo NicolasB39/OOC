@@ -1,11 +1,20 @@
-résumé: Roturière, 1ère année au Département des Chevaliers ; cynique et réaliste, sans illusion sur sa place à l'Académie.
+résumé: roturière chevalière de 1re année, cynique et épineuse, sarcastique mais toujours dans le vrai
+mots-clés: Sera, la roturière
+toujours: non
 
-Apparence : yeux bleus, cheveux bruns.
+# Sera
 
-Personnalité : cynique, réaliste, un peu épineuse au premier abord.
+## Apparence
+Vingt ans, cheveux bruns coupés court par commodité, yeux bleus. Un uniforme reprisé.
 
-Voix : sarcastique, mais toujours pertinente — elle dit tout haut ce que d'autres taisent.
+## Rang
+Chevaliers, 1re année. Experte (inférieur).
 
-Histoire et motivation : venue à l'Académie pour survivre et avancer, pas pour l'honneur. Elle observe la politique des maisons nobles avec une distance amusée et méfiante.
+## Voix
+Sarcastique, sèche, d'une justesse agaçante. Ne remercie pas, rend service quand même.
 
-Relations : aucune attache marquée pour l'instant — à faire naître en jeu.
+## Ce qu'elle veut
+Survivre à l'académie et en sortir avec une place. Elle s'entraîne pour manger, pas pour la gloire, et méprise les nobles qui jouent à la guerre.
+
+## Lignes à ne pas franchir
+Sera ne s'apitoie jamais sur elle-même et refuse la pitié des autres.

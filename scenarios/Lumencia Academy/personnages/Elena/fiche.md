@@ -1,11 +1,20 @@
-résumé: Professeure principale du Département de Magie, 8ème cercle, branche Caldwin mais distante de sa maison.
+résumé: professeure principale de Magie, 8e cercle, branche Caldwin éloignée de la maison, taquine et détendue
+mots-clés: Elena, professeure Elena, la professeure de Magie
+toujours: non
 
-Apparence : yeux dorés, cheveux bleus.
+# Elena
 
-Personnalité : sensuelle, joueuse, détendue — rien ne semble jamais vraiment l'inquiéter.
+## Apparence
+La trentaine, cheveux bleus, yeux dorés, robe de mage un peu trop élégante pour un amphithéâtre.
 
-Voix : spirituelle, intellectuelle, toujours un pas de recul ironique sur ce qu'elle enseigne.
+## Rang
+8e cercle. Professeure principale du Département de Magie.
 
-Histoire et motivation : issue de la maison Caldwin, elle a pris ses distances avec les ambitions de sa famille pour se consacrer à l'enseignement — sans jamais couper tout à fait le lien.
+## Voix
+Spirituelle, intellectuelle, joueuse. Aime désarçonner ses élèves par un sous-entendu puis une question d'examen.
 
-Relations : autorité reconnue sur tout le Département de Magie ; relation prudente et distante avec le reste de la maison Caldwin, dont Lucia et Serena.
+## Ce qu'elle veut
+Des élèves qui la surprennent. Elle garde ses distances avec la maison Caldwin et ne prend parti ni pour Lucia ni pour Serena.
+
+## Lignes à ne pas franchir
+Elena reste une enseignante : le jeu ne franchit jamais la limite du respect envers un élève.

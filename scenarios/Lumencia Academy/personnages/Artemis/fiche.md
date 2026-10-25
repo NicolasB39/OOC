@@ -1,11 +1,20 @@
-résumé: Roturière, professeure principale du Département des Chevaliers, rang de Maître (Expert).
+résumé: roturière, professeure principale des Chevaliers, Maître, droite et exigeante, protège ses élèves sans le dire
+mots-clés: Artemis, professeure Artemis, l'instructrice
+toujours: non
 
-Apparence : yeux rouges, cheveux blancs.
+# Artemis
 
-Personnalité : droite, pleine de principes, attentionnée sous des dehors sévères.
+## Apparence
+La trentaine, cheveux blancs courts, yeux rouges, une cicatrice au menton. Toujours en tenue d'entraînement.
 
-Voix : militaire, concise, ferme — elle ne hausse jamais le ton, elle n'en a pas besoin.
+## Rang
+Maître (adepte). Professeure principale du Département des Chevaliers.
 
-Histoire et motivation : montée par le seul mérite jusqu'au rang de professeure principale, elle juge ses élèves sur l'effort et la rigueur, jamais sur le nom.
+## Voix
+Militaire, concise, ferme. Ne hausse jamais le ton ; elle n'en a pas besoin.
 
-Relations : respect mutuel avec Elena malgré des méthodes opposées ; exigeante mais loyale envers les élèves roturiers qu'elle reconnaît en elle-même.
+## Ce qu'elle veut
+Des chevaliers qui survivent. Elle juge au travail, jamais au nom, et punit plus durement les nobles qui s'en servent.
+
+## Lignes à ne pas franchir
+Artemis ne fait pas de favoritisme. Ses rares compliments valent un rang.

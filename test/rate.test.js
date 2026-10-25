@@ -1,0 +1,116 @@
+import { test, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { hintOf, hit429, note, reset, resetDur, status, wait } from '../js/rate.js';
+import { S } from '../js/state.js';
+
+const hdr = o => ({ get: k => (k in o ? o[k] : null) });
+
+const M = 'modele-test';
+beforeEach(() => {
+  S.tpm = 0;
+  S.tpms = {};
+  reset();
+});
+
+test('sans en-tête ni réglage, pas de jauge', () => {
+  assert.equal(status(M), null);
+});
+
+test('les en-têtes du fournisseur font foi et mémorisent la limite', () => {
+  note(
+    hdr({
+      'x-ratelimit-limit-tokens': '8000',
+      'x-ratelimit-remaining-tokens': '2000',
+      'x-ratelimit-reset-tokens': '19.5s',
+      'x-ratelimit-remaining-requests': '14390'
+    }),
+    { prompt_tokens: 2100, completion_tokens: 500, prompt_tokens_details: { cached_tokens: 1700 } },
+    M,
+    true
+  );
+  const s = status(M);
+  assert.equal(s.src, 'api');
+  assert.equal(s.lim, 8000);
+  assert.ok(s.rem >= 2000 && s.rem < 2100);
+  assert.equal(S.tpms[M], 8000);
+});
+
+test('en-têtes absents : repli sur la fenêtre glissante locale', () => {
+  S.tpm = 8000;
+  note(hdr({}), { total_tokens: 2600 }, M);
+  const s = status(M);
+  assert.equal(s.src, 'local');
+  assert.equal(s.rem, 8000 - 2600);
+});
+
+test('wait vaut zéro tant que le tour tient dans le reste', () => {
+  S.tpm = 8000;
+  note(hdr({}), { total_tokens: 2000 }, M);
+  assert.equal(wait(3000, M), 0);
+  assert.ok(wait(7000, M) > 0);
+});
+
+test('un tour plus gros que la limite entière ne fait pas attendre pour rien', () => {
+  S.tpm = 8000;
+  assert.equal(wait(9000, M), 0);
+});
+
+test('le total consommé agrège entrée et sortie', () => {
+  S.tpm = 10000;
+  note(hdr({}), { prompt_tokens: 1000, completion_tokens: 500 }, M);
+  assert.equal(status(M).rem, 8500);
+});
+
+test('chaque modèle a son propre compteur', () => {
+  S.tpm = 8000;
+  note(hdr({}), { total_tokens: 5000 }, 'narration');
+  note(hdr({}), { total_tokens: 500 }, 'memoire');
+  assert.equal(status('narration').rem, 3000);
+  assert.equal(status('memoire').rem, 7500);
+});
+
+test('resetDur lit les durées des en-têtes et des messages d’erreur', () => {
+  assert.equal(resetDur('19.5s'), 19500);
+  assert.equal(resetDur('2m59.56s'), 179560);
+  assert.equal(resetDur('1m23.4s'), 83400);
+  assert.equal(resetDur(''), 0);
+});
+
+test('resetDur lit les millisecondes comme des millisecondes', () => {
+  assert.equal(resetDur('340ms'), 340);
+  assert.equal(resetDur('1s250ms'), 1250);
+  assert.equal(resetDur('1m30s'), 90000);
+  assert.equal(resetDur('7.66s'), 7660);
+});
+
+test('hintOf lit le délai annoncé dans un message de limite de débit', () => {
+  assert.equal(hintOf('Limit 6000, Used 5200. Please try again in 4.1s. Visit https://x'), 4100);
+  assert.equal(hintOf('Please try again in 340ms. Visit https://x'), 340);
+  assert.equal(hintOf('Please try again in 1m30s.'), 90000);
+  assert.equal(hintOf('Veuillez réessayer après 12m3.5s'), 723500);
+  assert.equal(hintOf('Erreur inconnue'), 0);
+  assert.equal(hintOf(undefined), 0);
+});
+
+test('un 429 ne fausse plus la jauge une fois l’envoi passé sans en-têtes', () => {
+  S.tpm = 8000;
+  hit429(M, 1000);
+  assert.ok(wait(3500, M) > 0);
+  note(hdr({}), { total_tokens: 1200 }, M, true);
+  assert.equal(wait(3500, M), 0);
+});
+
+test('la jauge ne recrédite pas de tokens qui n’ont pas quitté la fenêtre', () => {
+  note(
+    hdr({ 'x-ratelimit-limit-tokens': '8000', 'x-ratelimit-remaining-tokens': '2000' }),
+    { total_tokens: 1200 },
+    M,
+    true
+  );
+  const a = status(M).rem;
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60) {}
+  const b = status(M).rem;
+  assert.equal(a, b, 'rien ne revient tant que rien ne sort de la fenêtre');
+  assert.ok(a <= 2000);
+});
