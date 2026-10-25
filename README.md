@@ -109,7 +109,7 @@ Pour afficher une couverture sur un scénario GitHub, ajoutez une image `cover.w
 
 Les onglets de filtre affichent le nombre de scénarios qu'ils contiennent, et la navigation entre la liste et une conversation passe par un fondu (`startViewTransition`) là où le navigateur le gère.
 
-Les cartes portent les étiquettes utiles : « Nouveau » pour une histoire jamais jouée, « Brouillon » quand un tour commencé attend dans la saisie, « Épinglé » pour celles qu'on garde en tête de liste (menu « … », Épingler).
+Les cartes portent les étiquettes utiles : « Nouveau » pour une histoire jamais jouée, « Brouillon » quand un tour commencé attend dans la saisie, « Épinglé » pour celles qu'on garde en tête de liste (menu « … », Épingler). L'épinglage compte comme une modification : il se synchronise entre appareils.
 
 Au clavier : `/` place le curseur dans la recherche, `Échap` quitte une conversation.
 
@@ -133,7 +133,7 @@ L'état renvoyé par le modèle s'affiche en **carte sous chaque tour du narrate
 
 Chaque suggestion de réponse se compose d'un crayon à gauche, dans son propre panneau, pour la reprendre dans la saisie, et d'une carte contenant le texte et la flèche d'envoi. Le texte de la carte est cliquable et envoie lui aussi.
 
-Le protocole demande par défaut au modèle d'écrire **les gestes entre astérisques et les paroles en texte simple**, dans la narration comme dans les choix, puisque c'est ce que l'application met en gris et en blanc. La case « Demander les gestes entre astérisques » dans les options du scénario (section Narration) retire cette consigne pour un scénario qui veut imposer son propre style.
+Le protocole demande par défaut au modèle d'écrire **les gestes entre astérisques et les paroles en texte simple**, dans la narration comme dans les choix, puisque c'est ce que l'application met en gris et en blanc. La case « Demander les gestes entre astérisques » dans les options du scénario (section Narration) retire cette consigne pour un scénario qui veut imposer son propre style, y compris dans la consigne par défaut des choix.
 
 ### Statistiques d'utilisation
 
@@ -151,7 +151,7 @@ En quittant une conversation, l'application retient le message en haut de l'écr
 
 ### Pendant la génération
 
-Au bout de trois secondes sans texte, le bloc en cours affiche « Réflexion… 12 s ». C'est surtout utile quand le streaming est coupé ou que le modèle raisonne avant de répondre : sans cela, rien ne bouge. Un message d'état invisible, destiné aux lecteurs d'écran, annonce le début et la fin de la réponse, et l'auteur de chaque message est annoncé avant son texte.
+Au bout de trois secondes sans texte, le bloc en cours affiche « Réflexion… 12 s ». C'est surtout utile quand le streaming est coupé ou que le modèle raisonne avant de répondre : sans cela, rien ne bouge. Les messages d'état (pause de débit, mise à jour de la mémoire) s'affichent en pastille au bas du fil, par-dessus le texte, pour ne pas changer la hauteur de la zone de lecture ; seules les erreurs prennent leur place sous le fil. Un message d'état invisible, destiné aux lecteurs d'écran, annonce le début et la fin de la réponse, et l'auteur de chaque message est annoncé avant son texte.
 
 ## Personnages
 
@@ -170,7 +170,7 @@ Section « Lecture » des Réglages (roue dentée de la liste, ou menu « … »
 - **Taille du texte** de 14 à 30 px, **interlignage** de 1,4 à 2,1, **police du récit** (serif ou sans serif), **largeur de colonne** et **paragraphes**, avec aperçu. Les réglages sont conservés sur l'appareil.
 - La largeur de colonne est une vraie mesure : elle vaut le nombre choisi multiplié par la taille du texte, donc agrandir le texte élargit la colonne et le nombre de caractères par ligne reste constant.
 - **Paragraphes** : *Espacés* laisse un blanc entre les paragraphes, *Alinéa* les colle et décale la première ligne, comme dans un livre imprimé. Le récit est découpé en vrais paragraphes par l'application, l'espacement ne dépend donc plus des lignes vides écrites par le modèle. Les images portent une marge nulle : l'écart vient de leurs voisins, 3 px côté texte (qui s'ajoutent au demi-interligne de la ligne voisine) et 10 px entre deux images consécutives, pour qu'elles ne se touchent pas.
-- **Défilement pendant la réponse** : par défaut, l'écran ne suit pas le texte pendant que l'IA écrit. Le début de la nouvelle réponse se place en haut de l'écran, puis l'écran ne bouge plus et ne saute pas en bas à la fin. Si vous faites défiler vous-même, l'application ne vous ramène jamais en bas, et le bouton flèche permet d'y aller quand vous voulez. L'option « Suivre le texte pendant l'écriture de l'IA » rétablit le défilement automatique.
+- **Défilement pendant la réponse** : par défaut, l'écran ne bouge pas pendant que l'IA écrit. À l'envoi, le fil descend une seule fois pour montrer votre message et l'indicateur de réflexion ; la réponse s'écrit ensuite en dessous, et le message définitif prend la place du texte provisoire sans décaler l'écran, images comprises. Le bouton flèche permet de descendre quand vous voulez. L'option « Suivre le texte pendant l'écriture de l'IA » rétablit le défilement automatique.
 - **Mode lecture** (menu « … » de la conversation) : masque les boutons des messages, la saisie, les choix et les cartes d'état. Il reste l'en-tête et une barre flottante (lire ou mettre en pause, arrêter, A−, A+, quitter). Le mode lecture n'est pas conservé : il se désactive en quittant la conversation.
 - **Lecture à voix haute** : un bouton haut-parleur sous chaque message lit ce message. En mode lecture, toucher un message lit la suite de l'histoire (réponses de l'IA seulement), et le bouton Lire de la barre démarre depuis le haut de l'écran. Le texte lu est nettoyé (sans astérisques, état ni choix) et `{{user}}` est remplacé par le nom du joueur.
 - Réglages de la voix : choix de la voix (les voix françaises en premier), vitesse de 0,6 à 1,6, bouton pour écouter un exemple, et lecture automatique des nouvelles réponses.
@@ -203,7 +203,7 @@ queue    dernier message, lorebook, fiches, état précédent, rappel
 
 Le choix du niveau suit un arbitrage simple. Un bloc placé avant l'historique est gratuit les tours où il ne bouge pas, mais le tour où il change, il invalide aussi tout l'historique. Pour un bloc de C tokens qui change tous les K tours avec un historique de H tokens, le remonter vaut le coup si `(C + H) / K < C`.
 
-La mémoire change par paliers d'une dizaine de tours : elle est en haut, et les souvenirs partent tous (les plus récents, plafonnés par « Souvenirs injectés ») plutôt que triés par pertinence, pour qu'ils ne varient pas d'un tour à l'autre. Le lorebook et les fiches de personnages se déclenchent sur mots-clés et changent bien plus souvent : ils restent en queue, où ils n'invalident rien. L'état précédent et le rappel changent à chaque tour par nature.
+La mémoire change par paliers d'une dizaine de messages : elle est en haut, et les souvenirs partent tous (les plus récents, plafonnés par « Souvenirs injectés ») plutôt que triés par pertinence, pour qu'ils ne varient pas d'un tour à l'autre. Le lorebook et les fiches de personnages se déclenchent sur mots-clés et changent bien plus souvent : ils restent en queue, où ils n'invalident rien. L'état précédent et le rappel changent à chaque tour par nature.
 
 Si votre fournisseur ne pratique pas le cache, ce placement ne change rien au total envoyé. Vous pouvez alors baisser « Souvenirs injectés » à 3 pour revenir à l'ancien volume.
 
@@ -245,9 +245,9 @@ Les modèles reformulent : « Alice », « alice », « Alice, l'herboriste » d
 
 Les deux listes sont plafonnées : 12 relations, 60 souvenirs. Au-delà, les entrées les moins récemment mises à jour disparaissent, sauf les personnages qui ont une fiche dans `personnages/`, qui ne sont jamais évincés. Les figurants de passage finissent donc par sortir d'eux-mêmes. Le résumeur reçoit en plus la liste de ce qu'il connaît déjà, avec la consigne de reprendre les noms tels quels et de ne pas répéter les souvenirs acquis.
 
-Certains modèles recopient pourtant ces sections dans le résumé, surtout quand ils décorent leurs intitulés (`**Souvenirs**`, `## Relations`). Comme le résumé est renvoyé au modèle à chaque mise à jour, l'erreur s'entretenait d'elle-même, et les mêmes souvenirs et relations partaient deux fois dans le prompt. L'application coupe désormais le résumé au premier intitulé Souvenirs, Relations, Lignes ou Objectif, et verse les souvenirs et relations trouvés dans leurs listes (les doublons sont fusionnés comme d'habitude) ; Lignes et Objectif sont simplement écartés. Cela s'applique à la réponse du modèle comme au résumé existant, qui est nettoyé à la prochaine mise à jour de la mémoire. Une phrase qui commence par « Relations tendues… » sans être un intitulé est laissée intacte.
+Certains modèles recopient pourtant ces sections dans le résumé, surtout quand ils décorent leurs intitulés (`**Souvenirs**`, `## Relations`). Comme le résumé est renvoyé au modèle à chaque mise à jour, l'erreur s'entretenait d'elle-même, et les mêmes souvenirs et relations partaient deux fois dans le prompt. L'application coupe désormais le résumé au premier intitulé Souvenirs, Relations, Lignes ou Objectif, y compris sous une forme qualifiée (« Lignes récentes », « Objectif actuel », « Souvenirs durables »…), et verse les souvenirs et relations trouvés dans leurs listes (les doublons sont fusionnés comme d'habitude) ; Lignes et Objectif sont simplement écartés. Cela s'applique à la réponse du modèle comme au résumé existant, qui est nettoyé à la prochaine mise à jour de la mémoire. Une phrase qui commence par « Relations tendues… » sans être un intitulé est laissée intacte.
 
-Une relation enregistrée peut dater : la mémoire ne se met à jour que tous les 40 messages environ, et l'IA lit pourtant la relation en fin de prompt, juste avant d'écrire. Pour qu'elle ne l'emporte pas sur une évolution récente, la ligne est envoyée sous la forme « Relation (état enregistré, peut dater ; les événements récents priment) : … », et le bloc des personnes sans fiche porte la même mise en garde en tête. Elle compte quelques tokens par personnage en scène.
+Une relation enregistrée peut dater : la mémoire ne résume les messages qu'avec un retard de 30 à 40 messages (par lots d'une dizaine), et l'IA lit pourtant la relation en fin de prompt, juste avant d'écrire. Pour qu'elle ne l'emporte pas sur une évolution récente, la ligne est envoyée sous la forme « Relation (état enregistré, peut dater ; les événements récents priment) : … », et le bloc des personnes sans fiche porte la même mise en garde en tête. Elle compte quelques tokens par personnage en scène.
 
 Le résumé et les souvenirs restent modifiables à la main dans la feuille Mémoire. Les relations, elles, n'y figurent plus : elles sont mises à jour par le modèle et affichées en lecture seule dans la fenêtre Personnages. Enregistrer la feuille Mémoire ne les touche pas.
 
@@ -275,16 +275,16 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 
 ## Gestes
 
-- Toucher une suggestion l'envoie directement. Le crayon à sa droite la place dans la zone de saisie pour la modifier avant d'envoyer.
+- Toucher une suggestion l'envoie directement. Le crayon à sa gauche la place dans la zone de saisie pour la modifier avant d'envoyer.
 - Balayer horizontalement la dernière réponse passe d'une variante à l'autre, comme les chevrons.
 
 ## Fonctions
 
 - Réponses en streaming (avec diagnostic dans les réglages), trois suggestions de réponse (envoi direct ou crayon pour modifier), bouton annuler.
 - Variantes de réponse (flèches ‹ ›) en régénérant, bouton « continuer » (double chevron) pour prolonger une réponse coupée.
-- Modifier, copier ou supprimer à partir d'un message (corbeille). La suppression est immédiate, avec un bouton « Annuler » pendant 7 secondes tant que la conversation n'a pas changé.
+- Modifier, copier ou supprimer à partir d'un message (feuille « … » sous le message). La suppression est immédiate, avec un bouton « Annuler » pendant 7 secondes tant que la conversation n'a pas changé. Les lignes récentes des messages supprimés sont retirées de la mémoire ; si la suppression touche des messages déjà résumés, la notification prévient que le résumé en garde la trace.
 - Le bouton stop (et la sortie de la conversation) conserve le texte déjà reçu, que « Continuer » peut prolonger.
-- Mémoire à trois étages, éditable : résumé, lignes récentes, souvenirs (ajout et retrait à l'unité), note utilisateur (menu « … » de la conversation), et relations par personnage, consultables dans la fenêtre Personnages. Nombre de souvenirs injectés réglable.
+- Mémoire à trois étages : résumé et souvenirs éditables (ajout et retrait à l'unité), lignes récentes consultables dans le Sommaire, note utilisateur (menu « … » de la conversation), et relations par personnage, consultables dans la fenêtre Personnages. Nombre de souvenirs injectés réglable (0 : aucun).
 - Température et Top P : globaux (Réglages) ou par scénario.
 - Modèle distinct pour les résumés de mémoire.
 - Protocole de sortie centralisé, adapté au modèle, et préambule commun à tous les scénarios.
@@ -297,7 +297,7 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 
 Les histoires restent d'abord sur l'appareil. La sauvegarde en ligne les copie dans un fichier JSON et les synchronise entre vos appareils. Réglages, Sauvegarde en ligne (ou icône nuage de la liste).
 
-Fonctionnement : à chaque synchronisation, l'application télécharge le fichier distant, garde pour chaque scénario la version la plus récente, applique les suppressions, puis renvoie le résultat. Rien n'est écrasé à l'aveugle. Si la même histoire a été jouée des deux côtés depuis la dernière synchronisation, la version la plus ancienne n'est pas perdue : elle est conservée à part sous le même nom suivi de « (conflit) », à vous de choisir laquelle garder. Un fichier distant illisible n'est jamais remplacé. Les clés API ne sont pas sauvegardées. La synchronisation se lance à l'ouverture, en quittant une conversation, en quittant l'application et au toucher du nuage. Elle repose sur l'horloge des appareils : gardez-les à l'heure.
+Fonctionnement : à chaque synchronisation, l'application télécharge le fichier distant, garde pour chaque scénario la version la plus récente, applique les suppressions, puis renvoie le résultat. Rien n'est écrasé à l'aveugle. Si la même histoire a été jouée des deux côtés depuis la dernière synchronisation, la version la plus ancienne n'est pas perdue : elle est conservée à part sous le même nom suivi de « (conflit) », à vous de choisir laquelle garder. Un fichier distant illisible n'est jamais remplacé. Les clés API ne sont pas sauvegardées. La synchronisation se lance à l'ouverture, en quittant une conversation, en quittant l'application et au toucher du nuage. Elle attend la fin d'une réponse en cours. Si elle rapporte une version plus récente de l'histoire ouverte, l'écran est rechargé avec cette version, pour que le tour suivant ne l'écrase pas ; si l'histoire a été supprimée ailleurs, la conversation se ferme. Elle repose sur l'horloge des appareils : gardez-les à l'heure.
 
 ### En cas d'erreur ou de mauvaise configuration
 

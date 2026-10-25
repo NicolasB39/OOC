@@ -1,8 +1,8 @@
 import { jump, render, tk } from './chat.js';
-import { showList } from './list.js';
+import { draw, showList } from './list.js';
 import { statOn } from './prompt.js';
 import { fillLec, setReading } from './read.js';
-import { conflicts } from './protocol.js';
+import { DEFAULT_FIELDS, conflicts } from './protocol.js';
 import { reset as rlReset } from './rate.js';
 import { TERR, getTree, loadCtx } from './scenarios.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
@@ -37,7 +37,7 @@ export function openSc() {
   $('#scp').value = app.cur.choicePrompt || '';
   $('#sst').checked = statOn(app.cur);
   $('#sstf').value = app.cur.statFields || '';
-  $('#sstf').placeholder = ctx.stat || 'Lieu, Objectif, Santé (0/100), Humeur';
+  $('#sstf').placeholder = ctx.stat || DEFAULT_FIELDS;
   const im = ctx.images;
   $('#simw').hidden = !app.cur.remote;
   $('#simn').textContent =
@@ -305,6 +305,7 @@ $('#dcs').onclick = async () => {
   await saveSet();
   $('#dc').close();
   if (app.cur) tk();
+  else draw();
 };
 
 const SNIP = (t, q) => {

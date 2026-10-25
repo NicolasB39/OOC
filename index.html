@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="5da8cdfe71">
+<meta name="app-version" content="62668477af">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
@@ -93,8 +93,7 @@
 <button id="pe" aria-label="Personnages"><svg class="i"><use href="#i-users"/></svg></button>
 <button id="mo" aria-label="Options de l'histoire"><svg class="i"><use href="#i-more"/></svg></button>
 </header>
-<div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><div id="nav"><button id="nvp" aria-label="Tour précédent"><svg class="i rot"><use href="#i-down"/></svg></button><button id="nvn" aria-label="Tour suivant"><svg class="i"><use href="#i-down"/></svg></button></div></div>
-<div id="err" role="status"></div>
+<div id="mw"><div id="msgs"><div id="mhead"></div><div id="mfoot"></div></div><div id="nav"><button id="nvp" aria-label="Tour précédent"><svg class="i rot"><use href="#i-down"/></svg></button><button id="nvn" aria-label="Tour suivant"><svg class="i"><use href="#i-down"/></svg></button></div><div id="err" role="status"></div></div>
 <p id="gst" class="sr" role="status"></p>
 <div id="tk"></div>
 <div id="rl" hidden><i class="bar"><u></u></i><span></span></div>
@@ -159,7 +158,7 @@
 <textarea id="scp" style="min-height:70px" placeholder="Trois propositions courtes et variées, écrites à la première personne, chacune sous la forme *un geste* suivi de ce que dit le personnage."></textarea>
 <label><input id="sst" type="checkbox">Panneau d'état (statistiques suivies par l'IA)</label>
 <label for="sstf">Champs à suivre</label>
-<textarea id="sstf" style="min-height:70px" placeholder="Lieu, Objectif, Santé (0/100), Humeur"></textarea>
+<textarea id="sstf" style="min-height:70px" placeholder="Lieu, Objectif, Humeur"></textarea>
 </details>
 
 <details>

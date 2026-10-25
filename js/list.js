@@ -18,7 +18,6 @@ export async function showList() {
     ...new Set(T.map(p => p.match(/^scenarios\/([^/]+)\/systeme\.md$/)?.[1]).filter(Boolean))
   ];
   const have = await getAll();
-  let n = 0;
   for (const f of fs)
     if (!have.some(s => s.remote && s.folder == f)) {
       await put({
@@ -29,7 +28,6 @@ export async function showList() {
         updated: Date.now(),
         messages: []
       });
-      n++;
     }
   await draw();
 }
@@ -160,6 +158,7 @@ $('#mp').onclick = async () => {
   const s = await getOne(app.menuId);
   $('#mn').close();
   s.pin = !s.pin;
+  s.updated = Date.now();
   await put(s);
   draw();
 };

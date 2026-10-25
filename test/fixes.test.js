@@ -1,0 +1,85 @@
+import { test, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { clean } from '../js/store.js';
+import { buildInfo } from '../js/prompt.js';
+import { cutLines, mergeRel, splitSummary } from '../js/memory.js';
+import { protocol } from '../js/protocol.js';
+import { S, ctx } from '../js/state.js';
+
+beforeEach(() => {
+  S.ctxLim = 0;
+  S.reserve = 0;
+  S.proto = '';
+  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '' });
+});
+
+test('la fenêtre reste immobile plusieurs tours après avoir avancé', () => {
+  S.ctxLim = 600;
+  S.reserve = 100;
+  const s = clean({ id: 'w', system: 'SYS', noChoices: true, messages: [] });
+  const wins = [];
+  for (let t = 0; t < 30; t++) {
+    s.messages.push({ role: 'user', content: 'x'.repeat(120) });
+    const r = buildInfo(s);
+    assert.ok(r.used <= r.budget);
+    assert.equal(r.msgs[1].role, 'user');
+    s.messages.push({ role: 'assistant', content: 'y'.repeat(200) });
+    s.mem.win = r.win;
+    wins.push(r.win);
+  }
+  const moves = wins.slice(10).filter((w, i, a) => i && w !== a[i - 1]).length;
+  assert.ok(moves <= 7, 'la fenêtre bouge à ' + moves + ' tours sur 19');
+});
+
+test('zéro souvenir injecté n’en envoie aucun', () => {
+  const s = clean({
+    id: 'm',
+    system: 'S',
+    memN: 0,
+    noChoices: true,
+    messages: [{ role: 'user', content: 'a' }],
+    mem: { memories: ['un', 'deux'] }
+  });
+  assert.doesNotMatch(buildInfo(s).msgs[0].content, /long_term_memory/);
+  s.memN = 1;
+  assert.match(buildInfo(s).msgs[0].content, /- deux/);
+  assert.doesNotMatch(buildInfo(s).msgs[0].content, /- un/);
+});
+
+test('un personnage à fiche reste protégé sous un nom reformulé', () => {
+  const inc = { 'Alice, l’herboriste': 'amie' };
+  for (let i = 0; i < 12; i++) inc['Garde ' + i] = 'neutre';
+  const r = mergeRel({}, inc, ['Alice']);
+  assert.ok(Object.keys(r).some(k => k.startsWith('Alice')));
+  assert.equal(Object.keys(r).length, 12);
+});
+
+test('splitSummary coupe les intitulés qualifiés', () => {
+  for (const h of ['Lignes récentes :', '## Objectif actuel', 'Objectif courant : fuir', '**Souvenirs durables**'])
+    assert.equal(splitSummary('Récit.\n' + h + '\n- x').summary, 'Récit.', h);
+  assert.equal(splitSummary('Relations tendues avec Bob.').summary, 'Relations tendues avec Bob.');
+});
+
+test('cutLines retire les lignes des messages supprimés', () => {
+  const l = [{ i: -1, t: 'a' }, { i: 3, t: 'b' }, { i: 8, t: 'c' }];
+  assert.deepEqual(cutLines(l, 5).map(x => x.t), ['a', 'b']);
+  assert.deepEqual(cutLines(undefined, 5), []);
+});
+
+test('sans consigne de style, les choix ne demandent pas d’astérisques', () => {
+  assert.doesNotMatch(protocol({ choices: true, style: false }).sys, /\*/);
+  assert.match(protocol({ choices: true }).sys, /\*un geste\*/);
+});
+
+test('en mode concis, l’ordre état puis choix est explicite', () => {
+  const p = protocol({ model: 'gpt-5', stat: true, choices: true }).sys;
+  assert.match(p, /avant le bloc <choix>/);
+  assert.equal((p.match(/Termine par/g) || []).length, 1);
+});
+
+test('l’import plafonne les relations à REL_MAX en gardant les plus récentes', () => {
+  const rel = Object.fromEntries(Array.from({ length: 20 }, (_, i) => ['P' + i, 'x']));
+  const r = clean({ id: 'r', messages: [], mem: { relations: rel } });
+  assert.equal(Object.keys(r.mem.relations).length, 12);
+  assert.ok('P19' in r.mem.relations);
+});

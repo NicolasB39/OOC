@@ -1,7 +1,8 @@
+import { render } from './chat.js';
 import { draw } from './list.js';
 import { merge } from './merge.js';
-import { S } from './state.js';
-import { clean, del, getFull, put, saveSet } from './store.js';
+import { S, app } from './state.js';
+import { clean, del, getFull, getOne, put, saveSet } from './store.js';
 import { $, LS, ago, dlg, toast, uid } from './util.js';
 
 async function doExport() {
@@ -228,10 +229,20 @@ async function syncOnce(B, manual) {
       tok
     );
   S.bkSeen = m.seen;
+  const id = app.cur?.id;
+  if (!id) return;
+  if (m.delLocal.includes(id)) {
+    toast('Cette histoire a été supprimée sur un autre appareil');
+    $('#back').click();
+  } else if (m.toLocal.some(s => s.id == id)) {
+    app.cur = await getOne(id);
+    render();
+    toast('Histoire mise à jour depuis un autre appareil');
+  }
 }
 export async function sync(manual) {
   const B = bkOn();
-  if (!B || bkBusy) return;
+  if (!B || bkBusy || app.busy) return;
   bkBusy = true;
   $('#sy').classList.add('spin');
   bkMsg('Synchronisation…');

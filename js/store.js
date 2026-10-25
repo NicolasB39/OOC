@@ -1,6 +1,7 @@
 import { S, app } from './state.js';
 import { split } from './format.js';
 import { LS, plain } from './util.js';
+import { REL_MAX } from './memory.js';
 
 let db;
 const one = m => {
@@ -42,7 +43,7 @@ export const clean = x => {
   const mm = x.mem || {};
   const rel = {};
   if (mm.relations && typeof mm.relations == 'object')
-    for (const k of Object.keys(mm.relations).slice(0, 20))
+    for (const k of Object.keys(mm.relations).slice(-REL_MAX))
       if (typeof mm.relations[k] == 'string') rel[k] = mm.relations[k];
   return {
     id: x.id,

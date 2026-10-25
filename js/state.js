@@ -3,7 +3,7 @@ export const PROVIDERS = {
   gemini: {
     n: 'Gemini',
     u: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    m: 'gemini-3.8-flash'
+    m: 'gemini-flash-latest'
   },
   mistral: { n: 'Mistral', u: 'https://api.mistral.ai/v1', m: 'mistral-small-latest' },
   openrouter: { n: 'OpenRouter', u: 'https://openrouter.ai/api/v1', m: 'openrouter/free' }

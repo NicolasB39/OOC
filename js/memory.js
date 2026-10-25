@@ -42,10 +42,9 @@ export function mergeRel(cur = {}, inc = {}, keep = [], max = REL_MAX) {
     delete out[k];
     out[k] = val;
   }
-  const prot = new Set(keep.map(key));
   for (const k of Object.keys(out)) {
     if (Object.keys(out).length <= max) break;
-    if (!prot.has(key(k))) delete out[k];
+    if (!keep.some(n => sameName(n, k))) delete out[k];
   }
   return out;
 }
@@ -64,7 +63,8 @@ export function mergeMem(cur = [], inc = [], max = MEM_MAX) {
 
 // Sépare un résumé « pollué » : tout ce qui suit un intitulé Souvenirs / Relations / Lignes / Objectif
 // appartient à d'autres champs. Les souvenirs et relations repérés sont rendus pour être fusionnés.
-const HEAD = /^[\s#>*_\-[]*(souvenirs?|relations?|lignes|objectifs?)[\s\]*_]*(?::|$)/i;
+const HEAD =
+  /^[\s#>*_\-[]*(souvenirs?|relations?|lignes|objectifs?)(?:\s+(?:r[ée]centes?|actuel(?:le)?s?|courants?|durables?|en cours|principal|principaux))?[\s\]*_]*(?::|$)/i;
 export function splitSummary(t) {
   const src = String(t || ''),
     ls = src.split(/\r?\n/),
@@ -92,3 +92,5 @@ export function splitSummary(t) {
   }
   return { summary: ls.slice(0, i).join('\n').trim(), souvenirs, relations };
 }
+
+export const cutLines = (lines, i) => (lines || []).filter(l => l.i < i);

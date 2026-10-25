@@ -1,6 +1,8 @@
 import { chat, summarize } from './ai.js';
+import { sync } from './backup.js';
 import { body, line, raw, split } from './format.js';
 import { showList } from './list.js';
+import { cutLines } from './memory.js';
 import { buildInfo, statOn } from './prompt.js';
 import { conflicts, modelOf } from './protocol.js';
 import { last as rlLast, status, wait } from './rate.js';
@@ -344,23 +346,30 @@ async function delFrom(i) {
   stopSpeech();
   const c = app.cur,
     upto = c.mem.upto,
+    lines = c.mem.lines || [],
     removed = c.messages.splice(i);
   c.mem.upto = Math.min(upto, i);
+  c.mem.lines = cutLines(lines, i);
   await save();
   render(true);
-  toast(removed.length > 1 ? removed.length + ' messages supprimés' : 'Message supprimé', {
-    label: 'Annuler',
-    fn: async () => {
-      if (app.cur !== c || c.messages.length !== i) {
-        toast('Annulation impossible : la conversation a changé');
-        return;
+  toast(
+    (removed.length > 1 ? removed.length + ' messages supprimés' : 'Message supprimé') +
+      (i < upto ? ' · le résumé de la mémoire en garde la trace' : ''),
+    {
+      label: 'Annuler',
+      fn: async () => {
+        if (app.cur !== c || c.messages.length !== i) {
+          toast('Annulation impossible : la conversation a changé');
+          return;
+        }
+        c.messages.push(...removed);
+        c.mem.upto = upto;
+        c.mem.lines = lines;
+        await save();
+        render(true);
       }
-      c.messages.push(...removed);
-      c.mem.upto = upto;
-      await save();
-      render(true);
     }
-  });
+  );
 }
 const useAlt = (m, k) => {
   const v = m.alts[k];
@@ -384,6 +393,14 @@ function setBusy(b) {
   $('#stop').hidden = !b;
   err('');
 }
+const keepImgs = (from, to) => {
+  const pool = {};
+  for (const i of from.querySelectorAll('img.pic')) (pool[i.src] ??= []).push(i);
+  for (const i of to.querySelectorAll('img.pic')) {
+    const o = pool[i.src]?.shift();
+    if (o) i.replaceWith(o);
+  }
+};
 async function ask(old, cont) {
   const s = app.cur,
     p = S.provider,
@@ -401,9 +418,7 @@ async function ask(old, cont) {
     cut = false,
     part = false,
     raf = 0,
-    pend = ['', false],
-    anchor = !S.follow,
-    lastTop = null;
+    pend = ['', false];
   const paint = () => {
     raf = 0;
     if (app.cur !== s || !pend) return;
@@ -411,26 +426,24 @@ async function ask(old, cont) {
     const m = $('#msgs');
     let e = document.querySelector('#live');
     if (!e) {
+      const end = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
       e = el('div', { class: 'm assistant', id: 'live' }, el('div', { class: 'b' }));
       $('#mfoot').before(e);
+      if (end) m.scrollTop = m.scrollHeight;
     }
     const v = strip(t),
-      sec = Math.round((Date.now() - t0) / 1000);
-    e.firstChild.replaceChildren(
-      ...(v
-        ? body(v)
-        : sec > 2 || th
-          ? [el('span', { class: 'act', text: 'Réflexion… ' + sec + ' s' })]
-          : [])
-    );
-    if (anchor && v) {
-      if (lastTop !== null && Math.abs(m.scrollTop - lastTop) > 2) anchor = false;
-      else {
-        const off = e.getBoundingClientRect().top - m.getBoundingClientRect().top - 12;
-        if (off > 1) m.scrollTop += off;
-        lastTop = m.scrollTop;
-      }
-    }
+      sec = Math.round((Date.now() - t0) / 1000),
+      box = el(
+        'div',
+        null,
+        v
+          ? body(v)
+          : sec > 2 || th
+            ? el('span', { class: 'act', text: 'Réflexion… ' + sec + ' s' })
+            : null
+      );
+    keepImgs(e.firstChild, box);
+    e.firstChild.replaceChildren(...box.childNodes);
     if (S.follow && m.scrollHeight - m.scrollTop - m.clientHeight < 200)
       m.scrollTop = m.scrollHeight;
     m.dispatchEvent(new Event('scroll'));
@@ -499,7 +512,7 @@ async function ask(old, cont) {
   clearInterval(tick);
   cancelAnimationFrame(raf);
   pend = null;
-  document.querySelector('#live')?.remove();
+  const lv = document.querySelector('#live');
   setBusy(false);
   if (app.cur === s) {
     err(
@@ -512,16 +525,17 @@ async function ask(old, cont) {
       !!msg
     );
     $('#gst').textContent = msg ? 'Échec : ' + msg : 'Réponse reçue.';
-    if (S.follow) render(true);
-    else {
-      const m = $('#msgs'),
-        y = m.scrollTop;
-      render();
-      m.scrollTop = y;
-    }
+    const m = $('#msgs'),
+      y = m.scrollTop;
+    render(S.follow);
+    const fin = lv && !msg && m.querySelector(':scope > .m[data-i="' + (s.messages.length - 1) + '"]');
+    if (fin) keepImgs(lv, fin);
+    lv?.remove();
+    if (!S.follow) m.scrollTop = y;
     if (!msg && !cont) autoRead(s.messages.length - 1);
-  }
+  } else lv?.remove();
   if (!msg) summarize(s);
+  if (app.cur !== s && LS.get('bkd')) sync();
 }
 async function regen() {
   if (app.busy) return;

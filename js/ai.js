@@ -3,7 +3,7 @@ import { mergeMem, mergeRel, splitSummary } from './memory.js';
 import { hintOf, hit429, note, resetDur, wait } from './rate.js';
 import { record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
-import { getOne, put } from './store.js';
+import { getOne, save } from './store.js';
 import { err, strip } from './util.js';
 
 const pause = (ms, sig) =>
@@ -219,7 +219,7 @@ const persist = async s => {
   const f = await getOne(s.id);
   if (f) {
     f.mem = s.mem;
-    await put(f);
+    await save(f);
   }
   if (app.cur && app.cur.id == s.id && app.cur !== s) app.cur.mem = s.mem;
 };

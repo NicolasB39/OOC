@@ -7,7 +7,9 @@ export const family = m => (S.proto == 'full' || S.proto == 'lean' ? S.proto : L
 
 const stateBlock = (fields, lean, choices) =>
   lean
-    ? "\n\n# État\nTermine par un bloc <etat> listant « Champ: valeur », un par ligne. Champs : " +
+    ? '\n\n# État\nAprès la narration' +
+      (choices ? ', avant le bloc <choix>' : '') +
+      ", ajoute un bloc <etat> listant « Champ: valeur », un par ligne. Champs : " +
       fields +
       '. Une valeur bornée s\'écrit 80/100.'
     : "\n\n# Format de l'état\nAprès ta narration" +
@@ -35,6 +37,7 @@ const imageBlock = lean =>
 
 export const DEFAULT_CHOICE =
   'Trois propositions courtes et variées, écrites à la première personne, chacune sous la forme *un geste* suivi de ce que dit le personnage.';
+export const DEFAULT_CHOICE_PLAIN = 'Trois propositions courtes et variées, écrites à la première personne.';
 export const DEFAULT_FIELDS = 'Lieu, Objectif, Humeur';
 
 export function protocol({ model = modelOf(), stat = false, fields = '', choices = false, prompt = '', images = false, style = true } = {}) {
@@ -48,7 +51,7 @@ export function protocol({ model = modelOf(), stat = false, fields = '', choices
     tail.push('<etat>');
   }
   if (choices) {
-    sys += choiceBlock(prompt || DEFAULT_CHOICE, lean);
+    sys += choiceBlock(prompt || (style ? DEFAULT_CHOICE : DEFAULT_CHOICE_PLAIN), lean);
     tail.push('<choix>');
   }
   return {

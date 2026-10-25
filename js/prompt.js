@@ -55,7 +55,8 @@ const memBlock = s => {
     t += '\n\n<previous_history>\n' + s.mem.summary.trim().slice(0, SUM_MAX) + '\n</previous_history>';
   if (s.mem.lines?.length)
     t += '\n\n<recent_history>\n' + s.mem.lines.map(x => '- ' + x.t).join('\n') + '\n</recent_history>';
-  const mm = (s.mem.memories || []).slice(-(s.memN ?? MEM_N));
+  const k = s.memN ?? MEM_N,
+    mm = k > 0 ? (s.mem.memories || []).slice(-k) : [];
   if (mm.length)
     t += '\n\n<long_term_memory>\n' + mm.map(x => '- ' + x).join('\n') + '\n</long_term_memory>';
   if (s.note?.trim()) t += '\n\n<system_note>\n' + s.note.trim() + '\n</system_note>';
@@ -156,8 +157,9 @@ export function buildInfo(s, cont) {
     g = align(g);
     from = Math.max(0, Math.min((s.mem.win || 0) - start, n - 1));
     if (from < g) {
-      while (from < g) from = Math.min(from + WIN_STEP, g);
-      from = align(from);
+      while (from < g) from += WIN_STEP;
+      from = align(Math.min(from, (g + n) >> 1));
+      if (ms[from].role == 'assistant') from = g;
     } else if (from > g + 2 * WIN_STEP) from = g;
   }
   return {
