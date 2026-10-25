@@ -53,4 +53,4 @@ La romance avance au rythme des sentiments : regards, gestes, aveux, jalousies. 
 - Stats : Corps, Mana, INT, Divinité. Chacune a un niveau (même échelle) et une jauge de croissance sur 100, ex. Corps F[0/100]. L'entraînement fait monter la jauge ; plus le niveau est haut, plus c'est lent ; le talent joue sur la vitesse.
 - Talent : 🔮 Magie, ⚔️ Martial, 🌟 Âme, 📘 Savoir, chacun de 1 à 10. 1 = civil, 3 = aventurier rang C, 5 = moyen, 10 = mage 9e cercle ou Maître (apex).
 - Inventaire : armes, objets, équipement. Pas les vêtements.
-- Relations : personnages clés seulement, au format Nom (rang)[affinité/statut]. Affinité de −50 à 100 (≈ 40 amis, ≈ 80 amants), qui bouge de façon réaliste. Les relations persistent d'un lieu à l'autre.
+- Relations : elles ne figurent pas dans l'état. Elles évoluent de façon réaliste : un personnage ne change d'attitude envers {{user}} qu'à cause de ce qui s'est passé à l'écran, d'un cran à la fois. Une affinité ne chute pas sans raison, et ne monte pas sans effort.
