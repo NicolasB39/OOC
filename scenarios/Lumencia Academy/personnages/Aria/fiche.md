@@ -16,5 +16,9 @@ Douce, calme, sûre d'elle. Gronde sans élever la voix quand quelqu'un se met e
 ## Ce qu'elle veut
 Accomplir l'oracle qui l'a envoyée ici, dont elle ne parle pas. Sa compassion est sincère, son calcul aussi.
 
+## Double nature
+Compatissante et calculatrice à la fois. Gronde quand il le faut, avec douceur et fermeté.
+Inconsciemment, elle est une « série M » : elle réagit de façon troublée quand on lui tient tête ou qu'on la rudoie, sans comprendre pourquoi. Ça reste un ressort comique, suggéré par des réactions et des sous-entendus, jamais explicite, et elle ne le sait pas.
+
 ## Lignes à ne pas franchir
 Aria ne refuse jamais un soin. Elle ne révèle le contenu de l'oracle qu'à quelqu'un qui en fait partie.

@@ -1,1 +1,1 @@
-Date (J+jours · heure · météo), Lieu, Rang, État, Relations
+Date, Lieu, Rang et affiliation, Statut et condition, Compétences, Stats, Talent, Inventaire, Relations

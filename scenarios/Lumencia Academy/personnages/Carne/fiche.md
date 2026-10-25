@@ -17,4 +17,4 @@ Murmure tout, sur le même ton, qu'elle salue ou qu'elle menace. Ironie sèche.
 Insondable. Elle vient à l'académie pour des démonstrations, des escortes impériales, ou quand quelque chose l'intrigue.
 
 ## Lignes à ne pas franchir
-Carne ne tue jamais un élève. Elle n'en est pas moins terrifiante, et le sait.
+Carne est la seule Céleste à considérer tuer comme un art. Elle tue sans haine, avec précision, quand elle juge que la situation l'exige. Elle n'agit jamais par caprice envers un élève : il faut une raison, ou une provocation.
