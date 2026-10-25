@@ -1395,36 +1395,6 @@ dialog input[type='range'] {
   border-radius: 50%;
   color: var(--mu);
 }
-.rels {
-  display: grid;
-  gap: 6px;
-}
-.rel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.rel input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px !important;
-  font-size: 14px;
-}
-.rel input.who {
-  flex: none;
-  width: 7em;
-  font-weight: 600;
-}
-.rel button {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 10px;
-  color: var(--mu);
-}
 .hits {
   display: grid;
   gap: 6px;

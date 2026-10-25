@@ -2,7 +2,6 @@ import { jump, render, tk } from './chat.js';
 import { showList } from './list.js';
 import { statOn } from './prompt.js';
 import { fillLec, setReading } from './read.js';
-import { mergeRel } from './memory.js';
 import { conflicts } from './protocol.js';
 import { reset as rlReset } from './rate.js';
 import { TERR, getTree, loadCtx } from './scenarios.js';
@@ -69,8 +68,7 @@ $('#sc').onclick = () => {
   $('#dmn').close();
   openSc();
 };
-let MM = [],
-  MR = [];
+let MM = [];
 const memView = () => {
   $('#mml').replaceChildren(
     ...(MM.length
@@ -94,45 +92,12 @@ const memView = () => {
         )
       : [el('p', { class: 'note', text: 'Aucun souvenir pour le moment.' })])
   );
-  $('#mrl').replaceChildren(
-    ...(MR.length
-      ? MR.map((r, i) =>
-          el(
-            'div',
-            { class: 'rel' },
-            el('input', {
-              class: 'who',
-              value: r.k,
-              'aria-label': 'Nom',
-              oninput: e => (MR[i].k = e.target.value)
-            }),
-            el('input', {
-              value: r.v,
-              'aria-label': 'Relation',
-              oninput: e => (MR[i].v = e.target.value)
-            }),
-            el(
-              'button',
-              {
-                'aria-label': 'Retirer',
-                onclick: () => {
-                  MR.splice(i, 1);
-                  memView();
-                }
-              },
-              ic('trash', 16)
-            )
-          )
-        )
-      : [el('p', { class: 'note', text: 'Aucune relation suivie.' })])
-  );
 };
 $('#mb').onclick = () => {
   $('#dmn').close();
   $('#msu').value = app.cur.mem.summary;
   MM = [...app.cur.mem.memories];
-  MR = Object.entries(app.cur.mem.relations || {}).map(([k, v]) => ({ k, v }));
-  $('#mmi').value = $('#mri').value = $('#mrv').value = '';
+  $('#mmi').value = '';
   memView();
   $('#dm').showModal();
 };
@@ -143,19 +108,10 @@ $('#mma').onclick = () => {
   $('#mmi').value = '';
   memView();
 };
-$('#mra').onclick = () => {
-  const k = $('#mri').value.trim(),
-    v = $('#mrv').value.trim();
-  if (!k || !v) return;
-  MR.push({ k, v });
-  $('#mri').value = $('#mrv').value = '';
-  memView();
-};
 $('#dmc').onclick = () => $('#dm').close();
 $('#dms').onclick = async () => {
   app.cur.mem.summary = $('#msu').value;
   app.cur.mem.memories = MM;
-  app.cur.mem.relations = mergeRel({}, Object.fromEntries(MR.filter(r => r.k.trim() && r.v.trim()).map(r => [r.k.trim(), r.v.trim()])), [], 99);
   await save();
   render();
   $('#dm').close();

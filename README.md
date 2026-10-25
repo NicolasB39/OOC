@@ -237,15 +237,19 @@ La mémoire tient sur trois étages, du plus détaillé au plus condensé :
 
 - **La fenêtre** : les derniers messages, envoyés mot pour mot.
 - **Les lignes récentes** : une phrase par message sorti de la fenêtre, pour garder le détail immédiat sans payer le texte intégral. Les plus anciennes disparaissent au fur et à mesure, une fois absorbées par le résumé.
-- **Le résumé** : le récit condensé de tout ce qui précède, plafonné pour ne pas gonfler avec le temps.
+- **Le résumé** : le récit condensé de tout ce qui précède, plafonné pour ne pas gonfler avec le temps. Il est écrit en deux parties, « Événements » et « Situation actuelle » ; les souvenirs, les relations et l'objectif ont leurs propres champs et ne doivent pas y figurer.
 
-À côté, deux listes : les **souvenirs** (faits durables) et les **relations** (une ligne par personnage, envoyée avec sa fiche quand il entre en scène).
+À côté, deux listes : les **souvenirs** (faits durables) et les **relations** (une ligne par personnage, envoyée avec sa fiche quand il entre en scène). Les relations se consultent dans la fenêtre Personnages, pas dans la feuille Mémoire.
 
 Les modèles reformulent : « Alice », « alice », « Alice, l'herboriste » désignent la même personne, et « la fiole est verte » revient sous la forme « La fiole verte est importante ». L'application rapproche donc les noms dont les mots se recouvrent, et les souvenirs dont le vocabulaire se recouvre à plus de 60 %. Dans les deux cas la formulation la plus récente remplace l'ancienne au lieu de s'y ajouter.
 
 Les deux listes sont plafonnées : 12 relations, 60 souvenirs. Au-delà, les entrées les moins récemment mises à jour disparaissent, sauf les personnages qui ont une fiche dans `personnages/`, qui ne sont jamais évincés. Les figurants de passage finissent donc par sortir d'eux-mêmes. Le résumeur reçoit en plus la liste de ce qu'il connaît déjà, avec la consigne de reprendre les noms tels quels et de ne pas répéter les souvenirs acquis.
 
-Tout reste modifiable à la main dans la feuille Mémoire, noms de relations compris : renommer deux entrées à l'identique les fusionne à l'enregistrement.
+Certains modèles recopient pourtant ces sections dans le résumé, surtout quand ils décorent leurs intitulés (`**Souvenirs**`, `## Relations`). Comme le résumé est renvoyé au modèle à chaque mise à jour, l'erreur s'entretenait d'elle-même, et les mêmes souvenirs et relations partaient deux fois dans le prompt. L'application coupe désormais le résumé au premier intitulé Souvenirs, Relations, Lignes ou Objectif, et verse les souvenirs et relations trouvés dans leurs listes (les doublons sont fusionnés comme d'habitude) ; Lignes et Objectif sont simplement écartés. Cela s'applique à la réponse du modèle comme au résumé existant, qui est nettoyé à la prochaine mise à jour de la mémoire. Une phrase qui commence par « Relations tendues… » sans être un intitulé est laissée intacte.
+
+Une relation enregistrée peut dater : la mémoire ne se met à jour que tous les 40 messages environ, et l'IA lit pourtant la relation en fin de prompt, juste avant d'écrire. Pour qu'elle ne l'emporte pas sur une évolution récente, la ligne est envoyée sous la forme « Relation (état enregistré, peut dater ; les événements récents priment) : … », et le bloc des personnes sans fiche porte la même mise en garde en tête. Elle compte quelques tokens par personnage en scène.
+
+Le résumé et les souvenirs restent modifiables à la main dans la feuille Mémoire. Les relations, elles, n'y figurent plus : elles sont mises à jour par le modèle et affichées en lecture seule dans la fenêtre Personnages. Enregistrer la feuille Mémoire ne les touche pas.
 
 L'objectif courant ne vit pas dans la mémoire mais dans le panneau d'état, qui est mis à jour à chaque tour. Ajoutez simplement un champ `Objectif` à la liste.
 
@@ -280,7 +284,7 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 - Variantes de réponse (flèches ‹ ›) en régénérant, bouton « continuer » (double chevron) pour prolonger une réponse coupée.
 - Modifier, copier ou supprimer à partir d'un message (corbeille). La suppression est immédiate, avec un bouton « Annuler » pendant 7 secondes tant que la conversation n'a pas changé.
 - Le bouton stop (et la sortie de la conversation) conserve le texte déjà reçu, que « Continuer » peut prolonger.
-- Mémoire à trois étages, éditable : résumé, lignes récentes, souvenirs (ajout et retrait à l'unité), relations par personnage, note utilisateur (menu « … » de la conversation). Nombre de souvenirs injectés réglable.
+- Mémoire à trois étages, éditable : résumé, lignes récentes, souvenirs (ajout et retrait à l'unité), note utilisateur (menu « … » de la conversation), et relations par personnage, consultables dans la fenêtre Personnages. Nombre de souvenirs injectés réglable.
 - Température et Top P : globaux (Réglages) ou par scénario.
 - Modèle distinct pour les résumés de mémoire.
 - Protocole de sortie centralisé, adapté au modèle, et préambule commun à tous les scénarios.

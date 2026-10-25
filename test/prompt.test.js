@@ -315,3 +315,21 @@ test('le nombre envoyé tient compte des messages déjà résumés', () => {
   assert.ok(r.win > 10, 'la fenêtre démarre après le point de résumé');
   assert.equal(r.msgs.length - 1, msgs.length - r.win, 'autant de messages que n − win');
 });
+
+test('une relation enregistrée est présentée comme pouvant dater, en queue de prompt', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'herboriste', text: 'Fiche d’Alice.', always: false, images: [], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] }
+  ];
+  const r = buildInfo(
+    sc({
+      noChoices: true,
+      remote: true,
+      messages: [{ role: 'user', content: 'je parle à Alice et au passeur' }],
+      mem: { summary: '', memories: [], upto: 0, relations: { Alice: 'méfiante', Passeur: 'vous doit un service' } }
+    })
+  );
+  const last = r.msgs.at(-1).content;
+  assert.match(last, /Relation \(état enregistré, peut dater ; les événements récents priment\) : méfiante/);
+  assert.match(last, /<relations>\n\(États enregistrés, ils peuvent dater : les événements récents priment\.\)\n- Passeur : vous doit un service/);
+  assert.doesNotMatch(r.msgs[0].content, /méfiante|vous doit un service/);
+});

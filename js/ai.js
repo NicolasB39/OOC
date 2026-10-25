@@ -1,5 +1,5 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
-import { mergeMem, mergeRel } from './memory.js';
+import { mergeMem, mergeRel, splitSummary } from './memory.js';
 import { hintOf, hit429, note, resetDur, wait } from './rate.js';
 import { record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
@@ -191,10 +191,10 @@ export async function chat(
   }
 }
 const SUMP =
-  "Tu mets à jour la mémoire d'une histoire interactive. Réponds uniquement dans ce format, sections dans cet ordre :\n[RÉSUMÉ]\n(résumé complet mis à jour de toute l'histoire, 1200 caractères maximum, deux parties : Événements, Situation actuelle. N'y mets ni relations ni objectif.)\n[SOUVENIRS]\n- (un ou deux faits durables à retenir, une phrase chacun, ou « aucun »)\n[RELATIONS]\n- Nom: état de sa relation avec le joueur, une phrase (ou « aucun »)\n[LIGNES]\n- (une ligne par message fourni, dans l'ordre, une phrase courte et factuelle)";
+  "Tu mets à jour la mémoire d'une histoire interactive. Réponds uniquement dans ce format, sections dans cet ordre :\n[RÉSUMÉ]\n(résumé complet mis à jour de toute l'histoire, 1200 caractères maximum, deux parties : Événements, Situation actuelle. N'y mets ni souvenirs, ni relations, ni objectif : ils ont leurs propres sections.)\n[SOUVENIRS]\n- (un ou deux faits durables à retenir, une phrase chacun, ou « aucun »)\n[RELATIONS]\n- Nom: état de sa relation avec le joueur, une phrase (ou « aucun »)\n[LIGNES]\n- (une ligne par message fourni, dans l'ordre, une phrase courte et factuelle)";
 const SUMJ =
   "Tu mets à jour la mémoire d'une histoire interactive. Réponds uniquement par un objet JSON valide, sans texte autour, avec ces clés :\n" +
-  '{"resume": "récit condensé et mis à jour de toute l\'histoire, 1200 caractères maximum, sans les relations ni l\'objectif",\n' +
+  '{"resume": "récit condensé et mis à jour de toute l\'histoire, 1200 caractères maximum, uniquement le récit (Événements, Situation actuelle), sans souvenirs, sans relations ni l\'objectif (ils ont leurs propres clés)",\n' +
   ' "souvenirs": ["faits durables NOUVEAUX seulement, une phrase chacun ; ne répète pas ceux déjà connus"],\n' +
   ' "relations": {"Nom du personnage": "état de sa relation avec le joueur, une phrase"},\n' +
   ' "lignes": ["une entrée par message fourni, dans l\'ordre, une phrase courte et factuelle"]}\n' +
@@ -203,11 +203,18 @@ const SUMJ =
 const SUMS = new Set();
 const SUM_MAX = 1400;
 const LINES_MAX = 24;
-const sect = (t, n) => {
-  const m = t.match(new RegExp('\\[' + n + '\\]([\\s\\S]*?)(?=\\n\\[[A-ZÉÈ]{4,}\\]|$)', 'i'));
+export const sect = (t, n) => {
+  const m = t.match(
+    new RegExp('\\[' + n + '\\][*_ \\t]*([\\s\\S]*?)(?=\\n[^\\n\\w\\[]*\\[[A-ZÉÈ]{4,}\\]|$)', 'i')
+  );
   return m ? m[1].trim() : '';
 };
 const known = () => (ctx.chars || []).map(c => c.name);
+const absorb = (s, x) => {
+  if (x.souvenirs.length) s.mem.memories = mergeMem(s.mem.memories, x.souvenirs);
+  if (Object.keys(x.relations).length)
+    s.mem.relations = mergeRel(s.mem.relations, x.relations, known());
+};
 const persist = async s => {
   const f = await getOne(s.id);
   if (f) {
@@ -260,6 +267,11 @@ export async function summarize(s) {
       if (app.cur === s && !app.busy) {
         err('Mise à jour de la mémoire…');
         shown = true;
+      }
+      const pr = splitSummary(s.mem.summary);
+      if (pr.summary && pr.summary !== (s.mem.summary || '').trim()) {
+        absorb(s, pr);
+        s.mem.summary = pr.summary;
       }
       const om = S.ctxLim ? omittedCount(s) : 0,
         n = Math.min(om >= 6 ? Math.min(om, 12) : 10, s.messages.length - s.mem.upto),
@@ -316,7 +328,9 @@ export async function summarize(s) {
         if (S.jf >= 2) (S.nj ??= {})[S.provider] = 1;
       } else if (useJson) S.jf = 0;
       if (j) {
-        s.mem.summary = j.resume.trim().slice(0, SUM_MAX);
+        const x = splitSummary(j.resume);
+        s.mem.summary = (x.summary || j.resume.trim()).slice(0, SUM_MAX);
+        absorb(s, x);
         s.mem.memories = mergeMem(s.mem.memories, strs(j.souvenirs));
         s.mem.relations = mergeRel(s.mem.relations, toRel(j.relations), known());
         const ln = strs(j.lignes);
@@ -331,7 +345,9 @@ export async function summarize(s) {
       }
       const sum = sect(t, 'R[ÉE]SUM[ÉE]');
       if (!sum) throw new Error('réponse inattendue');
-      s.mem.summary = sum.slice(0, SUM_MAX);
+      const x = splitSummary(sum);
+      s.mem.summary = (x.summary || sum).slice(0, SUM_MAX);
+      absorb(s, x);
       s.mem.memories = mergeMem(s.mem.memories, bullets(sect(t, 'SOUVENIRS')));
       s.mem.relations = mergeRel(s.mem.relations, toRel(bullets(sect(t, 'RELATIONS'))), known());
       const li = bullets(sect(t, 'LIGNES'));

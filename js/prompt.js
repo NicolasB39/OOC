@@ -63,14 +63,19 @@ const memBlock = s => {
 };
 const relOf = (mem, name) => {
   for (const r in mem.relations || {})
-    if (sameName(r, name)) return '\nRelation : ' + mem.relations[r];
+    if (sameName(r, name))
+      return '\nRelation (état enregistré, peut dater ; les événements récents priment) : ' + mem.relations[r];
   return '';
 };
 const looseRel = (mem, used) => {
   const a = Object.entries(mem.relations || {}).filter(
     ([k]) => !used.some(c => sameName(c.name, k))
   );
-  return a.length ? '\n\n<relations>\n' + a.map(([k, v]) => '- ' + k + ' : ' + v).join('\n') + '\n</relations>' : '';
+  return a.length
+    ? '\n\n<relations>\n(États enregistrés, ils peuvent dater : les événements récents priment.)\n' +
+        a.map(([k, v]) => '- ' + k + ' : ' + v).join('\n') +
+        '\n</relations>'
+    : '';
 };
 export function buildInfo(s, cont) {
   const nm = s.pname?.trim() || '';

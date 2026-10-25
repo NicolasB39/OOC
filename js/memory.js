@@ -61,3 +61,34 @@ export function mergeMem(cur = [], inc = [], max = MEM_MAX) {
   }
   return out.slice(-max);
 }
+
+// Sépare un résumé « pollué » : tout ce qui suit un intitulé Souvenirs / Relations / Lignes / Objectif
+// appartient à d'autres champs. Les souvenirs et relations repérés sont rendus pour être fusionnés.
+const HEAD = /^[\s#>*_\-[]*(souvenirs?|relations?|lignes|objectifs?)[\s\]*_]*(?::|$)/i;
+export function splitSummary(t) {
+  const src = String(t || ''),
+    ls = src.split(/\r?\n/),
+    i = ls.findIndex(l => HEAD.test(l));
+  if (i < 0) return { summary: src.trim(), souvenirs: [], relations: {} };
+  const souvenirs = [],
+    relations = {};
+  let mode = '';
+  const take = x => {
+    const v = x.replace(/^[\s\-•*]+/, '').trim();
+    if (!v || /^aucun/i.test(v)) return;
+    if (mode == 'souv') souvenirs.push(v);
+    else if (mode == 'rel') {
+      const k = v.indexOf(':');
+      if (k > 0) relations[v.slice(0, k).replace(/[*_]/g, '').trim()] = v.slice(k + 1).trim();
+    }
+  };
+  for (const l of ls.slice(i)) {
+    const h = l.match(HEAD);
+    if (h) {
+      const w = nz(h[1]);
+      mode = w.startsWith('souv') ? 'souv' : w.startsWith('rel') ? 'rel' : '';
+      take(l.slice(h[0].length));
+    } else take(l);
+  }
+  return { summary: ls.slice(0, i).join('\n').trim(), souvenirs, relations };
+}
