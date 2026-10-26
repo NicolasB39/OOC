@@ -316,7 +316,7 @@ test('le nombre envoyé tient compte des messages déjà résumés', () => {
   assert.equal(r.msgs.length - 1, msgs.length - r.win, 'autant de messages que n − win');
 });
 
-test('une relation enregistrée est présentée comme pouvant dater, en queue de prompt', () => {
+test('les relations voyagent avec la mémoire ; celle d’un personnage en scène est aussi sous sa fiche', () => {
   ctx.chars = [
     { name: 'Alice', sum: 'herboriste', text: 'Fiche d’Alice.', always: false, images: [], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] }
   ];
@@ -328,8 +328,21 @@ test('une relation enregistrée est présentée comme pouvant dater, en queue de
       mem: { summary: '', memories: [], upto: 0, relations: { Alice: 'méfiante', Passeur: 'vous doit un service' } }
     })
   );
-  const last = r.msgs.at(-1).content;
+  const sys = r.msgs[0].content,
+    last = r.msgs.at(-1).content;
+  assert.match(sys, /<relations>\n\(États enregistrés, ils peuvent dater : les événements récents priment\.\)\n- Alice : méfiante\n- Passeur : vous doit un service\n<\/relations>/);
   assert.match(last, /Relation \(état enregistré, peut dater ; les événements récents priment\) : méfiante/);
-  assert.match(last, /<relations>\n\(États enregistrés, ils peuvent dater : les événements récents priment\.\)\n- Passeur : vous doit un service/);
-  assert.doesNotMatch(r.msgs[0].content, /méfiante|vous doit un service/);
+  assert.doesNotMatch(last, /<relations>|vous doit un service/);
+});
+
+test('le message système ne dépend pas de qui est en scène, pour rester en cache', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'herboriste', text: 'Fiche d’Alice.', always: false, images: [], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] },
+    { name: 'Bob', sum: 'forgeron', text: 'Fiche de Bob.', always: false, images: [], keys: [/(^|[^a-z0-9])bob(?![a-z0-9])/] }
+  ];
+  const mem = { summary: 'Résumé.', memories: ['un fait'], upto: 0, relations: { Alice: 'méfiante', Bob: 'ami', Passeur: 'dette' } };
+  const sys = txt =>
+    buildInfo(sc({ noChoices: true, remote: true, messages: [{ role: 'user', content: txt }], mem: { ...mem } })).msgs[0].content;
+  assert.equal(sys('je parle à Alice'), sys('je parle à Bob'));
+  assert.equal(sys('je parle à Alice'), sys('personne ici'));
 });

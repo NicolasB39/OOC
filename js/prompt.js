@@ -59,6 +59,12 @@ const memBlock = s => {
     mm = k > 0 ? (s.mem.memories || []).slice(-k) : [];
   if (mm.length)
     t += '\n\n<long_term_memory>\n' + mm.map(x => '- ' + x).join('\n') + '\n</long_term_memory>';
+  const rl = Object.entries(s.mem.relations || {});
+  if (rl.length)
+    t +=
+      '\n\n<relations>\n(États enregistrés, ils peuvent dater : les événements récents priment.)\n' +
+      rl.map(([k, v]) => '- ' + k + ' : ' + v).join('\n') +
+      '\n</relations>';
   if (s.note?.trim()) t += '\n\n<system_note>\n' + s.note.trim() + '\n</system_note>';
   return t;
 };
@@ -67,16 +73,6 @@ const relOf = (mem, name) => {
     if (sameName(r, name))
       return '\nRelation (état enregistré, peut dater ; les événements récents priment) : ' + mem.relations[r];
   return '';
-};
-const looseRel = (mem, used) => {
-  const a = Object.entries(mem.relations || {}).filter(
-    ([k]) => !used.some(c => sameName(c.name, k))
-  );
-  return a.length
-    ? '\n\n<relations>\n(États enregistrés, ils peuvent dater : les événements récents priment.)\n' +
-        a.map(([k, v]) => '- ' + k + ' : ' + v).join('\n') +
-        '\n</relations>'
-    : '';
 };
 export function buildInfo(s, cont) {
   const nm = s.pname?.trim() || '';
@@ -122,7 +118,6 @@ export function buildInfo(s, cont) {
         codes.join(', ') +
         "\nÀ insérer au fil du récit, là où elles illustrent le texte, pas forcément en début de réponse.\n</images_disponibles>";
   }
-  add += looseRel(s.mem, act);
   if (statOn(s)) {
     const prev = [...s.messages].reverse().find(m => m.role == 'assistant' && m.state?.length)?.state;
     add +=

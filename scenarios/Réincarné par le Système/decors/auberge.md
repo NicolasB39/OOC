@@ -1,0 +1,1 @@
+Mots-clés : auberge, taverne, salle commune, chambre
