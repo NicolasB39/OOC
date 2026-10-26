@@ -3,7 +3,7 @@ import { S } from './state.js';
 const W = 60000;
 let use = [];
 const RL = {};
-export const last = { cached: 0, total: 0 };
+export const last = { cached: 0, total: 0, wrote: 0 };
 
 export const resetDur = s => {
   const m = String(s || '').match(
@@ -24,20 +24,27 @@ export const spend = (n, m) => n > 0 && use.push([Date.now(), n, m]);
 export const reset = () => {
   use = [];
   for (const k in RL) delete RL[k];
-  Object.assign(last, { cached: 0, total: 0 });
+  Object.assign(last, { cached: 0, total: 0, wrote: 0 });
 };
 
 export function note(h, u, m, primary) {
   const tot = u?.total_tokens || (u?.prompt_tokens || 0) + (u?.completion_tokens || 0);
-  if (tot) spend(tot, m);
+  if (tot) spend(u?.rl ?? tot, m);
   if (primary) {
     last.total = tot || 0;
     last.cached = u?.prompt_tokens_details?.cached_tokens ?? u?.cache_read_input_tokens ?? 0;
+    last.wrote = u?.cache_write ?? 0;
   }
-  const lim = +h?.get?.('x-ratelimit-limit-tokens') || 0,
-    rem = h?.get?.('x-ratelimit-remaining-tokens');
+  const g = k => h?.get?.(k) ?? null,
+    lim = +g('x-ratelimit-limit-tokens') || +g('anthropic-ratelimit-input-tokens-limit') || 0,
+    rem = g('x-ratelimit-remaining-tokens') ?? g('anthropic-ratelimit-input-tokens-remaining');
   if (lim && rem != null && rem !== '') {
-    RL[m] = { lim, rem: +rem, at: Date.now(), req: +h.get('x-ratelimit-remaining-requests') || 0 };
+    RL[m] = {
+      lim,
+      rem: +rem,
+      at: Date.now(),
+      req: +(g('x-ratelimit-remaining-requests') ?? g('anthropic-ratelimit-requests-remaining')) || 0
+    };
     (S.tpms ??= {})[m] = lim;
   } else if (RL[m]?.x) delete RL[m];
 }

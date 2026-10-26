@@ -4,6 +4,7 @@ import { clean } from '../js/store.js';
 import { buildInfo } from '../js/prompt.js';
 import { cutLines, mergeRel, splitSummary } from '../js/memory.js';
 import { protocol } from '../js/protocol.js';
+import { settled } from '../js/format.js';
 import { S, ctx } from '../js/state.js';
 
 beforeEach(() => {
@@ -82,4 +83,12 @@ test('l’import plafonne les relations à REL_MAX en gardant les plus récentes
   const r = clean({ id: 'r', messages: [], mem: { relations: rel } });
   assert.equal(Object.keys(r.mem.relations).length, 12);
   assert.ok('P19' in r.mem.relations);
+});
+
+test('settled fige les paragraphes terminés, jamais une balise ni une image coupée', () => {
+  assert.equal(settled('Un.\n\nDeux.\n\nTr'), 'Un.\n\nDeux.'.length);
+  assert.equal(settled('Un.\n\nDeux.', 3), 3);
+  assert.equal(settled('Un.\n\n<etat>\nLieu: x\n\nsuite'), 0);
+  assert.equal(settled('Un.\n\n{{img::a\n\nb'), 0);
+  assert.equal(settled('Un.\n\n{{img::a}}\n\nb'), 'Un.\n\n{{img::a}}'.length);
 });

@@ -1,7 +1,7 @@
 import { uid } from './util.js';
 
 export const TOMB_TTL = 1.5552e10;
-export const syncable = s => !(s.remote && !s.messages.length);
+export const syncable = s => !(s.remote && !(s.messages ? s.messages.length : s.n));
 
 export function merge(loc, rem, t1, t2, { seen = {}, now = Date.now(), nid = uid } = {}) {
   const tomb = { ...t1 };
@@ -18,6 +18,7 @@ export function merge(loc, rem, t1, t2, { seen = {}, now = Date.now(), nid = uid
   const keep = [],
     toLocal = [],
     delLocal = [],
+    copies = [],
     next = {};
   for (const id of new Set([...L.keys(), ...R.keys()])) {
     const l = L.get(id),
@@ -34,6 +35,7 @@ export function merge(loc, rem, t1, t2, { seen = {}, now = Date.now(), nid = uid
         c = { ...lose, id: nid(), name: lose.name + ' (conflit)', updated: now };
       keep.push(c);
       toLocal.push(c);
+      copies.push([c, lose.id, lose === r]);
       next[c.id] = c.updated;
       up = true;
     }
@@ -42,5 +44,5 @@ export function merge(loc, rem, t1, t2, { seen = {}, now = Date.now(), nid = uid
     if (p === r && (!l || r.updated > l.updated)) toLocal.push(r);
     if (p === l && (!r || l.updated > r.updated)) up = true;
   }
-  return { keep, toLocal, delLocal, tomb, up, seen: next };
+  return { keep, toLocal, delLocal, copies, tomb, up, seen: next };
 }

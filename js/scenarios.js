@@ -117,9 +117,12 @@ const fiche = t => {
     text
   };
 };
+let gen = 0;
 export async function loadCtx() {
+  const g = ++gen,
+    im = {};
   for (const k in IMG) delete IMG[k];
-  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '' });
+  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '', decors: [], decorDef: '' });
   if (!app.cur.remote) return;
   const base = 'scenarios/' + app.cur.folder + '/',
     pb = base + 'personnages/';
@@ -144,9 +147,9 @@ export async function loadCtx() {
       const m = f.match(/^(.+)\.(webp|png|jpe?g|gif)$/i);
       if (m) {
         const c = (n + '_' + m[1]).toLowerCase();
-        IMG[c] = encodeURI(pb + n + '/' + f);
-        IMG[ikey(c)] ??= IMG[c];
-        images.push({ code: c, url: IMG[c] });
+        im[c] = encodeURI(pb + n + '/' + f);
+        im[ikey(c)] ??= im[c];
+        images.push({ code: c, url: im[c] });
         own.push(c);
       }
     }
@@ -209,5 +212,25 @@ export async function loadCtx() {
     })
     .filter(Boolean);
   images.sort((x, y) => x.code.localeCompare(y.code));
-  Object.assign(ctx, { system, avatar, chars, lore, images, stat });
+  const db = base + 'decors/',
+    all = await Promise.all(
+      T.filter(p => p.startsWith(db) && !p.slice(db.length).includes('/') && /\.(webp|png|jpe?g|gif)$/i.test(p)).map(
+        async p => {
+          const n = p.slice(db.length).replace(/\.[^.]+$/, ''),
+            md = db + n + '.md',
+            keys = [n.replace(/[_-]+/g, ' ')];
+          if (T.includes(md)) {
+            const m = (await txt(md)).match(/^\s*mots[-\s]?cl[ée]s\s*:\s*(.*)$/im);
+            if (m) keys.push(...m[1].split(','));
+          }
+          return { name: n, url: encodeURI(p), keys: keys.map(k => kre(nz(k.trim()))).filter(Boolean) };
+        }
+      )
+    ),
+    def = all.find(d => nz(d.name) == 'defaut'),
+    decors = all.filter(d => d !== def),
+    decorDef = def?.url || '';
+  if (g !== gen) return;
+  Object.assign(IMG, im);
+  Object.assign(ctx, { system, avatar, chars, lore, images, stat, decors, decorDef });
 }

@@ -1,4 +1,5 @@
 import { IMG, app, ctx } from './state.js';
+import { decorFor, scene } from './scene.js';
 import { el, ikey } from './util.js';
 
 export const CHX = /<choix>[\s\S]*?(?:<\/choix>|$)/gi;
@@ -52,11 +53,9 @@ const imgFor = c => {
   const m = ctx.images.filter(i => ikey(i.code).endsWith('_' + k));
   return m.length == 1 ? m[0].url : '';
 };
-const imgNode = c => {
+const imgNode = (c, d) => {
   const u = imgFor(c);
-  return u
-    ? el('img', { class: 'pic', src: u, alt: '', loading: 'lazy', decoding: 'async' })
-    : el('span', { class: 'miss', text: 'image introuvable : ' + c.trim() });
+  return u ? scene(u, d ?? decorFor(''), { cls: 'pic' }) : el('span', { class: 'miss', text: 'image introuvable : ' + c.trim() });
 };
 const INL = /\*\*([^*]+?)\*\*|\*([^*]+?)\*|(^|[\s(])_([^_\n]+?)_(?=$|[\s.,;:!?)])/g;
 const inline = (s, out) => {
@@ -110,13 +109,43 @@ export const line = t => {
   inline(t, out);
   return out;
 };
-export const body = t => {
+export const settled = (v, from = 0) => {
+  const j = v.lastIndexOf('\n\n');
+  if (j <= from) return from;
+  const p = v.slice(from, j);
+  return /<(choix|etat)/i.test(p) || p.split('{{').length !== p.split('}}').length ? from : j;
+};
+export const keepImgs = (from, to) => {
+  const pool = {};
+  for (const i of from.querySelectorAll('img.chr, .dec img')) (pool[i.src] ??= []).push(i);
+  for (const i of to.querySelectorAll('img.chr, .dec img')) {
+    const o = pool[i.src]?.shift();
+    if (o) i.replaceWith(o);
+  }
+};
+export const paintLive = (b, v, z, ph, d) => {
+  if (!v || v.slice(0, z.fl) !== z.ft) Object.assign(z, { fl: 0, fn: 0, ft: '' });
+  const old = el('div', null, [...b.childNodes].slice(z.fn));
+  if (v) {
+    const k = settled(v, z.fl);
+    if (k > z.fl) {
+      const fz = el('div', null, body(v.slice(z.fl, k), d));
+      keepImgs(old, fz);
+      b.append(...fz.childNodes);
+      Object.assign(z, { fl: k, fn: b.childNodes.length, ft: v.slice(0, k) });
+    }
+  }
+  const box = el('div', null, v ? body(v.slice(z.fl), d) : ph);
+  keepImgs(old, box);
+  b.append(...box.childNodes);
+};
+export const body = (t, d) => {
   const out = [];
   t.replace(CHX, '')
     .replace(ETX, '')
     .replace(/\{\{user\}\}/gi, app.cur?.pname?.trim() || 'Joueur')
     .replace(/\s*\{\{[^}]*$/, '')
     .split(/\{\{img::([^}]*)\}\}/g)
-    .forEach((x, i) => (i % 2 ? out.push(imgNode(x)) : blocks(x.replace(/^\n+|\n+$/g, ''), out)));
+    .forEach((x, i) => (i % 2 ? out.push(imgNode(x, d)) : blocks(x.replace(/^\n+|\n+$/g, ''), out)));
   return out;
 };

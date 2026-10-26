@@ -1,11 +1,50 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
-import { mergeMem, mergeRel, splitSummary } from './memory.js';
+import { clip, mergeMem, mergeRel, splitSummary } from './memory.js';
 import { hintOf, hit429, note, resetDur, wait } from './rate.js';
 import { record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { getOne, save } from './store.js';
 import { err, strip } from './util.js';
 
+const ANT = p => PROVIDERS[p]?.fmt == 'anthropic';
+export const authH = (p, k) =>
+  ANT(p)
+    ? { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+    : { Authorization: 'Bearer ' + k };
+export const toAnt = (ms, { model, max, temp, top, stream, ttl }) => {
+  const cc = { type: 'ephemeral', ...(ttl ? { ttl: '1h' } : {}) },
+    sys = ms.filter(m => m.role == 'system').map(m => m.content).join('\n\n'),
+    out = [];
+  for (const m of ms) {
+    if (m.role == 'system') continue;
+    const l = out.at(-1);
+    if (l?.role == m.role) l.content += '\n\n' + m.content;
+    else out.push({ role: m.role, content: m.content });
+  }
+  if (out[0]?.role == 'assistant') out.unshift({ role: 'user', content: '(Suite de l’histoire.)' });
+  const b = out.at(-2);
+  if (b?.content.trim()) b.content = [{ type: 'text', text: b.content, cache_control: cc }];
+  return {
+    model,
+    max_tokens: max || 4096,
+    ...(sys.trim() ? { system: [{ type: 'text', text: sys, cache_control: cc }] } : {}),
+    messages: out,
+    ...(temp != null ? { temperature: +temp } : top != null ? { top_p: +top } : {}),
+    ...(stream ? { stream: true } : {})
+  };
+};
+export const normU = u =>
+  u && !('prompt_tokens' in u) && ('input_tokens' in u || 'cache_read_input_tokens' in u)
+    ? {
+        prompt_tokens: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
+        completion_tokens: u.output_tokens || 0,
+        total_tokens:
+          (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.output_tokens || 0),
+        prompt_tokens_details: { cached_tokens: u.cache_read_input_tokens || 0 },
+        cache_write: u.cache_creation_input_tokens || 0,
+        rl: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+      }
+    : u;
 const pause = (ms, sig) =>
   new Promise(r => {
     const t = setTimeout(r, ms);
@@ -42,8 +81,9 @@ export async function chat(
     k = S.keys[p];
   if (!k) throw new Error('clé API manquante');
   let jm = json;
-  const mdl = model || S.models[p] || PROVIDERS[p].m;
-  const est = ms.reduce((a, m) => a + estTok(m.content), 0) + (max || 500);
+  const A = ANT(p),
+    mdl = model || S.models[p] || PROVIDERS[p].m;
+  const est = (A ? ms.slice(-2) : ms).reduce((a, m) => a + estTok(m.content), 0) + (max || 500);
   const hold = async (next, why) => {
     for (let w = next(); w > 0 && !ac.signal.aborted; w = next()) {
       onWait?.(w, why);
@@ -62,19 +102,23 @@ export async function chat(
   const t0 = Date.now();
   try {
     for (let a = 0; ; a++) {
-      const r = await fetch(PROVIDERS[p].u + '/chat/completions', {
+      const r = await fetch(PROVIDERS[p].u + (A ? '/messages' : '/chat/completions'), {
         method: 'POST',
         signal: ac.signal,
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + k },
-        body: JSON.stringify({
-          model: mdl,
-          messages: ms,
-          ...(max ? { max_tokens: max } : {}),
-          ...(temp != null ? { temperature: +temp } : {}),
-          ...(top != null ? { top_p: +top } : {}),
-          ...(od ? { stream: true } : {}),
-          ...(jm ? { response_format: { type: 'json_object' } } : {})
-        })
+        headers: { 'Content-Type': 'application/json', ...authH(p, k) },
+        body: JSON.stringify(
+          A
+            ? toAnt(ms, { model: mdl, max, temp, top, stream: !!od, ttl: S.c1h })
+            : {
+                model: mdl,
+                messages: ms,
+                ...(max ? { max_tokens: max } : {}),
+                ...(temp != null ? { temperature: +temp } : {}),
+                ...(top != null ? { top_p: +top } : {}),
+                ...(od ? { stream: true } : {}),
+                ...(jm ? { response_format: { type: 'json_object' } } : {})
+              }
+        )
       });
       if (r.ok && od && r.body && (r.headers.get('content-type') || '').includes('event-stream')) {
         const rd = r.body.getReader(),
@@ -85,10 +129,32 @@ export async function chat(
           fin = false,
           part = false,
           n = 0,
-          us = null;
+          us = null,
+          ex = '';
         const feed = l => {
           if (!l.startsWith('data:')) return;
           const d = l.slice(5).trim();
+          if (A) {
+            try {
+              const o = JSON.parse(d),
+                dl = o.delta;
+              if (o.type == 'message_start') us = { ...o.message?.usage };
+              else if (o.type == 'content_block_delta' && dl?.type == 'text_delta') {
+                tt += dl.text;
+                n++;
+                od(tt);
+              } else if (o.type == 'content_block_delta' && dl?.type == 'thinking_delta') od(tt, true);
+              else if (o.type == 'message_delta') {
+                if (dl?.stop_reason) fr = dl.stop_reason;
+                us = { ...us, ...o.usage };
+              } else if (o.type == 'message_stop') fin = true;
+              else if (o.type == 'error') {
+                ex = o.error?.message || 'erreur du fournisseur';
+                fin = true;
+              }
+            } catch (e) {}
+            return;
+          }
           if (d == '[DONE]') {
             fin = true;
             return;
@@ -118,6 +184,8 @@ export async function chat(
           }
           if (!fin && buf) feed(buf);
           rd.cancel().catch(() => {});
+          if (ex && !tt) throw new Error(ex);
+          if (ex) part = true;
         } catch (e) {
           if (!(tt && (ac.signal.reason == 'timeout' || ac.signal.reason == 'stop'))) throw e;
           part = true;
@@ -125,12 +193,13 @@ export async function chat(
         const out = strip(tt);
         if (!out)
           throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
+        us = normU(us);
         if (primary) calib(ms, us);
         note(r.headers, us, mdl, primary);
         track(ms, out, us, p + '/' + mdl);
         return {
           t: out,
-          cut: fr == 'length',
+          cut: fr == 'length' || fr == 'max_tokens',
           mode: 'stream',
           chunks: n,
           ms: Date.now() - t0,
@@ -139,7 +208,7 @@ export async function chat(
       }
       const j = await r.json().catch(() => ({}));
       const er = (Array.isArray(j) ? j[0] : j)?.error;
-      if (r.status == 429 && a < 3) {
+      if ((r.status == 429 || r.status == 529) && a < 3) {
         const secs = Math.min(
             90,
             Math.max(
@@ -163,16 +232,24 @@ export async function chat(
         continue;
       }
       if (!r.ok || er) throw new Error(er?.message || 'Erreur ' + r.status);
-      const ch = j.choices?.[0];
-      if (primary) calib(ms, j.usage);
-      note(r.headers, j.usage, mdl, primary);
-      const out = strip(ch?.message?.content ?? '');
-      track(ms, out, j.usage, p + '/' + mdl);
+      const ch = j.choices?.[0],
+        u = normU(j.usage);
+      if (primary) calib(ms, u);
+      note(r.headers, u, mdl, primary);
+      const out = strip(
+        A
+          ? (j.content || [])
+              .filter(b => b.type == 'text')
+              .map(b => b.text)
+              .join('')
+          : (ch?.message?.content ?? '')
+      );
+      track(ms, out, u, p + '/' + mdl);
       if (!out)
         throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
       return {
         t: out,
-        cut: ch.finish_reason == 'length',
+        cut: A ? j.stop_reason == 'max_tokens' : ch?.finish_reason == 'length',
         mode: 'block',
         chunks: 1,
         ms: Date.now() - t0
@@ -252,6 +329,13 @@ export const strs = v =>
   (Array.isArray(v) ? v : typeof v == 'string' ? v.split('\n') : [])
     .map(x => String(x).replace(/^[\s\-•*]+/, '').trim())
     .filter(x => x && !/^aucun/i.test(x));
+const addLines = (s, ln, n) => {
+  if (ln.length)
+    s.mem.lines = [
+      ...(s.mem.lines || []),
+      ...ln.map((t, k) => ({ i: ln.length == n ? s.mem.upto + k : -1, t }))
+    ].slice(-LINES_MAX);
+};
 const bullets = t =>
   t
     .split('\n')
@@ -329,16 +413,11 @@ export async function summarize(s) {
       } else if (useJson) S.jf = 0;
       if (j) {
         const x = splitSummary(j.resume);
-        s.mem.summary = (x.summary || j.resume.trim()).slice(0, SUM_MAX);
+        s.mem.summary = clip(x.summary || j.resume, SUM_MAX);
         absorb(s, x);
         s.mem.memories = mergeMem(s.mem.memories, strs(j.souvenirs));
         s.mem.relations = mergeRel(s.mem.relations, toRel(j.relations), known());
-        const ln = strs(j.lignes);
-        if (ln.length)
-          s.mem.lines = [
-            ...(s.mem.lines || []),
-            ...ln.map((t, k) => ({ i: s.mem.upto + k, t }))
-          ].slice(-LINES_MAX);
+        addLines(s, strs(j.lignes), parts.length);
         s.mem.upto += parts.length;
         await persist(s);
         continue;
@@ -346,16 +425,11 @@ export async function summarize(s) {
       const sum = sect(t, 'R[ÉE]SUM[ÉE]');
       if (!sum) throw new Error('réponse inattendue');
       const x = splitSummary(sum);
-      s.mem.summary = (x.summary || sum).slice(0, SUM_MAX);
+      s.mem.summary = clip(x.summary || sum, SUM_MAX);
       absorb(s, x);
       s.mem.memories = mergeMem(s.mem.memories, bullets(sect(t, 'SOUVENIRS')));
       s.mem.relations = mergeRel(s.mem.relations, toRel(bullets(sect(t, 'RELATIONS'))), known());
-      const li = bullets(sect(t, 'LIGNES'));
-      if (li.length)
-        s.mem.lines = [
-          ...(s.mem.lines || []),
-          ...li.map((t, k) => ({ i: s.mem.upto + k, t }))
-        ].slice(-LINES_MAX);
+      addLines(s, bullets(sect(t, 'LIGNES')), parts.length);
       s.mem.upto += parts.length;
       await persist(s);
     }

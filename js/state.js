@@ -6,10 +6,11 @@ export const PROVIDERS = {
     m: 'gemini-flash-latest'
   },
   mistral: { n: 'Mistral', u: 'https://api.mistral.ai/v1', m: 'mistral-small-latest' },
-  openrouter: { n: 'OpenRouter', u: 'https://openrouter.ai/api/v1', m: 'openrouter/free' }
+  openrouter: { n: 'OpenRouter', u: 'https://openrouter.ai/api/v1', m: 'openrouter/free' },
+  claude: { n: 'Claude (Anthropic)', u: 'https://api.anthropic.com/v1', m: 'claude-sonnet-5-5', fmt: 'anthropic' }
 };
 export const S = { provider: 'groq', keys: {}, models: {} };
-export const ctx = { system: '', avatar: '', chars: [], lore: [], images: [], stat: '' };
+export const ctx = { system: '', avatar: '', chars: [], lore: [], images: [], stat: '', decors: [], decorDef: '' };
 export const IMG = {};
 export const app = {
   cur: null,

@@ -94,3 +94,10 @@ export function splitSummary(t) {
 }
 
 export const cutLines = (lines, i) => (lines || []).filter(l => l.i < i);
+export const clip = (t, max) => {
+  t = String(t || '').trim();
+  if (t.length <= max) return t;
+  const c = t.slice(0, max),
+    m = c.match(/^[\s\S]*[.!?…»)](?=\s|$)/);
+  return m && m[0].length > max * 0.6 ? m[0] : c.replace(/\s+\S*$/, '') + '…';
+};

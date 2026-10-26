@@ -24,6 +24,8 @@ const node = tag => ({
     return this.attrs[k] ?? null;
   },
   querySelectorAll: () => [],
+  addEventListener() {},
+  classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
   showModal() {
     this.open = true;
   },

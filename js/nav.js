@@ -32,12 +32,38 @@ addEventListener('keydown', e => {
     $('#q').focus();
   } else if (e.key == 'Escape' && !$('#chat').hidden) $('#back').click();
 });
+let skip = false;
+const open = () => document.querySelector('dialog[open]');
+const sm = HTMLDialogElement.prototype.showModal;
+HTMLDialogElement.prototype.showModal = function () {
+  sm.call(this);
+  if (!history.state?.d) history.pushState({ ...history.state, d: 1 }, '');
+};
+document.addEventListener(
+  'close',
+  () =>
+    setTimeout(() => {
+      if (!open() && history.state?.d) {
+        skip = true;
+        history.back();
+      }
+    }),
+  true
+);
 addEventListener('popstate', () => {
-  const d = document.querySelector('dialog[open]');
+  if (skip) {
+    skip = false;
+    return;
+  }
+  const d = [...document.querySelectorAll('dialog[open]')].at(-1);
   if (d) {
     d.close();
-    history.pushState({ c: 1 }, '');
+    if (open()) history.pushState({ ...history.state, d: 1 }, '');
     return;
   }
   if (!$('#chat').hidden) leave();
+  if (history.state?.d) {
+    skip = true;
+    history.back();
+  }
 });

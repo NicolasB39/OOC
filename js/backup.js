@@ -2,7 +2,7 @@ import { render } from './chat.js';
 import { draw } from './list.js';
 import { merge } from './merge.js';
 import { S, app } from './state.js';
-import { clean, del, getFull, getOne, put, saveSet } from './store.js';
+import { clean, del, getAll, getFull, getOne, put, saveSet } from './store.js';
 import { $, LS, ago, dlg, toast, uid } from './util.js';
 
 async function doExport() {
@@ -61,15 +61,34 @@ const parseBk = t => {
     throw new Error("Fichier de sauvegarde illisible : rien n'a été modifié.");
   }
 };
+const IDX = 'index.json';
+const fname = id => id.replace(/[^\w-]/g, c => '~' + c.charCodeAt(0).toString(16).padStart(4, '0')) + '.json';
+const cname = id => fname(id).replace(/\.json$/, '.cover.json');
+const SQ = 100;
+export const cvh = s => {
+  if (!s) return '';
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(36) + '.' + s.length.toString(36);
+};
+const stub = x => ({
+  id: x.id,
+  name: x.name,
+  updated: x.updated,
+  remote: !!x.remote,
+  n: x.n ?? x.messages?.length ?? 0,
+  cv: x.cv ?? cvh(x.cover)
+});
 const GH = {
-  u: B =>
-    `https://api.github.com/repos/${B.repo.trim()}/contents/${encodeURI((B.path || FN).trim())}`,
+  file: B => (B.path || FN).trim(),
+  dir: B => GH.file(B).replace(/\.json$/i, ''),
+  u: (B, p) => `https://api.github.com/repos/${B.repo.trim()}/contents/${encodeURI(p)}`,
   h: (B, a) => ({
     Authorization: 'Bearer ' + B.tok.trim(),
     Accept: a || 'application/vnd.github+json'
   }),
-  async get(B) {
-    const r = await fetch(GH.u(B), { headers: GH.h(B), cache: 'no-store' });
+  async get(B, p) {
+    const r = await fetch(GH.u(B, p), { headers: GH.h(B), cache: 'no-store' });
     if (r.status == 404) return null;
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw bkErr(r, j);
@@ -77,7 +96,7 @@ const GH = {
     let t;
     if (j.encoding == 'base64' && j.content) t = b64d(j.content);
     else {
-      const q = await fetch(GH.u(B), {
+      const q = await fetch(GH.u(B, p), {
         headers: GH.h(B, 'application/vnd.github.raw+json'),
         cache: 'no-store'
       });
@@ -86,14 +105,13 @@ const GH = {
     }
     return { data: parseBk(t), ref: j.sha };
   },
-  async put(B, text, ref) {
-    const r = await fetch(GH.u(B), {
-      method: 'PUT',
+  async send(B, p, method, body) {
+    const r = await fetch(GH.u(B, p), {
+      method,
       headers: { ...GH.h(B), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: 'Sauvegarde ' + new Date().toISOString().slice(0, 16).replace('T', ' '),
-        content: b64e(text),
-        ...(ref ? { sha: ref } : {})
+        ...body
       })
     });
     const j = await r.json().catch(() => ({}));
@@ -102,6 +120,43 @@ const GH = {
       e.conflict = r.status == 409 || r.status == 422;
       throw e;
     }
+    return j;
+  },
+  async list(B) {
+    const r = await fetch(GH.u(B, GH.dir(B)), { headers: GH.h(B), cache: 'no-store' });
+    if (r.status == 404) return new Map();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw bkErr(r, j);
+    if (!Array.isArray(j)) throw new Error('Le dossier de sauvegarde porte le nom d’un fichier existant.');
+    return new Map(j.filter(x => x.type == 'file').map(x => [x.name, x.sha]));
+  },
+  read: (B, tok, n) => GH.get(B, GH.dir(B) + '/' + n),
+  write: (B, tok, n, text, ref) =>
+    GH.send(B, GH.dir(B) + '/' + n, 'PUT', { content: b64e(text), ...(ref ? { sha: ref } : {}) }),
+  remove: (B, tok, n, ref) => GH.send(B, GH.dir(B) + '/' + n, 'DELETE', { sha: ref }),
+  legacy: B => GH.get(B, GH.file(B)),
+  async squash(B) {
+    const j = async (p, body, method = 'POST') => {
+      const r = await fetch(`https://api.github.com/repos/${B.repo.trim()}${p}`, {
+        cache: 'no-store',
+        headers: { ...GH.h(B), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        ...(body ? { method, body: JSON.stringify(body) } : {})
+      });
+      const x = await r.json().catch(() => ({}));
+      if (!r.ok) throw bkErr(r, x);
+      return x;
+    };
+    const br = encodeURI((await j('')).default_branch),
+      head = (await j('/git/ref/heads/' + br)).object.sha,
+      c = await j('/git/commits/' + head);
+    if (!c.parents?.length) return true;
+    const ok = [GH.dir(B), GH.file(B)].map(p => p.split('/')[0]);
+    if ((await j('/git/trees/' + c.tree.sha)).tree.some(e => !ok.includes(e.path) && !/^(readme|license|\.git)/i.test(e.path)))
+      return 'non';
+    const n = await j('/git/commits', { message: 'Sauvegarde (historique compacté)', tree: c.tree.sha, parents: [] });
+    if ((await j('/git/ref/heads/' + br)).object.sha !== head) return false;
+    await j('/git/refs/heads/' + br, { sha: n.sha, force: true }, 'PATCH');
+    return true;
   }
 };
 export const gis = () =>
@@ -157,41 +212,37 @@ const DR = {
     }
     return r;
   },
-  async get(B, tok) {
-    const l = await (
-      await DR.api(
-        tok,
-        'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id)&q=' +
-          encodeURIComponent("name='" + FN + "'")
-      )
-    ).json();
-    const id = l.files?.[0]?.id;
-    if (!id) return null;
+  q: n => 'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1000&fields=files(id,name)&q=' + encodeURIComponent(n),
+  async read(B, tok, n, ref) {
     return {
-      data: parseBk(
-        await (
-          await DR.api(tok, 'https://www.googleapis.com/drive/v3/files/' + id + '?alt=media')
-        ).text()
-      ),
-      ref: id
+      data: parseBk(await (await DR.api(tok, 'https://www.googleapis.com/drive/v3/files/' + ref + '?alt=media')).text()),
+      ref
     };
   },
-  async put(B, text, ref, tok) {
-    if (ref) {
-      await DR.api(
-        tok,
-        'https://www.googleapis.com/upload/drive/v3/files/' + ref + '?uploadType=media',
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: text }
-      );
-      return;
-    }
+  async list(B, tok) {
+    const l = await (await DR.api(tok, DR.q("name contains 'sync-'"))).json();
+    return new Map((l.files || []).filter(f => f.name.startsWith('sync-')).map(f => [f.name.slice(5), f.id]));
+  },
+  async legacy(B, tok) {
+    const l = await (await DR.api(tok, DR.q("name='" + FN + "'"))).json();
+    const id = l.files?.[0]?.id;
+    return id ? DR.read(B, tok, FN, id) : null;
+  },
+  async write(B, tok, n, text, ref) {
+    if (ref)
+      return DR.api(tok, 'https://www.googleapis.com/upload/drive/v3/files/' + ref + '?uploadType=media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: text
+      });
     const bd = 'b' + uid();
-    await DR.api(tok, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    return DR.api(tok, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
       method: 'POST',
       headers: { 'Content-Type': 'multipart/related; boundary=' + bd },
-      body: `--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: FN, parents: ['appDataFolder'] })}\r\n--${bd}\r\nContent-Type: application/json\r\n\r\n${text}\r\n--${bd}--`
+      body: `--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: 'sync-' + n, parents: ['appDataFolder'] })}\r\n--${bd}\r\nContent-Type: application/json\r\n\r\n${text}\r\n--${bd}--`
     });
-  }
+  },
+  remove: (B, tok, n, ref) => DR.api(tok, 'https://www.googleapis.com/drive/v3/files/' + ref, { method: 'DELETE' })
 };
 export const bkOn = () => {
   const B = S.bk;
@@ -214,20 +265,99 @@ let bkBusy = false;
 async function syncOnce(B, manual) {
   const P = B.p == 'gh' ? GH : DR;
   const tok = P.auth ? await P.auth(B, manual) : null;
-  const rm = await P.get(B, tok);
-  const rd = rm?.data;
-  const rem = Array.isArray(rd?.scenarios) ? rd.scenarios.map(clean).filter(Boolean) : [];
-  const m = merge(await getFull(), rem, S.tomb || {}, rd?.tomb || {}, { seen: S.bkSeen || {} });
-  for (const s of m.toLocal) await put(s);
-  for (const id of m.delLocal) await del(id);
-  S.tomb = m.tomb;
-  if (!rm || m.up)
-    await P.put(
-      B,
-      JSON.stringify({ v: 1, saved: Date.now(), scenarios: m.keep, tomb: m.tomb }),
-      rm?.ref,
-      tok
+  const L = await P.list(B, tok);
+  let idx = L.has(IDX) ? (await P.read(B, tok, IDX, L.get(IDX))).data : null,
+    old = null;
+  if (!idx) {
+    const o = await P.legacy(B, tok);
+    old = new Map(
+      (Array.isArray(o?.data?.scenarios) ? o.data.scenarios : [])
+        .map(clean)
+        .filter(Boolean)
+        .map(x => [x.id, x])
     );
+    idx = { tomb: o?.data?.tomb || {}, items: [...old.values()].map(stub) };
+  }
+  const all = await getAll(),
+    ls = all.map(stub),
+    LC = new Map(all.map((x, i) => [x.id, [x.cover || '', ls[i].cv]])),
+    items = Array.isArray(idx.items) ? idx.items.filter(x => x && typeof x.id == 'string') : [],
+    R = new Map(items.map(x => [x.id, x])),
+    m = merge(ls, items, S.tomb || {}, idx.tomb || {}, { seen: S.bkSeen || {} });
+  const remote = async id => {
+    if (old?.has(id)) return old.get(id);
+    const f = fname(id);
+    if (!L.has(f)) throw new Error('Sauvegarde incomplète : fichier ' + f + ' manquant.');
+    const d = (await P.read(B, tok, f, L.get(f))).data || {};
+    let cover = typeof d.cover == 'string' ? d.cover : '';
+    if (!cover && d.cv) {
+      const [lc, lh] = LC.get(id) || [];
+      if (lh === d.cv) cover = lc;
+      else {
+        const g = cname(id);
+        if (!L.has(g)) throw new Error('Sauvegarde incomplète : fichier ' + g + ' manquant.');
+        cover = (await P.read(B, tok, g, L.get(g))).data?.d || '';
+      }
+    }
+    const x = clean({ ...d, cover });
+    if (!x) throw new Error('Sauvegarde illisible : ' + f + '.');
+    return x;
+  };
+  const made = new Map();
+  for (const [c, src, fromR] of m.copies) {
+    const x = fromR ? await remote(src) : await getOne(src);
+    made.set(c.id, { ...x, id: c.id, name: c.name, updated: c.updated });
+  }
+  for (const x of m.toLocal) await put(made.get(x.id) || (await remote(x.id)));
+  for (const id of m.delLocal) await del(id);
+  let n = 0;
+  for (const x of m.keep) {
+    const f = fname(x.id),
+      g = cname(x.id);
+    if (L.has(f) && R.get(x.id)?.updated === x.updated) continue;
+    const { cover = '', ...rest } = made.get(x.id) || (await getOne(x.id)),
+      h = cvh(cover);
+    x.cv = h;
+    if (h && !(L.has(g) && R.get(x.id)?.cv === h)) {
+      await P.write(B, tok, g, JSON.stringify({ d: cover }), L.get(g));
+      n++;
+    } else if (!h && L.has(g)) {
+      await P.remove(B, tok, g, L.get(g));
+      n++;
+    }
+    await P.write(B, tok, f, JSON.stringify({ ...rest, cv: h }), L.get(f));
+    n++;
+  }
+  const live = new Set(m.keep.map(x => x.id));
+  for (const id in m.tomb)
+    if (!live.has(id))
+      for (const f of [fname(id), cname(id)])
+        if (L.has(f)) {
+          await P.remove(B, tok, f, L.get(f));
+          n++;
+        }
+  if (n || m.up || !L.has(IDX)) {
+    await P.write(
+      B,
+      tok,
+      IDX,
+      JSON.stringify({ v: 2, saved: Date.now(), items: m.keep.map(stub), tomb: m.tomb }),
+      L.get(IDX)
+    );
+    n++;
+  }
+  if (B.p == 'gh' && n) {
+    B.cc = (B.cc || 0) + n;
+    if (B.cc >= SQ && B.nosq !== B.repo.trim())
+      try {
+        const r = await GH.squash(B);
+        if (r) B.cc = 0;
+        if (r == 'non') B.nosq = B.repo.trim();
+      } catch (e) {
+        B.cc = 0;
+      }
+  }
+  S.tomb = m.tomb;
   S.bkSeen = m.seen;
   const id = app.cur?.id;
   if (!id) return;

@@ -1,3 +1,4 @@
+import { authH } from './ai.js';
 import { jump, render, tk } from './chat.js';
 import { draw, showList } from './list.js';
 import { statOn } from './prompt.js';
@@ -162,6 +163,8 @@ function fillCfg() {
   $('#cmm').value = S.memModels?.[p] || '';
   $('#cmm').placeholder = S.models[p] || PROVIDERS[p].m;
   $('#cn').checked = !!S.ns?.[p];
+  $('#cch').checked = !!S.c1h;
+  $('#cchw').hidden = PROVIDERS[p].fmt != 'anthropic';
 }
 const streamInfo = () => {
   const x = app.stream;
@@ -242,9 +245,7 @@ $('#cl').onclick = async () => {
     return;
   }
   try {
-    const r = await fetch(PROVIDERS[p].u + '/models', {
-      headers: { Authorization: 'Bearer ' + k }
-    });
+    const r = await fetch(PROVIDERS[p].u + '/models', { headers: authH(p, k) });
     const j = await r.json();
     const a = (j.data || j.models || [])
       .map(x => String(x.id || x.name || '').replace(/^models\//, ''))
@@ -291,6 +292,7 @@ $('#dcs').onclick = async () => {
   S.models[p] = $('#cm').value.trim();
   (S.memModels ??= {})[p] = $('#cmm').value.trim();
   (S.ns ??= {})[p] = $('#cn').checked;
+  S.c1h = $('#cch').checked;
   const rp = $('#crp').value.trim();
   if (rp !== (S.repo || '')) LS.del('tree');
   S.repo = rp;

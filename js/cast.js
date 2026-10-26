@@ -1,5 +1,6 @@
 import { sameName } from './memory.js';
 import { inScene } from './prompt.js';
+import { decorNow, scene, zoomScene } from './scene.js';
 import { app, ctx } from './state.js';
 import { $, el, hue, ic } from './util.js';
 
@@ -12,15 +13,12 @@ const label = (c, code) => {
 const rels = () => Object.entries(app.cur?.mem?.relations || {});
 const relOf = name => rels().find(([k]) => sameName(k, name))?.[1] || '';
 
-const zoom = src => {
-  $('#dpici').src = src;
-  $('#dpic').showModal();
-};
+const dec = () => decorNow(app.cur?.messages || []);
 
 const face = c => {
   const u = c.images?.length ? urlOf(c.images[0]) : '';
   return u
-    ? el('img', { class: 'pav', src: u, alt: '', loading: 'lazy', decoding: 'async' })
+    ? scene(u, dec(), { x: 0.5, fill: 1.9, top: 0.06, sa: 1, cls: 'pav av' })
     : el('span', { class: 'pav', style: '--h:' + hue(c.name), 'aria-hidden': 'true', text: (c.name.trim()[0] || '?').toUpperCase() });
 };
 
@@ -38,8 +36,12 @@ const row = (c, i, on, open) => {
           imgs.map(code =>
             el(
               'button',
-              { class: 'pci', 'aria-label': 'Agrandir : ' + label(c, code), onclick: () => zoom(urlOf(code)) },
-              el('img', { src: urlOf(code), alt: '', loading: 'lazy', decoding: 'async' }),
+              {
+                class: 'pci',
+                'aria-label': 'Agrandir : ' + label(c, code),
+                onclick: e => zoomScene(e.currentTarget.querySelector('.scn'))
+              },
+              scene(urlOf(code), dec(), { x: 0.5, fill: 0.92, sa: 21 / 9, cls: 'tile' }),
               el('span', { text: label(c, code) })
             )
           )

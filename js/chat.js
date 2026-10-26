@@ -1,9 +1,10 @@
 import { chat, summarize } from './ai.js';
 import { sync } from './backup.js';
-import { body, line, raw, split } from './format.js';
+import { body, keepImgs, line, paintLive, raw, split } from './format.js';
 import { showList } from './list.js';
 import { cutLines } from './memory.js';
 import { buildInfo, statOn } from './prompt.js';
+import { decorNow, decorsOf, zoomScene } from './scene.js';
 import { conflicts, modelOf } from './protocol.js';
 import { last as rlLast, status, wait } from './rate.js';
 import {
@@ -67,6 +68,41 @@ export async function openScenario(id) {
     }
   }
 }
+let IO = null,
+  IK = '',
+  IV = null;
+export const infoOf = () => {
+  const s = app.cur,
+    m = s.mem,
+    l = s.messages.at(-1),
+    k = [
+      s.updated,
+      s.messages.length,
+      l?.role,
+      l?.content.length,
+      m.upto,
+      m.win,
+      m.summary.length,
+      m.memories.length,
+      m.lines?.length,
+      Object.keys(m.relations || {}).length,
+      S.ctxLim,
+      S.reserve,
+      S.cpt,
+      S.pre?.length,
+      S.proto,
+      S.provider,
+      modelOf(),
+      (ctx.chars || []).length,
+      (ctx.lore || []).length
+    ].join('|');
+  if (IO !== s || IK !== k) {
+    IO = s;
+    IK = k;
+    IV = buildInfo(s);
+  }
+  return IV;
+};
 export function tk(info) {
   const e = $('#tk');
   if (!app.cur || !app.cur.mem) {
@@ -75,7 +111,7 @@ export function tk(info) {
     $('#rl').hidden = true;
     return;
   }
-  const r = info || buildInfo(app.cur),
+  const r = info || infoOf(),
     n = app.cur.messages.length,
     sentN = Math.max(0, n - r.win),
     f = x => x.toLocaleString('fr-FR');
@@ -91,7 +127,8 @@ export function tk(info) {
       (r.budget ? ' / ' + f(r.budget) : '') +
       ' tokens envoyés' +
       (app.pt ? ' (réel : ' + f(app.pt) + ')' : '') +
-      (rlLast.cached ? ' · ' + f(rlLast.cached) + ' en cache' : '') +
+      (rlLast.cached ? ' · ' + f(rlLast.cached) + ' lus en cache' : '') +
+      (rlLast.wrote ? ' · ' + f(rlLast.wrote) + ' mis en cache' : '') +
       (n ? ' · ' + sentN + (sentN > 1 ? ' messages envoyés' : ' message envoyé') + ' sur ' + n : '');
   e.hidden = !S.counters && !r.over;
   rlView(r.used);
@@ -189,20 +226,20 @@ const stCard = (i, m) => {
     )
   );
 };
-const msgNode = (i, m, last) => {
+const msgNode = (i, m, last, d = '') => {
   const n = el(
     'div',
     { class: 'm ' + m.role, data: { i } },
     el('span', { class: 'sr', text: (m.role == 'user' ? 'Joueur' : 'Récit') + ' :' }),
-    el('div', { class: 'b' }, body(m.content)),
+    el('div', { class: 'b' }, body(m.content, d)),
     stCard(i, m),
     act(i, m, last)
   );
-  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state) };
+  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state), d };
   return n;
 };
 const same = (a, b) =>
-  a && a.c === b.c && a.a === b.a && a.l === b.l && a.n === b.n && a.s === b.s;
+  a && a.c === b.c && a.a === b.a && a.l === b.l && a.n === b.n && a.s === b.s && a.d === b.d;
 const dayOf = t => new Date(t).toDateString();
 const cut6h = (t, p) => dayOf(t) !== dayOf(p) || t - p > 216e5;
 const dayLab = (t, p) => {
@@ -231,7 +268,8 @@ export function render(sc) {
     ms = app.cur.messages,
     n = ms.length,
     st = Math.max(0, n - app.LIM);
-  const info = app.cur.mem ? buildInfo(app.cur) : null;
+  const info = app.cur.mem ? infoOf() : null,
+    D = decorsOf(ms);
   const cv = !st && coverOf(app.cur);
   head.replaceChildren(
     ...[
@@ -248,7 +286,7 @@ export function render(sc) {
   cur = [...w.querySelectorAll(':scope > .m[data-i]')];
   if (cur.length && +cur[0].dataset.i > st) {
     const f = document.createDocumentFragment();
-    for (let i = st; i < +cur[0].dataset.i; i++) f.append(msgNode(i, ms[i], false));
+    for (let i = st; i < +cur[0].dataset.i; i++) f.append(msgNode(i, ms[i], false, D[i]));
     cur[0].before(f);
   }
   cur = [...w.querySelectorAll(':scope > .m[data-i]')];
@@ -260,10 +298,11 @@ export function render(sc) {
         a: ms[i].ai,
         l: i == n - 1,
         n: ms[i].alts?.length || 0,
-        s: sig(ms[i].state)
+        s: sig(ms[i].state),
+        d: D[i]
       };
     if (!same(e._k, k)) {
-      const x = msgNode(i, ms[i], k.l);
+      const x = msgNode(i, ms[i], k.l, D[i]);
       e.replaceWith(x);
       fresh.push(x);
     }
@@ -271,7 +310,7 @@ export function render(sc) {
   const from = cur.length ? +cur.at(-1).dataset.i + 1 : st;
   const f = document.createDocumentFragment();
   for (let i = from; i < n; i++) {
-    const x = msgNode(i, ms[i], i == n - 1);
+    const x = msgNode(i, ms[i], i == n - 1, D[i]);
     fresh.push(x);
     f.append(x);
   }
@@ -393,14 +432,6 @@ function setBusy(b) {
   $('#stop').hidden = !b;
   err('');
 }
-const keepImgs = (from, to) => {
-  const pool = {};
-  for (const i of from.querySelectorAll('img.pic')) (pool[i.src] ??= []).push(i);
-  for (const i of to.querySelectorAll('img.pic')) {
-    const o = pool[i.src]?.shift();
-    if (o) i.replaceWith(o);
-  }
-};
 async function ask(old, cont) {
   const s = app.cur,
     p = S.provider,
@@ -419,6 +450,8 @@ async function ask(old, cont) {
     part = false,
     raf = 0,
     pend = ['', false];
+  const z = { fl: 0, fn: 0, ft: '' },
+    dl = decorNow(s.messages);
   const paint = () => {
     raf = 0;
     if (app.cur !== s || !pend) return;
@@ -432,18 +465,14 @@ async function ask(old, cont) {
       if (end) m.scrollTop = m.scrollHeight;
     }
     const v = strip(t),
-      sec = Math.round((Date.now() - t0) / 1000),
-      box = el(
-        'div',
-        null,
-        v
-          ? body(v)
-          : sec > 2 || th
-            ? el('span', { class: 'act', text: 'Réflexion… ' + sec + ' s' })
-            : null
-      );
-    keepImgs(e.firstChild, box);
-    e.firstChild.replaceChildren(...box.childNodes);
+      sec = Math.round((Date.now() - t0) / 1000);
+    paintLive(
+      e.firstChild,
+      v,
+      z,
+      v || !(sec > 2 || th) ? null : el('span', { class: 'act', text: 'Réflexion… ' + sec + ' s' }),
+      dl
+    );
     if (S.follow && m.scrollHeight - m.scrollTop - m.clientHeight < 200)
       m.scrollTop = m.scrollHeight;
     m.dispatchEvent(new Event('scroll'));
@@ -551,6 +580,11 @@ $('#send').onclick = async () => {
   $('#inp').value = '';
   fit();
   LS.del('draft:' + app.cur.id);
+  const pv = app.cur.messages.at(-1);
+  if (pv?.alts) {
+    delete pv.alts;
+    delete pv.ai;
+  }
   app.cur.messages.push({ role: 'user', content: t, t: Date.now() });
   await save();
   render(true);
@@ -568,9 +602,9 @@ $('#inp').onkeydown = e => {
   }
 };
 $('#msgs').onclick = e => {
-  if (e.target.classList.contains('pic')) {
-    $('#dpici').src = e.target.src;
-    $('#dpic').showModal();
+  const sc = e.target.closest('.scn');
+  if (sc) {
+    zoomScene(sc);
     return;
   }
   const b = e.target.closest('button');
@@ -655,6 +689,10 @@ $('#des').onclick = async () => {
   $('#de').close();
 };
 $('#dpic').onclick = () => $('#dpic').close();
+$('#dpic').addEventListener('close', () => {
+  $('#dpic').querySelector('.scn')?.remove();
+  $('#dpici').hidden = false;
+});
 $('#damc').onclick = () => $('#dma').close();
 $('#mac').onclick = () => {
   $('#dma').close();

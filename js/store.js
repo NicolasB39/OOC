@@ -1,6 +1,6 @@
 import { S, app } from './state.js';
 import { split } from './format.js';
-import { LS, plain } from './util.js';
+import { LS, plain, uid } from './util.js';
 import { REL_MAX } from './memory.js';
 
 let db;
@@ -22,10 +22,10 @@ export const clean = x => {
     o = v => (v === '' || v == null || !Number.isFinite(+v) ? null : +v);
   const messages = x.messages
     .filter(m => m && (m.role == 'user' || m.role == 'assistant') && typeof m.content == 'string')
-    .map(m => {
+    .map((m, i, all) => {
       const r = one(m);
       if (Number.isFinite(+m.t) && +m.t > 0) r.t = +m.t;
-      const a = Array.isArray(m.alts)
+      const a = Array.isArray(m.alts) && i == all.length - 1
         ? m.alts.map(v =>
             typeof v == 'string'
               ? { role: m.role, ...split(v) }
@@ -103,33 +103,54 @@ const META = s => ({
   remote: s.remote,
   pin: !!s.pin,
   folder: s.folder,
-  cover: s.cover || '',
   n: s.messages?.length || 0,
   pv: pvOf(s)
 });
+const CH = 25;
+const K = {};
+const pack = ms => {
+  const a = [];
+  for (let i = 0; i < ms.length; i += CH) a.push(JSON.stringify(ms.slice(i, i + CH)));
+  return a;
+};
+const range = (id, from = 0) => IDBKeyRange.bound([id, from], [id, Infinity]);
 export const openDB = () =>
   new Promise((res, rej) => {
     // Nom historique de la base : le renommer reviendrait à repartir d'une base vide.
-    const r = indexedDB.open('histoires', 3);
+    const r = indexedDB.open('histoires', 4);
     r.onupgradeneeded = e => {
       const d = r.result,
-        t = r.transaction;
-      if (e.oldVersion < 1) {
+        t = r.transaction,
+        o = e.oldVersion;
+      if (o < 1) {
         d.createObjectStore('scenarios', { keyPath: 'id' });
         d.createObjectStore('settings', { keyPath: 'key' });
       }
-      if (e.oldVersion < 2) d.createObjectStore('meta', { keyPath: 'id' });
-      if (e.oldVersion < 3)
+      if (o < 2) d.createObjectStore('meta', { keyPath: 'id' });
+      if (o < 4) {
+        d.createObjectStore('chunks', { keyPath: 'k' });
+        d.createObjectStore('covers', { keyPath: 'id' });
+      }
+      if (o && o < 4)
         t.objectStore('scenarios').openCursor().onsuccess = ev => {
           const c = ev.target.result;
-          if (c) {
-            t.objectStore('meta').put(META(c.value));
-            c.continue();
-          }
+          if (!c) return;
+          const { messages = [], cover, ...h } = c.value;
+          h.nc = Math.ceil(messages.length / CH);
+          h.rev = uid();
+          for (let i = 0; i < messages.length; i += CH)
+            t.objectStore('chunks').put({ k: [h.id, i / CH], m: messages.slice(i, i + CH) });
+          if (cover) t.objectStore('covers').put({ id: h.id, d: cover });
+          t.objectStore('meta').put(META(c.value));
+          c.update(h);
+          c.continue();
         };
     };
+    r.onblocked = () =>
+      rej(new Error('Une autre fenêtre de l’application est ouverte : fermez-la, puis rechargez cette page.'));
     r.onsuccess = () => {
       db = r.result;
+      db.onversionchange = () => db.close();
       res();
     };
     r.onerror = () => rej(r.error);
@@ -141,30 +162,89 @@ const tx = (st, m, fn) =>
     t.oncomplete = () => res(rq && rq.result);
     t.onerror = () => rej(t.error);
   });
-export const getAll = () => tx('meta', 'readonly', s => s.getAll());
-export const getFull = () => tx('scenarios', 'readonly', s => s.getAll());
-export const getOne = id => tx('scenarios', 'readonly', s => s.get(id)).then(r => (r ? clean(r) : r));
-const both = fn =>
+const read = (names, fn) =>
   new Promise((res, rej) => {
-    const t = db.transaction(['scenarios', 'meta'], 'readwrite');
-    fn(t.objectStore('scenarios'), t.objectStore('meta'));
-    t.oncomplete = () => res();
+    const t = db.transaction(names, 'readonly'),
+      o = {};
+    for (const [k, [n, q]] of Object.entries(fn)) {
+      const r = q === undefined ? t.objectStore(n).getAll() : t.objectStore(n)[q instanceof IDBKeyRange ? 'getAll' : 'get'](q);
+      r.onsuccess = () => (o[k] = r.result);
+    }
+    t.oncomplete = () => res(o);
     t.onerror = () => rej(t.error);
   });
-export const put = o => {
-  LS.set('bkd', 1);
-  return both((a, m) => {
-    a.put(o);
-    m.put(META(o));
+export const getAll = () =>
+  read(['meta', 'covers'], { m: ['meta'], c: ['covers'] }).then(({ m, c }) => {
+    const cv = new Map(c.map(x => [x.id, x.d]));
+    return m.map(x => ({ ...x, cover: cv.get(x.id) || '' }));
   });
-};
+export const getFull = () =>
+  read(['scenarios', 'chunks', 'covers'], { h: ['scenarios'], k: ['chunks'], c: ['covers'] }).then(
+    ({ h, k, c }) => {
+      const ms = {},
+        cv = new Map(c.map(x => [x.id, x.d]));
+      for (const x of k) (ms[x.k[0]] ??= []).push(...x.m);
+      return h.map(({ nc, rev, ...x }) => ({ ...x, messages: x.messages || ms[x.id] || [], cover: cv.get(x.id) || '' }));
+    }
+  );
+export const getOne = id =>
+  read(['scenarios', 'chunks', 'covers'], {
+    h: ['scenarios', id],
+    k: ['chunks', range(id)],
+    c: ['covers', id]
+  }).then(({ h, k, c }) => {
+    if (!h) return h;
+    const { nc, rev, ...x } = h,
+      ms = x.messages || k.flatMap(y => y.m);
+    K[id] = { c: pack(ms), v: c?.d || '', rev };
+    return clean({ ...x, messages: ms, cover: c?.d || '' });
+  });
+export const put = o =>
+  new Promise((res, rej) => {
+    LS.set('bkd', 1);
+    const { messages = [], cover, ...head } = o,
+      c = pack(messages),
+      v = cover || '',
+      k = K[o.id],
+      t = db.transaction(['scenarios', 'chunks', 'covers', 'meta'], 'readwrite'),
+      [A, C, V, M] = ['scenarios', 'chunks', 'covers', 'meta'].map(n => t.objectStore(n));
+    let nk = null;
+    const r = A.get(o.id);
+    r.onsuccess = () => {
+      const ok = k && r.result && r.result.rev === k.rev && !r.result.messages;
+      head.nc = c.length;
+      head.rev = uid();
+      A.put(head);
+      c.forEach((x, i) => {
+        if (!ok || k.c[i] !== x) C.put({ k: [o.id, i], m: messages.slice(i * CH, (i + 1) * CH) });
+      });
+      C.delete(range(o.id, c.length));
+      if (!ok || k.v !== v) v ? V.put({ id: o.id, d: v }) : V.delete(o.id);
+      M.put(META(o));
+      nk = { c, v, rev: head.rev };
+    };
+    t.oncomplete = () => {
+      K[o.id] = nk;
+      res();
+    };
+    t.onerror = () => {
+      delete K[o.id];
+      rej(t.error);
+    };
+  });
 export const del = id => {
   LS.set('bkd', 1);
   LS.del('draft:' + id);
   LS.del('pos:' + id);
-  return both((a, m) => {
-    a.delete(id);
-    m.delete(id);
+  delete K[id];
+  return new Promise((res, rej) => {
+    const t = db.transaction(['scenarios', 'chunks', 'covers', 'meta'], 'readwrite');
+    t.objectStore('scenarios').delete(id);
+    t.objectStore('chunks').delete(range(id));
+    t.objectStore('covers').delete(id);
+    t.objectStore('meta').delete(id);
+    t.oncomplete = () => res();
+    t.onerror = () => rej(t.error);
   });
 };
 export const loadSet = () =>

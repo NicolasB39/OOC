@@ -1,4 +1,4 @@
-import { sameName } from './memory.js';
+import { clip, sameName } from './memory.js';
 import { DEFAULT_FIELDS, protocol } from './protocol.js';
 import { S, ctx } from './state.js';
 import { nz } from './util.js';
@@ -52,7 +52,7 @@ const castBlock = () => {
 const memBlock = s => {
   let t = '';
   if (s.mem.summary.trim())
-    t += '\n\n<previous_history>\n' + s.mem.summary.trim().slice(0, SUM_MAX) + '\n</previous_history>';
+    t += '\n\n<previous_history>\n' + clip(s.mem.summary, SUM_MAX) + '\n</previous_history>';
   if (s.mem.lines?.length)
     t += '\n\n<recent_history>\n' + s.mem.lines.map(x => '- ' + x.t).join('\n') + '\n</recent_history>';
   const k = s.memN ?? MEM_N,

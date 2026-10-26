@@ -2,9 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.anthropic.com https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="62668477af">
+<meta name="app-version" content="aa434654ea">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
@@ -33,6 +33,7 @@
 <link rel="modulepreload" href="js/rate.js">
 <link rel="modulepreload" href="js/read.js">
 <link rel="modulepreload" href="js/scenarios.js">
+<link rel="modulepreload" href="js/scene.js">
 <link rel="modulepreload" href="js/settings.js">
 <link rel="modulepreload" href="js/state.js">
 <link rel="modulepreload" href="js/stats.js">
@@ -282,6 +283,10 @@
 <input id="cmm" list="cml" autocomplete="off" autocapitalize="off">
 <p class="note">Vide : le même modèle. Les résumés de mémoire ne demandent pas votre meilleur modèle, un plus petit coûte moins cher et consomme moins de quota.</p>
 <label><input id="cn" type="checkbox">Désactiver le streaming pour ce fournisseur</label>
+<div id="cchw" hidden>
+<label><input id="cch" type="checkbox">Garder le cache une heure au lieu de 5 minutes</label>
+<p class="note">Utile si vous faites souvent des pauses de plus de 5 minutes entre deux tours. L’écriture en cache coûte alors 2 fois le prix normal au lieu de 1,25 fois ; la relecture reste au tarif réduit.</p>
+</div>
 <p id="cst" class="note"></p>
 
 <details>

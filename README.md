@@ -62,6 +62,26 @@ Après avoir renommé des images :
 - Les anciens messages gardent les anciens codes : ils afficheront le repère « image introuvable ». Modifiez le message ou régénérez la réponse.
 - Réglages du scénario (menu « … »), section « Images détectées » : vignettes et codes exacts vus par l'application, avec le bouton « Recharger l'index » pour relire la liste des fichiers sans fermer l'application. L'index lui-même n'est régénéré qu'au déploiement GitHub (quelques dizaines de secondes après le push).
 
+### Décors
+
+Une image de personnage **détourée** (fond transparent, en `.png` ou `.webp`) s'affiche en scène : un décor en fond, le personnage posé dessus. L'application le détecte elle-même en lisant les pixels du bord de l'image ; une image à fond plein s'affiche comme avant, en pleine largeur, sans décor derrière, puisqu'elle contient déjà le sien.
+
+Les décors se rangent dans `scenarios/<scénario>/decors/` :
+
+```
+decors/
+  taverne.webp
+  taverne.md        facultatif : Mots-clés : auberge, comptoir, salle commune
+  foret.webp        sans .md, le nom du fichier sert de mot-clé
+  defaut.webp       facultatif : fond quand aucun décor ne correspond
+```
+
+C'est l'application qui choisit le décor, pas l'IA : elle lit le champ « Lieu » du panneau d'état (ou « Endroit », « Localisation »), et à défaut cherche les mots-clés dans le texte des derniers messages. Les mots-clés suivent les règles du lorebook (accents et majuscules ignorés, mot entier, `chateau*` pour les variantes) ; quand plusieurs décors correspondent, le mot-clé le plus long l'emporte (« forêt de nuit » avant « forêt »). Si rien ne correspond, c'est `defaut.webp`, et sans lui un fond généré aux couleurs du scénario : il n'y a jamais de vide. L'IA ne reçoit pas la liste des décors et écrit librement ; cela ne coûte aucun token.
+
+Chaque message garde le décor de son moment : celui de son propre bloc d'état, sinon le dernier lieu connu avant lui. Relire une ancienne scène montre donc l'ancien décor. Pendant l'écriture, la scène prend le lieu précédent, puis bascule si la réponse annonce un nouveau lieu.
+
+Dans la conversation, le personnage est placé sur la ligne des 2/3 à droite, pieds en bas de la scène : l'application mesure la silhouette elle-même, donc une image centrée ou avec plus de marge d'un côté donne le même résultat, et un personnage large est décalé juste assez pour rester entier. Dans la fenêtre Personnages, la pastille et la galerie montrent le personnage centré sur le décor du lieu actuel. Toucher une scène l'agrandit en plein écran. Chaque scène a des proportions fixes (16/9, un plan large qui prend peu de place dans le fil), ce qui évite aussi les sauts de mise en page au chargement des images.
+
 ### Lorebook
 
 Chaque fichier `.md` commence par des lignes d'en-tête, puis le texte à injecter :
@@ -153,6 +173,8 @@ En quittant une conversation, l'application retient le message en haut de l'écr
 
 Au bout de trois secondes sans texte, le bloc en cours affiche « Réflexion… 12 s ». C'est surtout utile quand le streaming est coupé ou que le modèle raisonne avant de répondre : sans cela, rien ne bouge. Les messages d'état (pause de débit, mise à jour de la mémoire) s'affichent en pastille au bas du fil, par-dessus le texte, pour ne pas changer la hauteur de la zone de lecture ; seules les erreurs prennent leur place sous le fil. Un message d'état invisible, destiné aux lecteurs d'écran, annonce le début et la fin de la réponse, et l'auteur de chaque message est annoncé avant son texte.
 
+Pendant l'écriture, les paragraphes terminés sont figés : seul le dernier est reconstruit à chaque rafraîchissement, au lieu de tout le texte reçu. Une longue réponse reste ainsi fluide sur un téléphone modeste. Dès que la réponse aborde son bloc d'état ou de choix, plus rien n'est figé, pour que ces blocs restent masqués. Le message définitif est ensuite rendu normalement. De même, le calcul du prompt qui alimente le compteur n'est refait que si quelque chose qui l'influence a changé ; l'envoi, lui, recalcule toujours tout.
+
 ## Personnages
 
 Le bouton en forme de silhouettes, dans l'en-tête de la conversation, ouvre la fenêtre **Personnages** : une ligne par personnage du scénario, avec son portrait (sa première image, ou une pastille à son initiale), son nom et son résumé. Ceux qui sont nommés dans les six derniers messages passent en tête, avec l'étiquette « En scène », et le premier d'entre eux est déplié.
@@ -213,6 +235,14 @@ Quand au moins 6 messages ne sont plus envoyés, ils sont résumés dans la mém
 
 Le compteur et la jauge de débit sont **masqués par défaut** : on lit une histoire, pas un tableau de bord. « Afficher les compteurs sous la conversation » (Réglages, section « Budget de tokens ») les rend permanents. Masqués, ils réapparaissent d'eux-mêmes dans les deux cas où ils servent : prompt de base au-dessus de la limite, et envoi qui doit attendre la minute suivante.
 
+### Claude (Anthropic)
+
+Claude passe par son API native (`/v1/messages`), pas par la couche de compatibilité OpenAI d'Anthropic, qui ne gère pas le cache de prompt. Choisissez « Claude (Anthropic) » dans Réglages, avec une clé de la console Anthropic ; il n'y a pas d'offre gratuite. Modèle par défaut : `claude-sonnet-5-5` (`claude-haiku-5-5` coûte moins cher).
+
+L'application pose deux marqueurs de cache : sur la consigne système (scénario, protocole, avatar, mémoire) et sur l'avant-dernier message, juste avant le dernier message qui porte le lorebook, les fiches et l'état précédent. Tout l'historique stable est ainsi relu depuis le cache à un dixième du prix, et seule la dernière paire message-réponse est écrite à chaque tour. Le cache dure 5 minutes, prolongées à chaque tour ; « Garder le cache une heure » (Réglages, visible pour Claude) l'allonge, avec une écriture plus chère. Il est réécrit quand la mémoire se met à jour, quand la fenêtre avance, quand un ancien message est modifié ou après une pause plus longue que sa durée. Le compteur sous la conversation affiche les tokens « lus en cache » et « mis en cache » pour vérifier l'économie réelle.
+
+Les appels partent directement du navigateur avec l'en-tête `anthropic-dangerous-direct-browser-access`, comme pour les autres fournisseurs : la clé reste sur l'appareil. Les en-têtes de débit `anthropic-ratelimit-*` alimentent la jauge, et une surcharge (529) est relancée comme un refus 429. Le résumé de mémoire n'utilise pas le mode JSON, que Claude ne propose pas : le format balisé ou la lecture tolérante du JSON prennent le relais.
+
 ### Jauge de débit
 
 Sous le compteur, une barre indique les tokens restants dans la minute en cours : « 2 400 / 8 000 tokens par minute · prochain tour dans ~7 s ». Elle passe en rouge quand le tour suivant ne tient pas dans ce qui reste.
@@ -237,7 +267,9 @@ La mémoire tient sur trois étages, du plus détaillé au plus condensé :
 
 - **La fenêtre** : les derniers messages, envoyés mot pour mot.
 - **Les lignes récentes** : une phrase par message sorti de la fenêtre, pour garder le détail immédiat sans payer le texte intégral. Les plus anciennes disparaissent au fur et à mesure, une fois absorbées par le résumé.
-- **Le résumé** : le récit condensé de tout ce qui précède, plafonné pour ne pas gonfler avec le temps. Il est écrit en deux parties, « Événements » et « Situation actuelle » ; les souvenirs, les relations et l'objectif ont leurs propres champs et ne doivent pas y figurer.
+- **Le résumé** : le récit condensé de tout ce qui précède, plafonné pour ne pas gonfler avec le temps. Il est écrit en deux parties, « Événements » et « Situation actuelle » ; les souvenirs, les relations et l'objectif ont leurs propres champs et ne doivent pas y figurer. Quand il dépasse son plafond, il est coupé à la fin de la dernière phrase complète plutôt qu'au milieu d'un mot.
+
+Chaque ligne récente renvoie au message qu'elle résume, ce qui permet au Sommaire d'y sauter. Si le modèle renvoie plus ou moins de lignes qu'il n'a reçu de messages, les lignes sont gardées sans ce lien, plutôt que de pointer vers de mauvais messages.
 
 À côté, deux listes : les **souvenirs** (faits durables) et les **relations** (une ligne par personnage, envoyée avec sa fiche quand il entre en scène). Les relations se consultent dans la fenêtre Personnages, pas dans la feuille Mémoire.
 
@@ -291,13 +323,19 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 - Liste des modèles du fournisseur (Réglages, Lister les modèles).
 - Budget de tokens : limite réglable et estimation des tokens envoyés dans le compteur sous la conversation (voir ci-dessous).
 - Recherche dans la liste, export d'une histoire en `.md`, sauvegarde JSON (clés API exclues) avec rappel tous les 30 jours, synchronisation en ligne (GitHub ou Google Drive).
-- Bouton retour du téléphone géré, fonctionnement hors ligne.
+- Bouton retour du téléphone géré, y compris pour fermer une feuille ouverte depuis la liste, fonctionnement hors ligne.
+
+## Stockage sur l'appareil
+
+Les messages sont rangés par paquets de 25 dans la base locale, et un enregistrement ne réécrit que les paquets qui ont changé : jouer un tour dans une longue histoire ne réécrit plus toute l'histoire. La couverture est stockée une seule fois, à part, et n'est réécrite que si elle change ; la liste ne charge que des informations légères. Les variantes d'une réponse (flèches ‹ ›) ne sont gardées que tant que cette réponse est la dernière : elles disparaissent dès que vous envoyez le message suivant. Une base créée par une version précédente est convertie automatiquement à la première ouverture, sans perte.
+
+Les images d'un scénario GitHub ne sont visibles que dans ce scénario : si vous changez d'histoire pendant un chargement, celui qui arrive en retard est ignoré.
 
 ## Sauvegarde en ligne
 
-Les histoires restent d'abord sur l'appareil. La sauvegarde en ligne les copie dans un fichier JSON et les synchronise entre vos appareils. Réglages, Sauvegarde en ligne (ou icône nuage de la liste).
+Les histoires restent d'abord sur l'appareil. La sauvegarde en ligne les copie dans un dossier (un fichier par histoire, un fichier par couverture et un index) et les synchronise entre vos appareils. Réglages, Sauvegarde en ligne (ou icône nuage de la liste).
 
-Fonctionnement : à chaque synchronisation, l'application télécharge le fichier distant, garde pour chaque scénario la version la plus récente, applique les suppressions, puis renvoie le résultat. Rien n'est écrasé à l'aveugle. Si la même histoire a été jouée des deux côtés depuis la dernière synchronisation, la version la plus ancienne n'est pas perdue : elle est conservée à part sous le même nom suivi de « (conflit) », à vous de choisir laquelle garder. Un fichier distant illisible n'est jamais remplacé. Les clés API ne sont pas sauvegardées. La synchronisation se lance à l'ouverture, en quittant une conversation, en quittant l'application et au toucher du nuage. Elle attend la fin d'une réponse en cours. Si elle rapporte une version plus récente de l'histoire ouverte, l'écran est rechargé avec cette version, pour que le tour suivant ne l'écrase pas ; si l'histoire a été supprimée ailleurs, la conversation se ferme. Elle repose sur l'horloge des appareils : gardez-les à l'heure.
+Fonctionnement : à chaque synchronisation, l'application lit l'index distant, garde pour chaque scénario la version la plus récente, applique les suppressions, puis ne renvoie que les histoires modifiées. La couverture est dans un fichier à part, renvoyé seulement quand elle change ; l'index retient son empreinte. Tous vos appareils doivent utiliser cette version de l'application : une version antérieure lirait les histoires sans leur couverture. Rien n'est écrasé à l'aveugle. Si la même histoire a été jouée des deux côtés depuis la dernière synchronisation, la version la plus ancienne n'est pas perdue : elle est conservée à part sous le même nom suivi de « (conflit) », à vous de choisir laquelle garder. Un fichier distant illisible n'est jamais remplacé. Les clés API ne sont pas sauvegardées. La synchronisation se lance à l'ouverture, en quittant une conversation, en quittant l'application et au toucher du nuage. Elle attend la fin d'une réponse en cours. Si elle rapporte une version plus récente de l'histoire ouverte, l'écran est rechargé avec cette version, pour que le tour suivant ne l'écrase pas ; si l'histoire a été supprimée ailleurs, la conversation se ferme. Elle repose sur l'horloge des appareils : gardez-les à l'heure.
 
 ### En cas d'erreur ou de mauvaise configuration
 
@@ -313,7 +351,7 @@ Fonctionnement : à chaque synchronisation, l'application télécharge le fichie
 2. GitHub, Settings, Developer settings, Personal access tokens, Fine-grained tokens : créez un jeton limité à ce seul dépôt, permission **Contents : Read and write**.
 3. Dans l'application : service GitHub, dépôt `proprietaire/sauvegardes`, jeton, Enregistrer.
 
-Le jeton est stocké en clair dans le navigateur de l'appareil, comme les clés API. Un jeton limité à un dépôt de sauvegarde ne donne accès à rien d'autre. Chaque synchronisation avec changement crée un commit dans ce dépôt.
+Le jeton est stocké en clair dans le navigateur de l'appareil, comme les clés API. Un jeton limité à un dépôt de sauvegarde ne donne accès à rien d'autre. Chaque synchronisation avec changement crée un commit dans ce dépôt. Pour que le dépôt ne grossisse pas sans fin, l'application compacte l'historique en un seul commit tous les 100 commits environ (les fichiers ne changent pas, seules les anciennes versions disparaissent, GitHub les nettoie ensuite à son rythme). Par sécurité, elle ne le fait que si le dépôt ne contient que la sauvegarde (plus un README, une licence ou des fichiers `.git*`) : si vous l'avez pointée vers un dépôt qui contient autre chose, l'historique n'est jamais touché. Une branche protégée contre la réécriture empêche aussi le compactage, sans gêner la synchronisation.
 
 ### Google Drive
 
@@ -343,6 +381,7 @@ js/
   protocol.js       formats de sortie imposés par l'application (état, choix, images)
   ai.js             appel au fournisseur d'IA (streaming) et résumé de mémoire
   format.js         mise en forme du texte (Markdown léger, images, choix, état)
+  scene.js          scènes : choix du décor, détection de la transparence, placement du personnage
   read.js           lecture : taille du texte, mode lecture, lecture à voix haute
   cast.js           fenêtre Personnages
   chat.js           conversation : affichage, envoi, variantes, suppression, continuation
@@ -360,9 +399,10 @@ reparer.html        page de réparation (vide les caches, garde les histoires)
 sw.js               service worker (hors ligne)
 tools/build.mjs     numérotation de version, liste du service worker, contrôles
 test/               tests unitaires (node --test), sans aucune dépendance
+test/e2e.mjs        test de bout en bout dans Chromium (fournisseurs et GitHub simulés)
 ```
 
-En local : `npm test` lance les tests, `npm run build` régénère les numéros de version.
+En local : `npm test` lance les tests, `npm run build` régénère les numéros de version. Le test de bout en bout demande Playwright, non installé par défaut : `npm i --no-save playwright && npx playwright install chromium`, puis `node test/e2e.mjs` depuis la racine. Il vérifie le démarrage, la migration d'une ancienne base, le retour Android, l'envoi et l'affichage progressif, la stabilité de l'écran, les variantes, Claude (en-têtes et marqueurs de cache), la synchronisation GitHub et les décors (placement aux 2/3, décor par message, fond par défaut et généré, fenêtre Personnages). En cas d'échec, il enregistre une capture `e2e-echec.png`.
 
 Règles du projet :
 
