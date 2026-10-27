@@ -26,6 +26,17 @@ const base = 'http://localhost:' + srv.address().port;
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
 const wait = ms => new Promise(r => setTimeout(r, ms));
+// Attente d'une condition dans la page. page.waitForFunction recompose son prédicat avec eval dans la
+// page dès qu'il doit patienter, ce que la politique de sécurité de l'appli (script-src sans
+// 'unsafe-eval') refuse. page.evaluate passe par le protocole du navigateur, hors CSP : on interroge
+// donc la page à intervalles, et les tests tournent sous la CSP réelle.
+const until = async (page, fn, arg, timeout = 20000) => {
+  const end = Date.now() + timeout;
+  while (!(await page.evaluate(fn, arg))) {
+    if (Date.now() > end) throw new Error('délai dépassé en attendant : ' + String(fn).slice(0, 120));
+    await wait(50);
+  }
+};
 const story = n =>
   Array.from({ length: n }, () => '*Il lève les yeux.* La pluie tombe sur la ville, lente et grise, et personne ne parle.').join('\n\n') +
   '\n\n<choix>\n1. *Je recule.* Non.\n2. *J’avance.* Oui.\n3. *J’attends.* Peut-être.\n</choix>';
@@ -156,17 +167,17 @@ try {
     const n = await pg.locator('#msgs .m.assistant').count();
     await pg.fill('#inp', t);
     await pg.click('#send');
-    await pg.waitForFunction(
+    await until(
+      pg,
       n => document.querySelectorAll('#msgs .m.assistant').length > n && !document.querySelector('#send').hidden,
-      n,
-      { timeout: 20000 }
+      n
     );
     await wait(200);
   };
 
   await step('démarrage sans erreur', async () => {
     await pg.goto(base + '/index.html');
-    await pg.waitForFunction(() => window.__started);
+    await until(pg, () => window.__started);
     assert.equal(await pg.evaluate(() => (window.__missing ? window.__missing.size : 0)), 0);
   });
 
@@ -174,7 +185,7 @@ try {
     await pg.click('#cfg');
     assert.ok(await pg.evaluate(() => document.querySelector('#dc').open));
     await pg.evaluate(() => history.back());
-    await pg.waitForFunction(() => !document.querySelector('#dc').open);
+    await until(pg, () => !document.querySelector('#dc').open);
     assert.ok(await pg.isVisible('#list'));
     await pg.click('#cfg');
     await pg.click('#dcc');
@@ -283,7 +294,7 @@ try {
     assert.match(await pg.locator('#msgs .m.assistant[data-i]').last().textContent(), /pluie/);
   });
 
-  const syncDone = () => pg.waitForFunction(() => !document.querySelector('#sy').classList.contains('spin'));
+  const syncDone = () => until(pg, () => !document.querySelector('#sy').classList.contains('spin'));
   await step('synchronisation : migration de l’ancien fichier unique', async () => {
     await pg.click('#back');
     await pg.waitForSelector('#list:not([hidden])');
@@ -416,7 +427,8 @@ try {
       const n = await p3.locator('#msgs .m.assistant[data-i]').count();
       await p3.fill('#inp', t);
       await p3.click('#send');
-      await p3.waitForFunction(
+      await until(
+        p3,
         n => document.querySelectorAll('#msgs .m.assistant[data-i]').length > n && !document.querySelector('#send').hidden,
         n
       );
@@ -444,7 +456,7 @@ try {
       });
     };
     await p3.goto(base + '/index.html');
-    await p3.waitForFunction(() => window.__started);
+    await until(p3, () => window.__started);
     await p3.click('#cfg');
     await p3.fill('#ck', 'k');
     await p3.click('#dcs');
