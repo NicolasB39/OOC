@@ -1,4 +1,5 @@
-// Statistiques d'usage : d[jour][fournisseur/modèle] = [entrée, sortie, requêtes, requêtes estimées]
+// Statistiques d'usage : d[jour][fournisseur/modèle] = [entrée, sortie, requêtes, requêtes estimées,
+// puis, quand le fournisseur en parle : cache lu, cache écrit 5 min, cache écrit 1 h] (compris dans l'entrée).
 export const STATS = { v: 1, d: {} };
 export const SESSION = {};
 
@@ -24,19 +25,29 @@ export const usageOf = u => {
   return p || c > 0 ? [p, Math.max(0, c)] : null;
 };
 
-const bump = (map, key, p, c, est) => {
+// Cache lu et écrit, lus dans l'usage normalisé (normU pour Claude, prompt_tokens_details ailleurs).
+export const cacheOf = u => [+u?.prompt_tokens_details?.cached_tokens || 0, +u?.cache_write || 0];
+
+const bump = (map, key, p, c, est, ca) => {
   const e = (map[key] ??= [0, 0, 0, 0]);
   e[0] += p;
   e[1] += c;
   e[2] += 1;
   if (est) e[3] += 1;
+  ca.forEach((v, i) => {
+    if (v > 0) e[4 + i] = (e[4 + i] || 0) + v;
+  });
 };
 
-export const record = (key, p, c, est = false, t = Date.now()) => {
+// ca : [cache lu, cache écrit 5 min, cache écrit 1 h].
+export const record = (key, p, c, est = false, t = Date.now(), ca = []) => {
   if (!key || !(p > 0 || c > 0)) return;
-  bump((STATS.d[dayKey(t)] ??= {}), key, p, c, est);
-  bump(SESSION, key, p, c, est);
+  bump((STATS.d[dayKey(t)] ??= {}), key, p, c, est, ca);
+  bump(SESSION, key, p, c, est, ca);
   hook?.();
+};
+const add = (o, e) => {
+  for (let i = 0; i < e.length; i++) o[i] = (o[i] || 0) + (e[i] || 0);
 };
 
 export const load = v => {
@@ -50,11 +61,7 @@ export const clear = () => {
 
 export const merge = (...maps) => {
   const o = {};
-  for (const m of maps)
-    for (const k in m || {}) {
-      const e = (o[k] ??= [0, 0, 0, 0]);
-      for (let i = 0; i < 4; i++) e[i] += m[k][i] || 0;
-    }
+  for (const m of maps) for (const k in m || {}) add((o[k] ??= [0, 0, 0, 0]), m[k]);
   return o;
 };
 export const dayMap = (k, st = STATS) => st.d[k] || {};
@@ -62,7 +69,7 @@ export const monthMap = (ym, st = STATS) =>
   merge(...Object.keys(st.d).filter(k => k.startsWith(ym)).map(k => st.d[k]));
 export const total = map => {
   const o = [0, 0, 0, 0];
-  for (const k in map) for (let i = 0; i < 4; i++) o[i] += map[k][i] || 0;
+  for (const k in map) add(o, map[k]);
   return o;
 };
 export const monthDays = (ym, st = STATS) => {

@@ -1,5 +1,6 @@
 import { clip, sameName } from './memory.js';
-import { DEFAULT_FIELDS, protocol } from './protocol.js';
+import { DEFAULT_FIELDS, modelOf, protocol } from './protocol.js';
+import { RECALL_N, recall, recallTag } from './recall.js';
 import { S, ctx } from './state.js';
 import { nz } from './util.js';
 
@@ -24,22 +25,43 @@ const textOf = ms =>
       .map(m => m.content + ' ' + (m.state || []).map(e => e.join(' ')).join(' '))
       .join('\n')
   );
+const loreTag = a => (a.length ? '\n\n<lorebook>\n' + a.map(e => e.text).join('\n\n') + '\n</lorebook>' : '');
+const lorePerm = () => (ctx.lore || []).filter(e => e.always).sort((x, y) => y.pr - x.pr);
 const loreFor = (ms, max) => {
   const t = textOf(ms);
-  let a = (ctx.lore || []).filter(e => e.always || e.keys.some(r => r.test(t))).sort((x, y) => y.pr - x.pr);
-  if (max) a = a.slice(0, max);
-  return a.length ? '\n\n<lorebook>\n' + a.map(e => e.text).join('\n\n') + '\n</lorebook>' : '';
+  let a = (ctx.lore || []).filter(e => !e.always && e.keys.some(r => r.test(t))).sort((x, y) => y.pr - x.pr);
+  if (max) a = a.slice(0, Math.max(0, max - lorePerm().length));
+  return loreTag(a);
 };
 export const inScene = ms => {
   const t = textOf(ms);
   return (ctx.chars || []).filter(c => (c.keys || []).some(r => r.test(t)));
 };
+const small = C => C.reduce((a, c) => a + estTok(c.text), 0) <= CAST_FREE;
+const charsPerm = () => {
+  const C = (ctx.chars || []).filter(c => c.text);
+  return small(C) ? C : C.filter(c => c.always);
+};
 const charsFor = ms => {
-  const C = ctx.chars || [];
-  if (!C.length) return [];
-  if (C.reduce((a, c) => a + estTok(c.text), 0) <= CAST_FREE) return C;
+  const C = (ctx.chars || []).filter(c => c.text);
+  if (!C.length || small(C)) return [];
   const t = textOf(ms);
-  return C.filter(c => c.always || c.keys.some(r => r.test(t)));
+  return C.filter(c => !c.always && c.keys.some(r => r.test(t)));
+};
+const permBlock = () => {
+  const C = charsPerm(),
+    im = (ctx.chars || []).filter(c => c.images?.length);
+  return (
+    (C.length
+      ? '\n\n<personnages>' + C.map(x => '\n\n## ' + x.name + '\n' + x.text).join('') + '\n</personnages>'
+      : '') +
+    loreTag(lorePerm()) +
+    (im.length
+      ? '\n\n<images_disponibles>\n' +
+        im.map(c => '- ' + c.name + ' : ' + c.images.join(', ')).join('\n') +
+        "\nÀ insérer au fil du récit, là où elles illustrent le texte, pas forcément en début de réponse. N'utilise que les images d'un personnage présent dans la scène.\n</images_disponibles>"
+      : '')
+  );
 };
 const castBlock = () => {
   const C = ctx.chars || [];
@@ -81,8 +103,9 @@ export function buildInfo(s, cont) {
   const av = (nm ? 'Nom : ' + nm + '\n' : '') + (c.avatar || '');
   let sys = c.system || '';
   if (!s.noPre && S.pre?.trim()) sys += '\n\n' + S.pre.trim();
-  sys += castBlock();
+  sys += castBlock() + permBlock();
   const P = protocol({
+    model: modelOf(s),
     stat: statOn(s),
     fields: statFields(s).replace(/\s*\n+\s*/g, ', '),
     choices: !s.noChoices,
@@ -92,8 +115,8 @@ export function buildInfo(s, cont) {
   });
   sys += P.sys;
   if (av.trim()) sys += '\n\n# Avatar du joueur\n' + av;
-  sys += memBlock(s);
-  sys = U(sys);
+  const cut = U(sys).length;
+  sys = U(sys + memBlock(s));
 
   const start = Math.min(s.mem.upto, s.messages.length);
   const ms = s.messages.slice(start).map(m => ({ role: m.role, content: m.content }));
@@ -111,13 +134,14 @@ export function buildInfo(s, cont) {
       '\n\n<personnages>' +
       act.map(x => '\n\n## ' + x.name + '\n' + x.text + relOf(s.mem, x.name)).join('') +
       '\n</personnages>';
-    const codes = act.flatMap(x => x.images);
-    if (codes.length)
-      add +=
-        '\n\n<images_disponibles>\n' +
-        codes.join(', ') +
-        "\nÀ insérer au fil du récit, là où elles illustrent le texte, pas forcément en début de réponse.\n</images_disponibles>";
   }
+  // Passages anciens : en queue, comme le lorebook déclenché, pour ne rien invalider du cache.
+  // On ne fouille que ce qui n'est plus envoyé tel quel : déjà résumé, ou sorti de la fenêtre au tour précédent.
+  const before = Math.max(start, Math.min(s.mem.win || 0, s.messages.length));
+  add += recallTag(
+    recall(s.messages, before, textOf(s.messages.slice(-2)), s.recallN ?? RECALL_N),
+    nm || 'Joueur'
+  );
   if (statOn(s)) {
     const prev = [...s.messages].reverse().find(m => m.role == 'assistant' && m.state?.length)?.state;
     add +=
@@ -131,7 +155,7 @@ export function buildInfo(s, cont) {
   add += P.tail;
   if (add && l?.role == 'user') l.content += U(add);
 
-  const sysMsg = sys.trim() ? [{ role: 'system', content: sys }] : [],
+  const sysMsg = sys.trim() ? [{ role: 'system', content: sys, cut }] : [],
     B = budgetOf(s),
     n = ms.length,
     cost = ms.map(m => estTok(m.content)),
@@ -166,5 +190,35 @@ export function buildInfo(s, cont) {
     over: B > 0 && fits(from) > B
   };
 }
+// Coût des extras, mesuré sur les dernières réponses : tokens moyens d'un bloc <choix> et d'un bloc <etat>
+// (sur les réponses qui en ont un), coût moyen par réponse des deux (avg, payé comme sortie) et leur part
+// dans la sortie totale.
+export const extrasOf = (ms, n = 30) => {
+  const a = ms.filter(m => m.role == 'assistant').slice(-n);
+  if (!a.length) return null;
+  let ch = 0,
+    st = 0,
+    nc = 0,
+    ns = 0,
+    out = 0;
+  for (const m of a) {
+    const c = m.choices?.length
+        ? estTok('<choix>\n' + m.choices.map((x, i) => i + 1 + '. ' + x).join('\n') + '\n</choix>')
+        : 0,
+      e = m.state?.length ? estTok('<etat>\n' + m.state.map(([k, v]) => k + ': ' + v).join('\n') + '\n</etat>') : 0;
+    ch += c;
+    st += e;
+    nc += c > 0;
+    ns += e > 0;
+    out += estTok(m.content) + c + e;
+  }
+  return {
+    n: a.length,
+    ch: nc ? ch / nc : 0,
+    st: ns ? st / ns : 0,
+    avg: (ch + st) / a.length,
+    share: (ch + st) / out
+  };
+};
 export const build = (s, cont) => buildInfo(s, cont).msgs;
 export const omittedCount = s => buildInfo(s).omitted;

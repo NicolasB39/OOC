@@ -1,4 +1,6 @@
-import { PROVIDERS } from './state.js';
+import { costMap, costOf, money, parsePrice, priceOf } from './cost.js';
+import { PROVIDERS, S } from './state.js';
+import { saveSet } from './store.js';
 import {
   SESSION,
   clear,
@@ -10,7 +12,7 @@ import {
   splitKey,
   total
 } from './stats.js';
-import { $, dlg, el } from './util.js';
+import { $, LS, dlg, el, toast } from './util.js';
 
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
@@ -35,7 +37,9 @@ const rows = map => {
   return ks.map(k => {
     const [p, m] = splitKey(k),
       e = map[k],
-      t = e[0] + e[1];
+      t = e[0] + e[1],
+      pr = priceOf(k, S.prices),
+      c = costOf(e, pr);
     return el(
       'div',
       { class: 'ur' },
@@ -47,13 +51,53 @@ const rows = map => {
         el('span', { text: fmt(t) })
       ),
       el('i', { class: 'bar' }, el('u', { style: 'width:' + Math.max(2, (t / top) * 100) + '%' })),
-      el('small', {
-        text:
-          fmt(e[0]) + ' en entrée · ' + fmt(e[1]) + ' en sortie · ' + fmt(e[2]) + (e[2] > 1 ? ' requêtes' : ' requête')
-      })
+      el(
+        'div',
+        { class: 'uf' },
+        el('small', {
+          text:
+            fmt(e[0]) +
+            ' en entrée · ' +
+            fmt(e[1]) +
+            ' en sortie · ' +
+            fmt(e[2]) +
+            (e[2] > 1 ? ' requêtes' : ' requête') +
+            (c != null ? ' · ≈ ' + money(c, S.fx) : '')
+        }),
+        el('button', {
+          class: 'upr',
+          data: { k },
+          'aria-label': (pr ? 'Modifier le tarif de ' : 'Ajouter un tarif pour ') + m,
+          text: pr ? 'Tarif' : 'Ajouter un tarif'
+        })
+      )
     );
   });
 };
+const num2 = v => String(v).replace('.', ',');
+async function setPrice(k) {
+  const m = splitKey(k)[1],
+    own = S.prices?.[k],
+    cur = priceOf(k, S.prices);
+  const v = await dlg('Tarif de ' + m, {
+    m:
+      'En dollars par million de tokens : entrée / sortie, et si vous le connaissez le cache lu (exemple : 2 / 10 / 0,2). ' +
+      (own && priceOf(k) ? 'Vide : revenir au tarif public.' : 'Vide : pas de coût affiché.'),
+    v: cur ? cur.map(num2).join(' / ') : '',
+    ok: 'Enregistrer'
+  });
+  if (v === null) return;
+  const p = parsePrice(v);
+  if (p === undefined) {
+    await dlg('Tarif illisible', { m: 'Écrivez deux ou trois nombres, par exemple 2 / 10.', no: 'Fermer' });
+    return;
+  }
+  S.prices ??= {};
+  if (p) S.prices[k] = p;
+  else delete S.prices[k];
+  await saveSet();
+  view();
+}
 
 const bars = ym => {
   const ds = monthDays(ym),
@@ -81,6 +125,45 @@ const bars = ym => {
   );
 };
 
+// Plafond mensuel (S.cap, en dollars comme les tarifs) : il ne bloque rien, il prévient à 80 % puis à
+// 100 %, une fois par mois et par seuil.
+const monthCost = () => costMap(monthMap(monthKey(dayKey())), S.prices).sum;
+export const capLevel = (spent, cap) => (!cap ? 0 : spent >= cap ? 1 : spent >= cap * 0.8 ? 0.8 : 0);
+export function capCheck() {
+  if (!S.cap) return;
+  const spent = monthCost(),
+    lv = capLevel(spent, S.cap),
+    k = 'cap:' + monthKey(dayKey());
+  if (!lv || +(LS.get(k) || 0) >= lv) return;
+  LS.set(k, lv);
+  toast(
+    (lv >= 1 ? 'Plafond mensuel atteint : ' : '80 % du plafond mensuel : ') +
+      money(spent, S.fx) +
+      ' sur ' +
+      money(S.cap, S.fx) +
+      ' ce mois-ci',
+    { label: 'Voir', fn: () => openStats('month') }
+  );
+}
+export function openStats(m = 'session') {
+  mode = m;
+  cur = new Date();
+  view();
+  if (!$('#dus').open) $('#dus').showModal();
+}
+const capRow = () => {
+  if (!S.cap) return null;
+  const spent = monthCost(),
+    pc = Math.min(100, (spent / S.cap) * 100);
+  return el(
+    'div',
+    { class: 'ucap' + (spent >= S.cap ? ' over' : '') },
+    el('small', {
+      text: 'Ce mois-ci : ' + money(spent, S.fx) + ' sur un plafond de ' + money(S.cap, S.fx)
+    }),
+    el('i', { class: 'bar' }, el('u', { style: 'width:' + Math.max(1, pc) + '%' }))
+  );
+};
 export function view() {
   for (const b of $('#ust').querySelectorAll('button'))
     b.setAttribute('aria-checked', b.dataset.m == mode);
@@ -107,7 +190,8 @@ export function view() {
     $('#usl').textContent = cap(cur.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }));
   }
   const t = total(map),
-    est = t[3];
+    est = t[3],
+    cm = costMap(map, S.prices);
   const parts = [
     el(
       'div',
@@ -122,8 +206,10 @@ export function view() {
           ' en sortie · ' +
           fmt(t[2]) +
           (t[2] > 1 ? ' requêtes' : ' requête')
-      })
+      }),
+      cm.any ? el('span', { class: 'uc', text: '≈ ' + money(cm.sum, S.fx) + ' dépensés' }) : null
     ),
+    capRow(),
     ym && t[2] ? bars(ym) : null,
     ...(t[2]
       ? rows(map)
@@ -136,6 +222,24 @@ export function view() {
                 : 'Aucune utilisation sur cette période.'
           })
         ]),
+    t[2] && cm.unknown.length
+      ? el('p', {
+          class: 'note',
+          text:
+            'Coût non compté pour ' +
+            (cm.unknown.length > 1 ? cm.unknown.length + ' modèles sans tarif' : 'un modèle sans tarif') +
+            ' : touchez « Ajouter un tarif » (0 / 0 pour une offre gratuite).'
+        })
+      : null,
+    t[2] && cm.any
+      ? el('p', {
+          class: 'note',
+          text:
+            'Coût estimé à partir des tarifs (publics pour Claude, sinon les vôtres), cache compris' +
+            (S.fx ? ', converti à ' + num2(S.fx) + ' € pour 1 $' : ', en dollars') +
+            ' : votre facture fait foi.'
+        })
+      : null,
     est
       ? el('p', {
           class: 'note',
@@ -155,10 +259,24 @@ export function view() {
   $('#usv').replaceChildren(...parts);
 }
 
-$('#usb').onclick = () => {
-  cur = new Date();
+$('#usb').onclick = () => openStats(mode);
+$('#usk').onclick = async () => {
+  const fx = S.fx || 1,
+    v = await dlg('Plafond mensuel', {
+      m:
+        'Montant, en ' +
+        (S.fx ? 'euros' : 'dollars') +
+        ', au-delà duquel l’application vous prévient (à 80 % puis à 100 %). Elle ne bloque aucun envoi. Vide : pas de plafond.',
+      v: S.cap ? num2(Math.round(S.cap * fx * 100) / 100) : '',
+      ok: 'Enregistrer'
+    });
+  if (v === null) return;
+  const n = +v.trim().replace(',', '.');
+  S.cap = v.trim() && n > 0 ? n / fx : 0;
+  LS.del('cap:' + monthKey(dayKey()));
+  await saveSet();
   view();
-  $('#dus').showModal();
+  capCheck();
 };
 $('#ust').onclick = e => {
   const b = e.target.closest('button');
@@ -176,6 +294,22 @@ $('#usx').onclick = () => {
   view();
 };
 $('#usc').onclick = () => $('#dus').close();
+$('#usv').onclick = e => {
+  const b = e.target.closest?.('.upr');
+  if (b) setPrice(b.dataset.k);
+};
+$('#usf').onclick = async () => {
+  const v = await dlg('Afficher en euros', {
+    m: 'Les tarifs sont publiés en dollars. Combien d’euros pour un dollar (exemple : 0,92) ? Vide : afficher en dollars.',
+    v: S.fx ? num2(S.fx) : '',
+    ok: 'Enregistrer'
+  });
+  if (v === null) return;
+  const n = +v.trim().replace(',', '.');
+  S.fx = v.trim() && n > 0 ? n : 0;
+  await saveSet();
+  view();
+};
 $('#usr').onclick = async () => {
   if (
     await dlg('Effacer les statistiques ?', {

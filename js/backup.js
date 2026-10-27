@@ -1,5 +1,4 @@
-import { render } from './chat.js';
-import { draw } from './list.js';
+import { emit } from './bus.js';
 import { merge } from './merge.js';
 import { S, app } from './state.js';
 import { clean, del, getAll, getFull, getOne, put, saveSet } from './store.js';
@@ -361,14 +360,8 @@ async function syncOnce(B, manual) {
   S.bkSeen = m.seen;
   const id = app.cur?.id;
   if (!id) return;
-  if (m.delLocal.includes(id)) {
-    toast('Cette histoire a été supprimée sur un autre appareil');
-    $('#back').click();
-  } else if (m.toLocal.some(s => s.id == id)) {
-    app.cur = await getOne(id);
-    render();
-    toast('Histoire mise à jour depuis un autre appareil');
-  }
+  if (m.delLocal.includes(id)) await emit('cur:remote', 'deleted');
+  else if (m.toLocal.some(s => s.id == id)) await emit('cur:remote', 'updated');
 }
 export async function sync(manual) {
   const B = bkOn();
@@ -398,7 +391,7 @@ export async function sync(manual) {
   bkBusy = false;
   $('#sy').classList.remove('spin');
   bkMsg();
-  if (!$('#list').hidden) draw();
+  emit('list:stale');
 }
 const bkShow = () => {
   const p = $('#bp').value;

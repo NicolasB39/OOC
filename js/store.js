@@ -1,7 +1,7 @@
 import { S, app } from './state.js';
 import { split } from './format.js';
 import { LS, plain, uid } from './util.js';
-import { REL_MAX } from './memory.js';
+import { REL_MAX, cutLines } from './memory.js';
 
 let db;
 const one = m => {
@@ -62,9 +62,15 @@ export const clean = x => {
     noPre: !!x.noPre,
     cover: typeof x.cover == 'string' && x.cover.startsWith('data:') ? x.cover : '',
     maxTok: n(x.maxTok),
+    effort: ['low', 'medium', 'high'].includes(x.effort) ? x.effort : '',
+    models:
+      x.models && typeof x.models == 'object'
+        ? Object.fromEntries(Object.entries(x.models).filter(([, v]) => typeof v == 'string' && v.trim()))
+        : {},
     temp: o(x.temp),
     top: o(x.top),
     memN: o(x.memN),
+    recallN: o(x.recallN),
     loreDepth: n(x.loreDepth),
     loreMax: n(x.loreMax),
     stat: typeof x.stat == 'boolean' ? x.stat : undefined,
@@ -85,6 +91,18 @@ export const clean = x => {
       upto: Math.min(n(mm.upto), messages.length)
     }
   };
+};
+// Nouvelle histoire qui reprend jusqu'au message i inclus ; l'originale n'est pas touchée.
+// Le résumé reste tel quel : il peut raconter la suite, l'appelant le signale.
+export const forkOf = (s, i, name, id) => {
+  const c = structuredClone(s),
+    n = i + 1;
+  Object.assign(c, { id, name, pin: false });
+  c.messages = c.messages.slice(0, n);
+  c.mem.lines = cutLines(c.mem.lines, n);
+  c.mem.win = Math.min(c.mem.win || 0, n);
+  c.mem.upto = Math.min(c.mem.upto, n);
+  return c;
 };
 const pvOf = s => {
   const m = s.messages?.at(-1);

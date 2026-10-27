@@ -1,20 +1,47 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
 import { clip, mergeMem, mergeRel, splitSummary } from './memory.js';
 import { hintOf, hit429, note, resetDur, wait } from './rate.js';
-import { record, usageOf } from './stats.js';
+import { cacheOf, record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { getOne, save } from './store.js';
 import { err, strip } from './util.js';
 
 const ANT = p => PROVIDERS[p]?.fmt == 'anthropic';
+export const sumGate = (u, big, go) => (big ? u >= 80 || (go && u > 40) : u >= 40);
 export const authH = (p, k) =>
   ANT(p)
-    ? { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+    ? { 'x-api-key': k, 'anthropic-version': ANT_VERSION, 'anthropic-dangerous-direct-browser-access': 'true' }
     : { Authorization: 'Bearer ' + k };
-export const toAnt = (ms, { model, max, temp, top, stream, ttl }) => {
+// Version de l'API Claude. Depuis 2026-10-21, temperature, top_p et top_k sont refusés (erreur 400)
+// sur tous les modèles : toAnt ne les envoie jamais, la température des Réglages ne vaut que pour
+// les autres fournisseurs.
+export const ANT_VERSION = '2026-10-21';
+// Résumés de mémoire avec Claude quand aucun modèle n'est choisi : un résumé ne demande pas le meilleur
+// modèle, et Haiku 5.5 coûte une vingtaine de fois moins que Sonnet 5.5.
+export const MEM_CLAUDE = 'claude-haiku-5-5';
+export const memModel = (p = S.provider) => S.memModels?.[p] || (ANT(p) ? MEM_CLAUDE : '');
+export const EFFORTS = ['low', 'medium', 'high'];
+// L'effort (output_config.effort) règle la réflexion facturée avant chaque réponse. Accepté par Opus et
+// Sonnet 4.6 et suivants, Haiku 5.5, Fable et Mythos (et Opus 4.5) ; Haiku 4.5 et Sonnet 4.5 le refusent.
+export const effortOk = model => {
+  const m = String(model || '').match(/^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?=-|$)/);
+  if (!m) return false;
+  const [f, maj, min] = [m[1], +m[2], +m[3] || 0];
+  if (f == 'fable' || f == 'mythos') return true;
+  if (f == 'haiku') return maj >= 5;
+  return maj > 4 || (maj == 4 && min >= (f == 'opus' ? 5 : 6));
+};
+export const toAnt = (ms, { model, max, stream, ttl, effort }) => {
   const cc = { type: 'ephemeral', ...(ttl ? { ttl: '1h' } : {}) },
-    sys = ms.filter(m => m.role == 'system').map(m => m.content).join('\n\n'),
+    sys = [],
     out = [];
+  for (const m of ms)
+    if (m.role == 'system') {
+      const k = m.cut ?? m.content.length;
+      for (const t of [m.content.slice(0, k), m.content.slice(k)])
+        if (t.trim()) sys.push({ type: 'text', text: t, cache_control: cc });
+    }
+  sys.slice(0, -3).forEach(b => delete b.cache_control);
   for (const m of ms) {
     if (m.role == 'system') continue;
     const l = out.at(-1);
@@ -27,9 +54,9 @@ export const toAnt = (ms, { model, max, temp, top, stream, ttl }) => {
   return {
     model,
     max_tokens: max || 4096,
-    ...(sys.trim() ? { system: [{ type: 'text', text: sys, cache_control: cc }] } : {}),
+    ...(sys.length ? { system: sys } : {}),
     messages: out,
-    ...(temp != null ? { temperature: +temp } : top != null ? { top_p: +top } : {}),
+    ...(EFFORTS.includes(effort) && effortOk(model) ? { output_config: { effort } } : {}),
     ...(stream ? { stream: true } : {})
   };
 };
@@ -45,6 +72,38 @@ export const normU = u =>
         rl: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0)
       }
     : u;
+// Maintien du cache : le cache de Claude expire 5 minutes après le début de la dernière requête qui l'a
+// lu ou écrit. Pendant une pause, renvoyer la même requête avec max_tokens: 0 (sans streaming, refusé
+// dans ce cas) relit le préfixe au tarif réduit et repousse l'échéance, au lieu de le réécrire à 1,25 fois
+// le prix d'entrée au tour suivant. Même effort que la vraie requête : il fait partie du préfixe.
+let LAST = null;
+export const WARM_AT = 270000;
+export const lastWarmable = () => LAST;
+export async function keepWarm() {
+  const p = S.provider,
+    k = S.keys[p];
+  if (!LAST || LAST.p !== p || !ANT(p) || !k) return false;
+  const { stream, ...b } = LAST.body;
+  LAST.at = Date.now();
+  try {
+    const r = await fetch(PROVIDERS[p].u + '/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authH(p, k) },
+      body: JSON.stringify({ ...b, max_tokens: 0 })
+    });
+    if (!r.ok) return false;
+    const u = normU((await r.json().catch(() => ({}))).usage);
+    note(r.headers, u, b.model, false);
+    track([], '', u, p + '/' + b.model);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+// Erreurs passagères du fournisseur (surcharge, passerelle) : on retente, sans toucher à la jauge de débit.
+export const BUSY = new Set([500, 502, 503, 504, 529]);
+export const TRIES = 3;
+export const backoff = (a, ra) => Math.min(60, Math.max(1, Math.round(+ra || 2 ** (a + 1))));
 const pause = (ms, sig) =>
   new Promise(r => {
     const t = setTimeout(r, ms);
@@ -56,7 +115,11 @@ const pause = (ms, sig) =>
 const track = (ms, out, u, key) => {
   try {
     const x = usageOf(u);
-    if (x) return record(key, x[0], x[1]);
+    if (x) {
+      const [cr, cw] = cacheOf(u),
+        h1 = ANT(key.split('/')[0]) && S.c1h;
+      return record(key, x[0], x[1], false, Date.now(), [cr, h1 ? 0 : cw, h1 ? cw : 0]);
+    }
     record(
       key,
       ms.reduce((a, m) => a + estTok(m.content) + 4, 0),
@@ -75,7 +138,7 @@ const calib = (ms, u) => {
 };
 export async function chat(
   ms,
-  { max = 0, ac = new AbortController(), od = null, temp = null, top = null, model = '', json = false, onWait = null, primary = false, timeout = 120000 } = {}
+  { max = 0, ac = new AbortController(), od = null, temp = null, top = null, model = '', effort = '', json = false, onWait = null, primary = false, timeout = 120000 } = {}
 ) {
   const p = S.provider,
     k = S.keys[p];
@@ -100,26 +163,40 @@ export async function chat(
   };
   arm();
   const t0 = Date.now();
+  const retry = async (secs, why) => {
+    let left = secs;
+    await hold(() => left--, why);
+    arm();
+  };
   try {
     for (let a = 0; ; a++) {
-      const r = await fetch(PROVIDERS[p].u + (A ? '/messages' : '/chat/completions'), {
-        method: 'POST',
-        signal: ac.signal,
-        headers: { 'Content-Type': 'application/json', ...authH(p, k) },
-        body: JSON.stringify(
-          A
-            ? toAnt(ms, { model: mdl, max, temp, top, stream: !!od, ttl: S.c1h })
-            : {
-                model: mdl,
-                messages: ms,
-                ...(max ? { max_tokens: max } : {}),
-                ...(temp != null ? { temperature: +temp } : {}),
-                ...(top != null ? { top_p: +top } : {}),
-                ...(od ? { stream: true } : {}),
-                ...(jm ? { response_format: { type: 'json_object' } } : {})
-              }
-        )
-      });
+      let r;
+      const body = A
+        ? toAnt(ms, { model: mdl, max, stream: !!od, ttl: S.c1h, effort })
+        : {
+            model: mdl,
+            messages: ms,
+            ...(max ? { max_tokens: max } : {}),
+            ...(temp != null ? { temperature: +temp } : {}),
+            ...(top != null ? { top_p: +top } : {}),
+            ...(od ? { stream: true } : {}),
+            ...(jm ? { response_format: { type: 'json_object' } } : {})
+          };
+      // La dernière requête de narration Claude sert de modèle au maintien du cache (keepWarm).
+      if (A && primary) LAST = { p, body, at: Date.now() };
+      try {
+        r = await fetch(PROVIDERS[p].u + (A ? '/messages' : '/chat/completions'), {
+          method: 'POST',
+          signal: ac.signal,
+          headers: { 'Content-Type': 'application/json', ...authH(p, k) },
+          body: JSON.stringify(body)
+        });
+      } catch (e) {
+        // Coupure réseau avant toute réponse : rien n'a été facturé, on peut retenter.
+        if (ac.signal.aborted || !(e instanceof TypeError) || a >= TRIES) throw e;
+        await retry(backoff(a), 'net');
+        continue;
+      }
       if (r.ok && od && r.body && (r.headers.get('content-type') || '').includes('event-stream')) {
         const rd = r.body.getReader(),
           dc = new TextDecoder();
@@ -208,7 +285,7 @@ export async function chat(
       }
       const j = await r.json().catch(() => ({}));
       const er = (Array.isArray(j) ? j[0] : j)?.error;
-      if ((r.status == 429 || r.status == 529) && a < 3) {
+      if (r.status == 429 && a < TRIES) {
         const secs = Math.min(
             90,
             Math.max(
@@ -222,8 +299,11 @@ export async function chat(
             )
           );
         hit429(mdl, secs * 1000);
-        let left = secs;
-        await hold(() => left--, 'retry');
+        await retry(secs, 'retry');
+        continue;
+      }
+      if (BUSY.has(r.status) && a < TRIES) {
+        await retry(backoff(a, r.headers.get('retry-after')), 'busy');
         continue;
       }
       if (!r.ok && jm && /response_format|json/i.test(er?.message || '')) {
@@ -267,6 +347,18 @@ export async function chat(
     clearTimeout(tm);
   }
 }
+// Texte d'attente affiché pendant une pause de chat() : `why` dit qui fait attendre.
+export const waitMsg = (w, why) =>
+  (why == 'retry'
+    ? 'le fournisseur a refusé l’envoi (limite de débit)'
+    : why == 'busy'
+      ? 'le fournisseur est surchargé ou en panne'
+      : why == 'net'
+        ? 'connexion perdue'
+        : 'pause pour respecter la limite de débit du fournisseur') +
+  (why == 'pace' ? ' : envoi dans ' : ' : nouvelle tentative dans ') +
+  w +
+  ' s…';
 const SUMP =
   "Tu mets à jour la mémoire d'une histoire interactive. Réponds uniquement dans ce format, sections dans cet ordre :\n[RÉSUMÉ]\n(résumé complet mis à jour de toute l'histoire, 1200 caractères maximum, deux parties : Événements, Situation actuelle. N'y mets ni souvenirs, ni relations, ni objectif : ils ont leurs propres sections.)\n[SOUVENIRS]\n- (un ou deux faits durables à retenir, une phrase chacun, ou « aucun »)\n[RELATIONS]\n- Nom: état de sa relation avec le joueur, une phrase (ou « aucun »)\n[LIGNES]\n- (une ligne par message fourni, dans l'ordre, une phrase courte et factuelle)";
 const SUMJ =
@@ -346,7 +438,12 @@ export async function summarize(s) {
   SUMS.add(s.id);
   let shown = false;
   try {
-    const need = () => s.messages.length - s.mem.upto >= 40 || (S.ctxLim && omittedCount(s) >= 6);
+    const big = ANT(S.provider) && !S.ctxLim;
+    let go = false;
+    const need = () => {
+      go = sumGate(s.messages.length - s.mem.upto, big, go);
+      return go || (S.ctxLim && omittedCount(s) >= 6);
+    };
     while (need()) {
       if (app.cur === s && !app.busy) {
         err('Mise à jour de la mémoire…');
@@ -393,16 +490,13 @@ export async function summarize(s) {
           }
         ],
         {
-          model: S.memModels?.[S.provider] || '',
+          model: memModel(),
+          effort: 'low',
           json: useJson,
           timeout: 300000,
-          onWait: w => {
+          onWait: (w, why) => {
             if (app.cur === s && !app.busy)
-              err(
-                w
-                  ? 'Mémoire : quota du fournisseur atteint, nouvel essai dans ' + w + ' s…'
-                  : 'Mise à jour de la mémoire…'
-              );
+              err(w ? 'Mémoire : ' + waitMsg(w, why) : 'Mise à jour de la mémoire…');
           }
         }
       );

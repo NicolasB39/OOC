@@ -149,7 +149,7 @@ test('la fenêtre avance par blocs quand le budget est dépassé', () => {
   assert.ok(r.used <= r.budget);
 });
 
-test('le casting liste tous les personnages, les fiches ne suivent que les actifs', () => {
+test('le casting liste tous les personnages, les fiches ne suivent que les actifs, les images sont en cache', () => {
   ctx.chars = [
     { name: 'Alice', sum: 'herboriste', text: 'A'.repeat(4000), always: false, images: ['alice_x'], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] },
     { name: 'Bob', sum: 'garde', text: 'B'.repeat(4000), always: false, images: [], keys: [/(^|[^a-z0-9])bob(?![a-z0-9])/] }
@@ -161,17 +161,20 @@ test('le casting liste tous les personnages, les fiches ne suivent que les actif
   const last = r.msgs.at(-1).content;
   assert.match(last, /## Alice/);
   assert.doesNotMatch(last, /## Bob/);
-  assert.match(last, /alice_x/);
+  assert.doesNotMatch(last, /alice_x/);
+  assert.match(r.msgs[0].content.slice(0, r.msgs[0].cut), /<images_disponibles>\n- Alice : alice_x\n/);
 });
 
-test('en dessous du seuil, aucune fiche n’est filtrée', () => {
+test('en dessous du seuil, toutes les fiches vont dans la partie stable, aucune dans la queue', () => {
   ctx.chars = [
     { name: 'Alice', sum: 'a', text: 'court', always: false, images: [], keys: [/zzz/] },
     { name: 'Bob', sum: 'b', text: 'court', always: false, images: [], keys: [/zzz/] }
   ];
-  const r = buildInfo(sc({ noChoices: true, remote: true, messages: [{ role: 'user', content: 'rien' }] }));
-  assert.match(r.msgs.at(-1).content, /## Alice/);
-  assert.match(r.msgs.at(-1).content, /## Bob/);
+  const r = buildInfo(sc({ noChoices: true, remote: true, messages: [{ role: 'user', content: 'rien' }] })),
+    stable = r.msgs[0].content.slice(0, r.msgs[0].cut);
+  assert.match(stable, /## Alice/);
+  assert.match(stable, /## Bob/);
+  assert.doesNotMatch(r.msgs.at(-1).content, /## Alice|## Bob/);
 });
 
 test('les trois étages de mémoire vivent dans le préfixe, pas dans la queue', () => {
@@ -318,7 +321,7 @@ test('le nombre envoyé tient compte des messages déjà résumés', () => {
 
 test('les relations voyagent avec la mémoire ; celle d’un personnage en scène est aussi sous sa fiche', () => {
   ctx.chars = [
-    { name: 'Alice', sum: 'herboriste', text: 'Fiche d’Alice.', always: false, images: [], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] }
+    { name: 'Alice', sum: 'herboriste', text: 'Fiche d’Alice. ' + 'x'.repeat(4000), always: false, images: [], keys: [/(^|[^a-z0-9])alice(?![a-z0-9])/] }
   ];
   const r = buildInfo(
     sc({

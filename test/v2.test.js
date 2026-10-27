@@ -27,13 +27,11 @@ test('toAnt : système et avant-dernier message marqués pour le cache', () => {
   assert.ok(b.messages.every((m, i) => !i || m.role !== b.messages[i - 1].role));
 });
 
-test('toAnt : durée d’une heure, température prioritaire sur top_p', () => {
+test('toAnt : durée d’une heure, jamais d’échantillonnage (API 2026-10-21)', () => {
   const b = toAnt(ms, { model: 'm', max: 900, temp: 0.8, top: 0.9, ttl: true });
   assert.equal(b.system[0].cache_control.ttl, '1h');
-  assert.equal(b.temperature, 0.8);
-  assert.equal(b.top_p, undefined);
   assert.equal(b.max_tokens, 900);
-  assert.equal(toAnt(ms, { model: 'm', top: 0.9 }).top_p, 0.9);
+  for (const k of ['temperature', 'top_p', 'top_k']) assert.ok(!(k in b), k);
 });
 
 test('toAnt : requête à un seul message, sans marqueur de message', () => {

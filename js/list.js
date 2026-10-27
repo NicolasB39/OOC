@@ -1,7 +1,6 @@
 import { bkOn, sync } from './backup.js';
-import { go } from './nav.js';
+import { emit, on } from './bus.js';
 import { coverOf, getTree, localTree } from './scenarios.js';
-import { openSc } from './settings.js';
 import { S, app } from './state.js';
 import { del, getAll, getOne, put, saveSet } from './store.js';
 import { $, LS, ago, dlg, el, hue, ic, nz, plain, uid, vt } from './util.js';
@@ -134,8 +133,11 @@ $('#items').onclick = e => {
     return;
   }
   const it = e.target.closest('.ttl');
-  if (it) go(it.dataset.id);
+  if (it) emit('open', it.dataset.id);
 };
+on('list:stale', () => {
+  if (!$('#list').hidden) return draw();
+});
 let qt;
 $('#q').oninput = () => {
   clearTimeout(qt);
@@ -257,8 +259,8 @@ for (const k of Object.keys(TPL))
       messages: []
     };
     await put(s);
-    await go(s.id);
-    openSc();
+    await emit('open', s.id);
+    emit('settings:open');
   };
 $('#rf').onclick = async () => {
   await getTree(true);

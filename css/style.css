@@ -1692,6 +1692,45 @@ dialog input[type='range'] {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+.ut .uc {
+  display: block;
+  margin-top: 4px;
+  color: var(--ac);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ucap {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.ucap small {
+  color: var(--mu);
+  font-size: 12.5px;
+}
+.ucap.over .bar u {
+  background: var(--dg);
+}
+.ucap.over small {
+  color: var(--dg);
+}
+.uf {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.uf small {
+  flex: 1;
+  min-width: 0;
+}
+.upr {
+  flex: none;
+  padding: 2px 0;
+  color: var(--mu2);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 #pel {
   margin-top: 6px;
 }

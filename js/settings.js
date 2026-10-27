@@ -1,17 +1,78 @@
-import { authH } from './ai.js';
+import { authH, effortOk, memModel } from './ai.js';
+import { on } from './bus.js';
 import { jump, render, tk } from './chat.js';
+import { money, priceOf } from './cost.js';
 import { draw, showList } from './list.js';
-import { statOn } from './prompt.js';
+import { extrasOf, statOn } from './prompt.js';
+import { DEFAULT_FIELDS, conflicts, modelOf } from './protocol.js';
 import { fillLec, setReading } from './read.js';
-import { DEFAULT_FIELDS, conflicts } from './protocol.js';
 import { reset as rlReset } from './rate.js';
 import { TERR, getTree, loadCtx } from './scenarios.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { clean, put, save, saveSet } from './store.js';
 import { $, LS, dlg, el, ic, num, nz } from './util.js';
 
+// Prévient que température et Top P ne partiront pas : l'API Claude les refuse sur tous les modèles.
+const sampNote = (e, p) => {
+  const off = PROVIDERS[p]?.fmt == 'anthropic';
+  e.hidden = !off;
+  e.textContent = off
+    ? 'Claude n’accepte que l’échantillonnage par défaut : la température et le Top P ne lui sont pas envoyés. Ils servent aux autres fournisseurs.'
+    : '';
+};
+const EFF_NOTE = $('#sefn').textContent;
+// Modèle et effort du scénario : la note dit ce qui partira vraiment avec le modèle saisi.
+const genNotes = () => {
+  const p = S.provider,
+    P = PROVIDERS[p],
+    def = S.models[p] || P.m,
+    m = $('#smo').value.trim() || def;
+  $('#smo').placeholder = def;
+  $('#smon').textContent =
+    'Vide : le modèle des Réglages. Vaut pour ' + P.n + ' seulement : avec un autre fournisseur, le scénario reprend celui des Réglages.';
+  $('#sefn').textContent =
+    EFF_NOTE +
+    (P.fmt != 'anthropic'
+      ? ' Sans effet avec ' + P.n + '.'
+      : !effortOk(m)
+        ? ' ' + m + ' ne prend pas ce réglage en charge : rien n’est envoyé.'
+        : '');
+};
+$('#smo').oninput = genNotes;
+// Ce que coûtent les choix et l'état, mesuré sur les dernières réponses de l'histoire.
+const extrasNote = () => {
+  const x = extrasOf(app.cur.messages),
+    e = $('#sxc');
+  if (!x) {
+    e.textContent =
+      "Les choix et l'état sont réécrits par l'IA à chaque réponse et payés comme sortie. Leur coût s'affichera ici après quelques réponses.";
+    return;
+  }
+  if (!x.ch && !x.st) {
+    e.textContent = 'Ni choix ni état dans les dernières réponses : rien à payer en plus.';
+    return;
+  }
+  const pr = priceOf(S.provider + '/' + modelOf(), S.prices),
+    per = pr ? (x.avg * pr[1]) / 1e6 : null,
+    tk = v => Math.round(v) + (Math.round(v) > 1 ? ' tokens' : ' token');
+  e.textContent =
+    'Sur les ' +
+    x.n +
+    ' dernières réponses : ' +
+    [x.ch && 'un bloc de choix ≈ ' + tk(x.ch), x.st && 'un bloc d’état ≈ ' + tk(x.st)].filter(Boolean).join(', ') +
+    ', réécrits à chaque réponse, soit ' +
+    Math.round(x.share * 100) +
+    ' % de la sortie' +
+    (per != null ? ' (≈ ' + money(per * 100, S.fx) + ' pour 100 réponses)' : '') +
+    '. Décochez ce qui ne vous sert pas.';
+};
 export function openSc() {
   const c = app.cur.remote ? ctx : app.cur;
+  sampNote($('#stpn'), S.provider);
+  $('#smo').value = app.cur.models?.[S.provider] || '';
+  $('#sef').value = app.cur.effort || '';
+  genNotes();
+  extrasNote();
   $('#ssys').value = c.system;
   $('#sav').value = c.avatar;
   $('#ssys').readOnly = $('#sav').readOnly = !!app.cur.remote;
@@ -31,6 +92,7 @@ export function openSc() {
   $('#stmp').value = app.cur.temp ?? '';
   $('#stk').value = app.cur.top ?? '';
   $('#smm').value = app.cur.memN ?? '';
+  $('#srcl').value = app.cur.recallN ?? '';
   $('#sld').value = app.cur.loreDepth || '';
   $('#slm').value = app.cur.loreMax || '';
   $('#sch').checked = !app.cur.noChoices;
@@ -57,6 +119,7 @@ export function openSc() {
   );
   if (!$('#ds').open) $('#ds').showModal();
 }
+on('settings:open', openSc);
 $('#simr').onclick = async () => {
   await getTree(true);
   await loadCtx();
@@ -137,9 +200,15 @@ $('#dss').onclick = async () => {
   app.cur.pname = $('#snm').value.trim();
   app.cur.cover = COVER;
   app.cur.maxTok = +$('#smx').value || 0;
+  app.cur.effort = $('#sef').value;
+  const mo = $('#smo').value.trim();
+  app.cur.models ??= {};
+  if (mo) app.cur.models[S.provider] = mo;
+  else delete app.cur.models[S.provider];
   app.cur.temp = num('#stmp');
   app.cur.top = num('#stk');
   app.cur.memN = num('#smm');
+  app.cur.recallN = num('#srcl');
   app.cur.loreDepth = +$('#sld').value || 0;
   app.cur.loreMax = +$('#slm').value || 0;
   app.cur.noChoices = !$('#sch').checked;
@@ -161,10 +230,12 @@ function fillCfg() {
   $('#cm').value = S.models[p] || '';
   $('#cm').placeholder = PROVIDERS[p].m;
   $('#cmm').value = S.memModels?.[p] || '';
-  $('#cmm').placeholder = S.models[p] || PROVIDERS[p].m;
+  $('#cmm').placeholder = memModel(p) || S.models[p] || PROVIDERS[p].m;
+  $('#cwa').checked = S.warm !== false;
   $('#cn').checked = !!S.ns?.[p];
   $('#cch').checked = !!S.c1h;
   $('#cchw').hidden = PROVIDERS[p].fmt != 'anthropic';
+  sampNote($('#ctpn'), p);
 }
 const streamInfo = () => {
   const x = app.stream;
@@ -293,6 +364,7 @@ $('#dcs').onclick = async () => {
   (S.memModels ??= {})[p] = $('#cmm').value.trim();
   (S.ns ??= {})[p] = $('#cn').checked;
   S.c1h = $('#cch').checked;
+  S.warm = $('#cwa').checked;
   const rp = $('#crp').value.trim();
   if (rp !== (S.repo || '')) LS.del('tree');
   S.repo = rp;

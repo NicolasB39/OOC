@@ -1,5 +1,6 @@
-import { chat, summarize } from './ai.js';
+import { WARM_AT, chat, keepWarm, lastWarmable, summarize, waitMsg } from './ai.js';
 import { sync } from './backup.js';
+import { on } from './bus.js';
 import { body, keepImgs, line, paintLive, raw, split } from './format.js';
 import { showList } from './list.js';
 import { cutLines } from './memory.js';
@@ -9,6 +10,7 @@ import { conflicts, modelOf } from './protocol.js';
 import { last as rlLast, status, wait } from './rate.js';
 import {
   autoRead,
+  readPos,
   refreshSpeech,
   speakFrom,
   speakMsg,
@@ -19,8 +21,8 @@ import {
 } from './read.js';
 import { TERR, coverOf, loadCtx } from './scenarios.js';
 import { S, app, ctx } from './state.js';
-import { getOne, save, saveSet } from './store.js';
-import { $, LS, el, err, fit, ic, plain, strip, toast, vt } from './util.js';
+import { forkOf, getOne, save, saveSet } from './store.js';
+import { $, LS, dlg, el, err, fit, ic, plain, strip, toast, uid, vt } from './util.js';
 
 export async function openScenario(id) {
   stopSpeech();
@@ -68,6 +70,18 @@ export async function openScenario(id) {
     }
   }
 }
+on('cur:remote', async k => {
+  const id = app.cur?.id;
+  if (!id) return;
+  if (k == 'deleted') {
+    toast('Cette histoire a été supprimée sur un autre appareil');
+    $('#back').click();
+    return;
+  }
+  app.cur = await getOne(id);
+  render();
+  toast('Histoire mise à jour depuis un autre appareil');
+});
 let IO = null,
   IK = '',
   IV = null;
@@ -133,13 +147,19 @@ export function tk(info) {
   e.hidden = !S.counters && !r.over;
   rlView(r.used);
 }
-let rlEst = 0;
+let rlEst = 0,
+  rlT = 0;
+const rlStop = () => {
+  clearInterval(rlT);
+  rlT = 0;
+};
 function rlView(est) {
   if (est != null) rlEst = est;
   const g = $('#rl'),
     s = status(modelOf());
   if (!s) {
     g.hidden = true;
+    rlStop();
     return;
   }
   const f = x => x.toLocaleString('fr-FR'),
@@ -155,10 +175,14 @@ function rlView(est) {
     (s.src == 'local' ? ' (estimation locale)' : '') +
     (w ? ' · prochain tour dans ~' + w + ' s' : '');
   g.hidden = !S.counters && !w;
+  // La jauge se remplit avec le temps : on ne la redessine chaque seconde que tant qu'elle est à l'écran.
+  if (g.hidden || $('#chat').hidden) rlStop();
+  else
+    rlT ||= setInterval(() => {
+      if (app.cur && !$('#chat').hidden && !document.hidden) rlView();
+      else if (!app.cur || $('#chat').hidden) rlStop();
+    }, 1000);
 }
-setInterval(() => {
-  if (!$('#chat').hidden && app.cur) rlView();
-}, 1000);
 const act = (i, m, last) => {
   const r = el('div', { class: 'a' });
   if (last && m.alts?.length > 1)
@@ -410,6 +434,24 @@ async function delFrom(i) {
     }
   );
 }
+async function forkFrom(i) {
+  const s = app.cur,
+    name = await dlg('Bifurquer d’ici', {
+      m: 'Une nouvelle histoire reprend jusqu’à ce message. Celle-ci reste intacte.',
+      v: s.name + ' (bifurcation)',
+      ok: 'Créer'
+    });
+  if (!name?.trim() || app.cur !== s) return;
+  stopSpeech();
+  readPos(s.id);
+  const c = forkOf(s, i, name.trim(), uid());
+  await save(c);
+  await openScenario(c.id);
+  toast(
+    'Bifurcation créée' +
+      (s.mem.upto > i + 1 ? ' · le résumé de la mémoire raconte aussi la suite : relisez-le (… › Mémoire)' : '')
+  );
+}
 const useAlt = (m, k) => {
   const v = m.alts[k];
   m.ai = k;
@@ -443,6 +485,7 @@ async function ask(old, cont) {
     return;
   }
   setBusy(true);
+  warmStop();
   $('#gst').textContent = 'Réponse en cours.';
   const t0 = Date.now();
   let msg = '',
@@ -493,16 +536,15 @@ async function ask(old, cont) {
       od: S.ns?.[p] ? null : live,
       temp: s.temp ?? S.temp,
       top: s.top ?? S.top,
+      model: modelOf(s),
+      effort: s.effort || 'low',
       primary: true,
       onWait: (w, why) => {
         if (app.cur !== s) return;
-        if (w)
-          err(
-            why == 'retry'
-              ? 'Le fournisseur a refusé l’envoi (limite de débit) : nouvelle tentative dans ' + w + ' s…'
-              : 'Pause pour respecter la limite de débit du fournisseur : envoi dans ' + w + ' s…'
-          );
-        else {
+        if (w) {
+          const t = waitMsg(w, why);
+          err(t.charAt(0).toUpperCase() + t.slice(1));
+        } else {
           err('');
           live('');
         }
@@ -563,9 +605,41 @@ async function ask(old, cont) {
     if (!S.follow) m.scrollTop = y;
     if (!msg && !cont) autoRead(s.messages.length - 1);
   } else lv?.remove();
-  if (!msg) summarize(s);
+  if (!msg) {
+    warmN = 0;
+    warmArm(s);
+    summarize(s);
+  }
   if (app.cur !== s && LS.get('bkd')) sync();
 }
+// Maintien du cache Claude pendant les pauses (keepWarm, ai.js) : une relance peu avant l'échéance des
+// 5 minutes, au plus WARM_N d'affilée sans nouvel envoi (une vingtaine de minutes), seulement tant que la
+// conversation est ouverte et la page visible. Inutile avec le cache d'une heure.
+const WARM_N = 3;
+let warmT = 0,
+  warmN = 0,
+  warmS = null;
+function warmStop() {
+  clearTimeout(warmT);
+  warmT = 0;
+}
+function warmArm(s) {
+  warmStop();
+  warmS = s;
+  const L = lastWarmable();
+  if (!L || S.warm === false || S.c1h || L.p !== S.provider || warmN >= WARM_N) return;
+  const age = Date.now() - L.at;
+  if (age >= 295000) return;
+  warmT = setTimeout(async () => {
+    warmT = 0;
+    if (app.busy || app.cur !== s || $('#chat').hidden || document.hidden) return;
+    warmN++;
+    if (await keepWarm()) warmArm(s);
+  }, Math.max(0, WARM_AT - age));
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && warmS && app.cur === warmS && !warmT && !app.busy) warmArm(warmS);
+});
 async function regen() {
   if (app.busy) return;
   stopSpeech();
@@ -711,6 +785,10 @@ $('#mae').onclick = () => {
 $('#mad').onclick = () => {
   $('#dma').close();
   if (!app.busy) delFrom(app.actI);
+};
+$('#mab').onclick = () => {
+  $('#dma').close();
+  if (!app.busy) forkFrom(app.actI);
 };
 let px, py, pel;
 $('#msgs').addEventListener('pointerdown', e => {

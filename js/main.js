@@ -3,7 +3,7 @@ import { showList } from './list.js';
 import { S } from './state.js';
 import { STATS, load as loadUsage, watch } from './stats.js';
 import { loadSet, loadStats, openDB, saveStats } from './store.js';
-import './statview.js';
+import { capCheck } from './statview.js';
 import './cast.js';
 import { LS, toast } from './util.js';
 import { applyFs } from './read.js';
@@ -13,7 +13,7 @@ import './nav.js';
 import './settings.js';
 import './backup.js';
 
-const VERSION = '02f033ff3b';
+const VERSION = '686e1ae628';
 const pv = document.querySelector('meta[name="app-version"]')?.content;
 if (pv !== VERSION)
   window.__boot?.warn(
@@ -64,6 +64,7 @@ openDB()
     };
     watch(() => {
       if (!t) t = setTimeout(flush, 1500);
+      capCheck();
     });
     addEventListener('visibilitychange', () => {
       if (document.visibilityState == 'hidden' && t) flush();

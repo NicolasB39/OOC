@@ -1,0 +1,105 @@
+import { test, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { clean } from '../js/store.js';
+import { buildInfo } from '../js/prompt.js';
+import { sumGate, toAnt } from '../js/ai.js';
+import { S, ctx } from '../js/state.js';
+
+const sc = (o = {}) => clean({ id: 's', name: 'S', system: 'SYS', remote: true, noChoices: true, messages: [], ...o });
+const re = k => new RegExp('(^|[^a-z0-9])' + k + '(?![a-z0-9])');
+const big = 'x'.repeat(4000);
+const parts = r => [r.msgs[0].content.slice(0, r.msgs[0].cut), r.msgs[0].content.slice(r.msgs[0].cut), r.msgs.at(-1).content];
+
+beforeEach(() => {
+  S.ctxLim = 0;
+  S.reserve = 0;
+  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '' });
+});
+
+test('un personnage « toujours » en scène n’apparaît qu’une fois, dans la partie stable', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'a', text: 'Fiche Alice ' + big, always: true, images: [], keys: [re('alice')] },
+    { name: 'Bob', sum: 'b', text: 'Fiche Bob ' + big, always: false, images: [], keys: [re('bob')] }
+  ];
+  const r = buildInfo(sc({ messages: [{ role: 'user', content: 'Alice et Bob entrent' }] })),
+    [stable, mem, last] = parts(r),
+    all = r.msgs.map(m => m.content).join('\n');
+  assert.equal(all.split('## Alice').length - 1, 1);
+  assert.match(stable, /## Alice\nFiche Alice/);
+  assert.doesNotMatch(last, /## Alice/);
+  assert.match(last, /## Bob/);
+  assert.doesNotMatch(mem + stable, /## Bob/);
+});
+
+test('les entrées de lorebook « toujours » sont dans la partie stable, les déclenchées dans la queue, le plafond les compte', () => {
+  ctx.lore = [
+    { keys: [], always: true, pr: 0, text: 'Règle du monde.' },
+    { keys: [/porte/], always: false, pr: 2, text: 'La porte grince.' },
+    { keys: [/porte/], always: false, pr: 1, text: 'La porte est rouge.' }
+  ];
+  const r = buildInfo(sc({ loreMax: 2, messages: [{ role: 'user', content: 'j’ouvre la porte' }] })),
+    [stable, , last] = parts(r);
+  assert.match(stable, /<lorebook>\nRègle du monde\.\n<\/lorebook>/);
+  assert.doesNotMatch(last, /Règle du monde/);
+  assert.match(last, /La porte grince/);
+  assert.doesNotMatch(last, /La porte est rouge/);
+});
+
+test('la partie stable ne dépend ni de la mémoire ni de la scène', () => {
+  ctx.chars = [
+    { name: 'Alice', sum: 'a', text: 'A ' + big, always: false, images: ['alice_x'], keys: [re('alice')] },
+    { name: 'Bob', sum: 'b', text: 'B ' + big, always: true, images: ['bob_y'], keys: [re('bob')] }
+  ];
+  ctx.lore = [{ keys: [], always: true, pr: 0, text: 'Règle.' }];
+  const at = (txt, summary) =>
+    parts(buildInfo(sc({ messages: [{ role: 'user', content: txt }], mem: { summary, memories: [], upto: 0, relations: { Alice: 'amie' } } })));
+  const [a1, m1] = at('je vois Alice', 'Résumé un.'),
+    [a2, m2] = at('personne', 'Résumé deux.');
+  assert.equal(a1, a2);
+  assert.notEqual(m1, m2);
+  assert.match(m1, /^\n\n<previous_history>/);
+  assert.doesNotMatch(a1, /previous_history|<relations>/);
+  assert.match(a1, /- Alice : alice_x\n- Bob : bob_y/);
+});
+
+test('toAnt : deux blocs système en cache, plus l’avant-dernier message', () => {
+  const b = toAnt(
+    [
+      { role: 'system', content: 'STABLE' + 'MEMOIRE', cut: 6 },
+      { role: 'user', content: 'u1' },
+      { role: 'assistant', content: 'a1' },
+      { role: 'user', content: 'u2' }
+    ],
+    { model: 'm' }
+  );
+  assert.deepEqual(
+    b.system.map(x => [x.text, x.cache_control?.type]),
+    [
+      ['STABLE', 'ephemeral'],
+      ['MEMOIRE', 'ephemeral']
+    ]
+  );
+  assert.equal(b.messages.at(-2).content[0].cache_control.type, 'ephemeral');
+  const n = [...b.system, ...b.messages.flatMap(m => (Array.isArray(m.content) ? m.content : []))].filter(x => x.cache_control).length;
+  assert.equal(n, 3);
+});
+
+test('toAnt : sans mémoire, un seul bloc système', () => {
+  const b = toAnt(
+    [
+      { role: 'system', content: 'STABLE', cut: 6 },
+      { role: 'user', content: 'u1' }
+    ],
+    { model: 'm' }
+  );
+  assert.equal(b.system.length, 1);
+});
+
+test('sumGate : avec Claude, la mémoire attend 80 messages puis en résume 40 d’un coup', () => {
+  const run = (big, us) => {
+    let go = false;
+    return us.map(u => (go = sumGate(u, big, go)));
+  };
+  assert.deepEqual(run(true, [79, 80, 70, 60, 50, 40]), [false, true, true, true, true, false]);
+  assert.deepEqual(run(false, [39, 40, 30]), [false, true, false]);
+});

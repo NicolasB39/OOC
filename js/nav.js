@@ -1,5 +1,6 @@
 import { readPos, stopSpeech } from './read.js';
 import { sync } from './backup.js';
+import { on } from './bus.js';
 import { openScenario } from './chat.js';
 import { showList } from './list.js';
 import { app } from './state.js';
@@ -10,6 +11,7 @@ export const go = async id => {
   await openScenario(id);
   if ($('#chat').hidden) history.back();
 };
+on('open', go);
 const leave = () => {
   readPos(app.cur?.id);
   stopSpeech();

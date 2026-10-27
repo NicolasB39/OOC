@@ -1,8 +1,10 @@
-import { PROVIDERS, S } from './state.js';
+import { PROVIDERS, S, app } from './state.js';
 
 const LEAN = /(gpt-[45]|^o[1-4]\b|(sonnet|opus)|llama[^a-z]*405|mistral-large|gemini[^a-z]*\d*[^a-z]*pro|deepseek-(v3|r1)|grok)/i;
 
-export const modelOf = () => S.models[S.provider] || PROVIDERS[S.provider]?.m || '';
+// Modèle de narration : celui du scénario ouvert pour le fournisseur actuel, sinon celui des Réglages.
+export const modelOf = (s = app.cur) =>
+  s?.models?.[S.provider] || S.models[S.provider] || PROVIDERS[S.provider]?.m || '';
 export const family = m => (S.proto == 'full' || S.proto == 'lean' ? S.proto : LEAN.test(m || '') ? 'lean' : 'full');
 
 const stateBlock = (fields, lean, choices) =>

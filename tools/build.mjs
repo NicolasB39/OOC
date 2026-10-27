@@ -52,6 +52,22 @@ for (const f of modules) {
       throw new Error(`js/${f} vise #${id}, absent de index.html`);
 }
 
+// Pas d'import circulaire : un module d'en bas annonce par js/bus.js au lieu d'importer l'interface.
+const deps = {};
+for (const f of modules) {
+  const src = readFileSync('js/' + f, 'utf8');
+  deps[f] = [...src.matchAll(/\bfrom\s+'\.\/([\w-]+\.js)'|^import\s+'\.\/([\w-]+\.js)'/gm)].map(m => m[1] || m[2]);
+}
+const seen = new Set();
+const walk = (f, path) => {
+  const i = path.indexOf(f);
+  if (i >= 0) throw new Error('import circulaire : ' + [...path.slice(i), f].join(' → '));
+  if (seen.has(f)) return;
+  for (const d of deps[f] || []) walk(d, [...path, f]);
+  seen.add(f);
+};
+for (const f of modules) walk(f, []);
+
 const RV = [/(<meta name="app-version" content=")[^"]*/, /(const VERSION = ')[^']*/];
 const h = createHash('sha256');
 for (const a of assets) {
