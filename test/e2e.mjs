@@ -25,6 +25,18 @@ const srv = createServer(async (q, r) => {
 const base = 'http://localhost:' + srv.address().port;
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+// Comme le vrai Groq : un message qui porte autre chose que role et content fait refuser la requête.
+const strict = q => {
+  const i = (JSON.parse(q.postData() || '{}').messages || []).findIndex(m => Object.keys(m).some(k => k != 'role' && k != 'content'));
+  return i < 0
+    ? null
+    : route =>
+        route.fulfill({
+          status: 400,
+          headers: { ...CORS, 'content-type': 'application/json' },
+          body: JSON.stringify({ error: { message: "'messages." + i + "' : champ inconnu" } })
+        });
+};
 const wait = ms => new Promise(r => setTimeout(r, ms));
 // Attente d'une condition dans la page. page.waitForFunction recompose son prédicat avec eval dans la
 // page dès qu'il doit patienter, ce que la politique de sécurité de l'appli (script-src sans
@@ -149,6 +161,8 @@ try {
   await ctx.route('https://api.github.com/**', github);
   await ctx.route('https://api.groq.com/**', async route => {
     if (route.request().method() == 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const bad = strict(route.request());
+    if (bad) return bad(route);
     await wait(delay);
     route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: oaSSE(story(5)) });
   });
@@ -420,7 +434,7 @@ try {
     await c3.route('https://api.groq.com/**', r =>
       r.request().method() == 'OPTIONS'
         ? r.fulfill({ status: 204, headers: CORS })
-        : r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: oaSSE(R.shift() || 'Fin.') })
+        : (strict(r.request()) || (x => x.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: oaSSE(R.shift() || 'Fin.') })))(r)
     );
     const say = async (t, r) => {
       R.push(r);

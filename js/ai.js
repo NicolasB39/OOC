@@ -60,6 +60,9 @@ export const toAnt = (ms, { model, max, stream, ttl, effort }) => {
     ...(stream ? { stream: true } : {})
   };
 };
+// Fournisseurs compatibles OpenAI : seulement role et content. Les messages internes portent des repères
+// (cut, la fin de la partie fixe du prompt, lu par toAnt) que Groq refuse et que les autres n'ont pas à voir.
+export const toOai = ms => ms.map(({ role, content }) => ({ role, content }));
 export const normU = u =>
   u && !('prompt_tokens' in u) && ('input_tokens' in u || 'cache_read_input_tokens' in u)
     ? {
@@ -175,7 +178,7 @@ export async function chat(
         ? toAnt(ms, { model: mdl, max, stream: !!od, ttl: S.c1h, effort })
         : {
             model: mdl,
-            messages: ms,
+            messages: toOai(ms),
             ...(max ? { max_tokens: max } : {}),
             ...(temp != null ? { temperature: +temp } : {}),
             ...(top != null ? { top_p: +top } : {}),

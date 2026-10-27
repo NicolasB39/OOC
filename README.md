@@ -459,6 +459,7 @@ Règles du projet :
 - Quand vous ajoutez un fichier JavaScript dans `js/`, il est repris automatiquement par `npm run build` (service worker et `modulepreload`). Rien à déclarer à la main.
 - Les numéros de version sont calculés à partir du contenu des fichiers par `npm run build`, lancé par le workflow à chaque déploiement. Ne les modifiez pas à la main.
 - La logique sans DOM (fusion, validation, construction du prompt) doit rester testable : ajoutez un test dans `test/` quand vous la touchez.
+- Les messages construits par `prompt.js` peuvent porter des repères internes (`cut` sur le message système : la fin de la partie fixe, que `toAnt` utilise pour placer les marqueurs de cache de Claude). Ils ne doivent jamais partir tels quels : `toAnt` construit ses propres blocs pour Claude, et `toOai` ne garde que `role` et `content` pour les fournisseurs compatibles OpenAI, dont certains (Groq) refusent toute la requête au moindre champ inconnu. Le faux Groq du test de bout en bout est aussi strict.
 
 ## Déploiement et dépannage
 
