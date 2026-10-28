@@ -89,7 +89,7 @@ export const LS = {
     } catch (e) {}
   }
 };
-export const dlg = (t, { m = '', v = null, ok = 'OK', no = 'Annuler' } = {}) =>
+export const dlg = (t, { m = '', v = null, ok = 'OK', no = 'Annuler', ph = '' } = {}) =>
   new Promise(res => {
     const d = $('#dq'),
       i = $('#dqi');
@@ -98,6 +98,7 @@ export const dlg = (t, { m = '', v = null, ok = 'OK', no = 'Annuler' } = {}) =>
     $('#dqm').hidden = !m;
     i.hidden = v === null;
     i.value = v ?? '';
+    i.placeholder = ph;
     $('#dqo').textContent = ok;
     $('#dqc').textContent = no;
     let r = null;
@@ -137,10 +138,19 @@ export const plain = (t, nm) =>
     .replace(/\{\{img::[^}]*\}\}/g, '')
     .replace(/\{\{user\}\}/gi, nm?.trim() || 'Joueur')
     .trim();
-export const err = (t, bad) => {
+export const err = (t, bad, a) => {
   const e = $('#err');
   e.textContent = t;
   e.className = t && bad ? 'e' : '';
+  if (t && a) {
+    const b = document.createElement('button');
+    b.textContent = a.label;
+    b.onclick = () => {
+      err('');
+      a.fn();
+    };
+    e.append(b);
+  }
 };
 export const num = s => ($(s).value === '' ? null : +$(s).value);
 export const fit = () => {

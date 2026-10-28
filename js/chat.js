@@ -195,7 +195,9 @@ const act = (i, m, last) => {
     el('button', { data: { a, i }, 'aria-label': lbl }, ic(icon, 17));
   if (ttsOk) r.append(b('v', 'Lire à voix haute', 'vol'));
   if (last) {
-    r.append(b('r', 'Régénérer', 'refresh'));
+    const rg = b('r', 'Régénérer', 'refresh');
+    rg.title = 'Régénérer · appui long ou clic droit : avec une indication';
+    r.append(rg);
     if (m.role == 'assistant') r.append(b('k', 'Continuer', 'chevsr'));
   }
   r.append(b('m', 'Autres actions', 'more'));
@@ -253,7 +255,7 @@ const stCard = (i, m) => {
 const msgNode = (i, m, last, d = '') => {
   const n = el(
     'div',
-    { class: 'm ' + m.role, data: { i } },
+    { class: 'm ' + m.role + (last ? ' last' : ''), data: { i } },
     el('span', { class: 'sr', text: (m.role == 'user' ? 'Joueur' : 'Récit') + ' :' }),
     el('div', { class: 'b' }, body(m.content, d)),
     stCard(i, m),
@@ -357,30 +359,31 @@ export function render(sc) {
   }
   const lm = ms.at(-1),
     cs = lm?.role == 'assistant' && !app.cur.noChoices ? lm.choices || [] : [];
+  // En-tête teinté par le décor du moment, flouté et assombri en CSS.
+  const dn = decorNow(ms),
+    hd = $('#chat header');
+  hd.classList.toggle('dk', !!dn);
+  hd.style.setProperty('--hdi', dn ? 'url(' + JSON.stringify(dn) + ')' : 'none');
   foot.replaceChildren(
     ...[
       cs.length &&
         el(
           'div',
           { class: 'ch' },
-          cs.map(c =>
+          cs.map((c, k) =>
             el(
               'div',
               { class: 'chr' },
               el(
                 'button',
-                { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c.replace(/\*/g, '') },
-                ic('edit', 17)
+                { class: 'cht', data: { t: c }, 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
+                el('span', { class: 'chn', 'aria-hidden': 'true', text: k + 1 }),
+                el('span', { class: 'chx' }, line(c))
               ),
               el(
-                'div',
-                { class: 'chb' },
-                el('button', { class: 'cht', data: { t: c } }, line(c)),
-                el(
-                  'button',
-                  { class: 'chs', 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
-                  ic('send', 17)
-                )
+                'button',
+                { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c.replace(/\*/g, '') },
+                ic('edit', 17)
               )
             )
           )
@@ -434,6 +437,42 @@ async function delFrom(i) {
     }
   );
 }
+// Modifier un tour du joueur et relancer : la suite est remplacée par une nouvelle réponse.
+async function resendFrom(i, t) {
+  const c = app.cur;
+  if (!t || app.busy || c.messages[i]?.role != 'user') return;
+  stopSpeech();
+  const upto = c.mem.upto,
+    n = c.messages.splice(i + 1).length,
+    pv = c.messages[i - 1];
+  // Le tour modifié doit repartir tel quel : il sort du résumé s'il y était déjà.
+  c.mem.upto = Math.min(upto, i);
+  c.mem.lines = cutLines(c.mem.lines || [], i);
+  if (pv?.alts) {
+    delete pv.alts;
+    delete pv.ai;
+  }
+  Object.assign(c.messages[i], { content: t, t: Date.now() });
+  await save();
+  render(true);
+  if (n || i < upto)
+    toast(
+      (n > 1 ? n + ' messages remplacés' : n ? 'Réponse remplacée' : 'Tour renvoyé') +
+        (i < upto ? ' · le résumé de la mémoire garde la trace de l’ancienne version' : '')
+    );
+  ask();
+}
+const after = i => app.cur.messages.length - 1 - i;
+async function regenHint() {
+  if (app.busy || $('#dq').open) return;
+  const h = await dlg('Régénérer avec une indication', {
+    m: 'Pour cette réponse seulement : l’indication n’est pas gardée dans l’histoire.',
+    v: '',
+    ph: 'Plus court, plus sombre, fais parler Elias…',
+    ok: 'Régénérer'
+  });
+  if (h !== null && !app.busy) regen(h);
+}
 async function forkFrom(i) {
   const s = app.cur,
     name = await dlg('Bifurquer d’ici', {
@@ -474,10 +513,11 @@ function setBusy(b) {
   $('#stop').hidden = !b;
   err('');
 }
-async function ask(old, cont) {
+async function ask(old, cont, hint) {
   const s = app.cur,
     p = S.provider,
-    k = S.keys[p];
+    k = S.keys[p],
+    again = cont ? () => ask(null, true) : old ? () => regen(hint) : () => ask(null, false, hint);
   if (!k) {
     if (old) s.messages.push(old);
     render();
@@ -519,6 +559,7 @@ async function ask(old, cont) {
     if (S.follow && m.scrollHeight - m.scrollTop - m.clientHeight < 200)
       m.scrollTop = m.scrollHeight;
     m.dispatchEvent(new Event('scroll'));
+    if (unseen(e)) newShow('Réponse en cours');
   };
   const live = (t, th) => {
     pend = [t, th];
@@ -529,7 +570,7 @@ async function ask(old, cont) {
     if (!pend[0] && !raf) paint();
   }, 1000);
   try {
-    const info = buildInfo(s, cont);
+    const info = buildInfo(s, cont, hint);
     const r = await chat(info.msgs, {
       max: +s.maxTok || 0,
       ac: (app.ctl = new AbortController()),
@@ -593,7 +634,13 @@ async function ask(old, cont) {
           : cut
             ? 'Réponse coupée par la longueur maximale. Augmentez-la dans les réglages du scénario, continuez ou régénérez.'
             : ''),
-      !!msg
+      !!msg,
+      msg && {
+        label: 'Réessayer',
+        fn: () => {
+          if (!app.busy && app.cur === s) again();
+        }
+      }
     );
     $('#gst').textContent = msg ? 'Échec : ' + msg : 'Réponse reçue.';
     const m = $('#msgs'),
@@ -603,6 +650,8 @@ async function ask(old, cont) {
     if (fin) keepImgs(lv, fin);
     lv?.remove();
     if (!S.follow) m.scrollTop = y;
+    if (!msg && unseen(tail())) newShow('Nouveau message');
+    else $('#newm').hidden = true;
     if (!msg && !cont) autoRead(s.messages.length - 1);
   } else lv?.remove();
   if (!msg) {
@@ -640,12 +689,12 @@ function warmArm(s) {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && warmS && app.cur === warmS && !warmT && !app.busy) warmArm(warmS);
 });
-async function regen() {
+async function regen(hint) {
   if (app.busy) return;
   stopSpeech();
   const old = app.cur.messages.at(-1)?.role == 'assistant' ? app.cur.messages.pop() : null;
   render(true);
-  ask(old);
+  ask(old, false, hint);
 }
 $('#send').onclick = async () => {
   const t = $('#inp').value.trim();
@@ -683,8 +732,14 @@ $('#msgs').onclick = e => {
   }
   const b = e.target.closest('button');
   if (!b) {
-    const m = e.target.closest('.m');
+    const m = e.target.closest('.m[data-i]');
     if (app.reading && m) speakFrom(+m.dataset.i);
+    // Au toucher, faute de survol : toucher un ancien message affiche ses actions.
+    else if (m && !m.classList.contains('last') && !getSelection()?.toString()) {
+      const on = !m.classList.contains('sel');
+      for (const x of $('#msgs').querySelectorAll(':scope > .m.sel')) x.classList.remove('sel');
+      m.classList.toggle('sel', on);
+    }
     return;
   }
   if (b.classList.contains('more')) {
@@ -716,26 +771,70 @@ $('#msgs').onclick = e => {
     return;
   }
   if (a == 'm') {
+    const last = i == app.cur.messages.length - 1;
     app.actI = i;
+    $('#maw').hidden = app.cur.messages[i].role != 'user';
+    $('#mar').hidden = !last;
     $('#dma').showModal();
     return;
   }
   if (app.busy) return;
-  if (a == 'r') regen();
-  else if (a == 'k') ask(null, true);
+  if (a == 'r') {
+    if (lpFired) lpFired = false;
+    else regen();
+  } else if (a == 'k') ask(null, true);
   else swipe(a == 'p' ? -1 : 1);
 };
+// Appui long (ou clic droit) sur Régénérer : régénérer avec une indication.
+let lpT = 0,
+  lpFired = false;
+$('#msgs').addEventListener('pointerdown', e => {
+  lpFired = false;
+  if (e.button || !e.target.closest('button[data-a="r"]')) return;
+  lpT = setTimeout(() => {
+    lpFired = true;
+    regenHint();
+  }, 500);
+});
+for (const t of ['pointerup', 'pointerleave', 'pointercancel'])
+  $('#msgs').addEventListener(t, () => clearTimeout(lpT));
+$('#msgs').addEventListener('contextmenu', e => {
+  if (!e.target.closest('button[data-a="r"]')) return;
+  e.preventDefault();
+  clearTimeout(lpT);
+  lpFired = e.pointerType == 'touch' || lpFired;
+  regenHint();
+});
 const goTurn = d => {
   const w = $('#msgs'),
     e = document.querySelector('#msgs .m[data-i="' + (visibleStart() + d) + '"]');
   if (e) e.scrollIntoView({ block: 'start', behavior: 'smooth' });
   else w.scrollTo({ top: d < 0 ? 0 : w.scrollHeight, behavior: 'smooth' });
 };
-const navView = () => {
+const far = () => {
   const m = $('#msgs');
-  $('#nav').hidden = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
+  return m.scrollHeight - m.scrollTop - m.clientHeight >= 80;
+};
+// Pastille « Nouveau message » : signale une réponse qui arrive ou est arrivée sous l'écran, jusqu'à ce que
+// son début soit visible.
+const tail = () => document.querySelector('#live') || [...document.querySelectorAll('#msgs > .m[data-i]')].at(-1);
+const unseen = e => !!e && e.getBoundingClientRect().top > $('#msgs').getBoundingClientRect().bottom - 24;
+function newShow(t) {
+  const b = $('#newm');
+  if (b.hidden || b.firstChild?.textContent != t) b.replaceChildren(el('span', { text: t }), ic('down', 16));
+  b.hidden = false;
+}
+const navView = () => {
+  const f = far();
+  $('#nav').hidden = !f;
+  if (!f || !unseen(tail())) $('#newm').hidden = true;
 };
 $('#msgs').onscroll = navView;
+$('#newm').onclick = () => {
+  const m = $('#msgs');
+  $('#newm').hidden = true;
+  m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
+};
 $('#nvp').onclick = () => goTurn(-1);
 $('#nvn').onclick = () => goTurn(1);
 $('#ast').onclick = () => {
@@ -750,6 +849,11 @@ $('#ast').onclick = () => {
 };
 $('#dec').onclick = () => $('#de').close();
 $('#des').onclick = async () => {
+  if (app.editRe) {
+    $('#de').close();
+    resendFrom(app.editI, $('#et').value.trim());
+    return;
+  }
   const m = app.cur.messages[app.editI],
     p = split($('#et').value);
   m.content = p.content;
@@ -775,12 +879,29 @@ $('#mac').onclick = () => {
     .then(() => toast('Message copié'))
     .catch(() => toast('Copie impossible'));
 };
-$('#mae').onclick = () => {
+const editOpen = re => {
   $('#dma').close();
   if (app.busy) return;
-  app.editI = app.actI;
-  $('#et').value = raw(app.cur.messages[app.editI]);
+  const i = (app.editI = app.actI),
+    n = after(i);
+  app.editRe = re;
+  $('#hde').textContent = re ? 'Modifier et renvoyer' : 'Modifier le message';
+  $('#des').textContent = re ? 'Renvoyer' : 'Enregistrer';
+  $('#den').textContent = !re
+    ? ''
+    : n
+      ? (n > 1 ? 'Les ' + n + ' messages suivants seront remplacés' : 'La réponse suivante sera remplacée') +
+        ' par une nouvelle réponse. Pour garder l’ancienne suite, bifurquez d’abord depuis ce message.'
+      : 'L’IA répondra à la nouvelle version.';
+  $('#den').hidden = !re;
+  $('#et').value = raw(app.cur.messages[i]);
   $('#de').showModal();
+};
+$('#mae').onclick = () => editOpen(false);
+$('#maw').onclick = () => editOpen(true);
+$('#mar').onclick = () => {
+  $('#dma').close();
+  regenHint();
 };
 $('#mad').onclick = () => {
   $('#dma').close();

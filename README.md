@@ -147,7 +147,14 @@ Tant qu'aucune clé API n'est enregistrée pour le fournisseur courant, un bande
 
 ### Actions d'un message
 
-Sous chaque message restent les actions qu'on utilise en lisant : écouter, et sur le dernier message régénérer, continuer et passer d'une variante à l'autre. Copier, modifier et supprimer à partir d'ici sont regroupés derrière le bouton « … », dans une feuille : moins de boutons au fil du texte, des cibles plus grandes, et plus de « supprimer » collé à « modifier ». La suppression reste annulable pendant quelques secondes.
+Sous le dernier message restent les actions qu'on utilise en lisant : écouter, régénérer, continuer et passer d'une variante à l'autre. Sur les messages plus anciens, écouter et « … » flottent en haut à droite du message, au survol de la souris, au focus clavier ou quand on touche le message : le fil se lit sans rangée de boutons entre chaque tour. Copier, modifier et supprimer à partir d'ici sont regroupés derrière le bouton « … », dans une feuille : moins de boutons au fil du texte, des cibles plus grandes, et plus de « supprimer » collé à « modifier ». La suppression reste annulable pendant quelques secondes.
+
+### Mise en page de la conversation
+
+- Pas de trait entre les messages : l'espacement suffit à séparer les tours.
+- Les tours du joueur sont des cartes alignées à droite, texte aligné à gauche, avec un liseré de la couleur d'accent.
+- L'en-tête prend la teinte du décor du moment (image du décor floutée et assombrie), s'il y en a un.
+- Les suggestions sont des lignes numérotées : toucher le texte l'envoie, le crayon à droite le place dans la zone de saisie.
 
 **Bifurquer d'ici** crée une nouvelle histoire qui reprend jusqu'à ce message inclus, et l'ouvre : on essaie une autre direction sans rien perdre de l'originale, qui reste intacte dans la liste. La copie garde les réglages du scénario, la note, les souvenirs et les relations ; les lignes récentes et les repères de la mémoire sont coupés au point de bifurcation. Le résumé, lui, ne peut pas être coupé : si le message choisi est déjà résumé, la notification invite à relire le résumé (… › Mémoire), qui peut raconter la suite.
 
@@ -342,8 +349,10 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 
 ## Gestes
 
-- Toucher une suggestion l'envoie directement. Le crayon à sa gauche la place dans la zone de saisie pour la modifier avant d'envoyer.
+- Toucher une suggestion l'envoie directement. Le crayon à sa droite la place dans la zone de saisie pour la modifier avant d'envoyer.
+- Toucher un ancien message affiche ses actions ; le toucher à nouveau les masque.
 - Balayer horizontalement la dernière réponse passe d'une variante à l'autre, comme les chevrons.
+- Appui long (ou clic droit) sur « Régénérer » : régénérer avec une indication.
 
 ## Fonctions
 
@@ -351,6 +360,10 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 - Variantes de réponse (flèches ‹ ›) en régénérant, bouton « continuer » (double chevron) pour prolonger une réponse coupée.
 - Modifier, copier ou supprimer à partir d'un message (feuille « … » sous le message). La suppression est immédiate, avec un bouton « Annuler » pendant 7 secondes tant que la conversation n'a pas changé. Les lignes récentes des messages supprimés sont retirées de la mémoire ; si la suppression touche des messages déjà résumés, la notification prévient que le résumé en garde la trace.
 - Bifurquer à partir d'un message (même feuille) : une nouvelle histoire reprend jusque-là, l'originale reste intacte.
+- Modifier et renvoyer un tour du joueur (même feuille) : la suite est remplacée par une nouvelle réponse, sans annulation possible ; la fenêtre l'annonce et conseille de bifurquer d'abord pour garder l'ancienne suite. Si le tour était déjà résumé, il repart tel quel et le résumé garde la trace de l'ancienne version.
+- Régénérer avec une indication (« plus court », « fais parler Elias »…) : appui long ou clic droit sur « Régénérer », ou feuille « … » du dernier message. L'indication est ajoutée à la fin du dernier tour, dans la partie non mise en cache, pour cette réponse seulement : elle n'est pas enregistrée, et « Réessayer » la reprend.
+- Après un échec d'envoi, le bouton « Réessayer » de la bande d'erreur relance la même demande (envoi, régénération ou continuation) sans doubler le tour.
+- Une pastille « Réponse en cours ↓ » puis « Nouveau message ↓ » signale une réponse qui arrive sous l'écran pendant qu'on relit plus haut ; elle disparaît quand le début de la réponse devient visible.
 - Rappel automatique de passages anciens quand la scène reparle d'un détail sorti de l'historique envoyé.
 - Coût estimé par modèle et par période dans les statistiques, en dollars ou en euros.
 - Le bouton stop (et la sortie de la conversation) conserve le texte déjà reçu, que « Continuer » peut prolonger.

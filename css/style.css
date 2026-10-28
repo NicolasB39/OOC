@@ -481,8 +481,22 @@ header button:hover {
   flex-direction: column;
 }
 #chat header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   padding-left: 6px;
   border-bottom: 1px solid var(--bd);
+}
+#chat header.dk::before {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  z-index: -1;
+  background: var(--hdi) center / cover;
+  filter: blur(18px) brightness(0.42) saturate(1.15);
+}
+#chat header.dk button {
+  color: var(--fg);
 }
 #chat header h1 {
   display: block;
@@ -504,18 +518,13 @@ header button:hover {
   padding: 16px 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 22px;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 12px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 12px), transparent);
 }
 #mhead,
 #mfoot {
   display: contents;
-}
-.m + .m,
-.ch {
-  border-top: 1px solid var(--bd);
-  padding-top: 16px;
 }
 .cover {
   flex: none;
@@ -536,8 +545,11 @@ header button:hover {
 }
 .m.user .b {
   margin-left: auto;
-  max-width: 92%;
-  text-align: right;
+  max-width: 88%;
+  padding: 10px 14px;
+  border-left: 3px solid var(--ac);
+  border-radius: 4px 14px 14px 4px;
+  background: var(--s1);
 }
 .m.user .a {
   text-align: right;
@@ -687,10 +699,13 @@ hr {
 .m .a {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 4px;
+  margin: 6px 0 0 -8px;
   opacity: 0.8;
   transition: opacity 0.15s;
+}
+.m.user .a {
+  margin: 6px -8px 0 0;
 }
 .m .a:hover,
 .m .a:focus-within {
@@ -702,16 +717,49 @@ hr {
   padding: 0;
   display: grid;
   place-items: center;
-  border: 1px solid var(--bd);
   border-radius: 50%;
   color: var(--mu2);
+}
+.m .a button:hover {
+  background: var(--s2);
+  color: var(--fg);
+}
+/* Messages plus anciens : les actions flottent en haut à droite, au survol, au focus ou au toucher. */
+.m:not(.last) .a {
+  position: absolute;
+  z-index: 1;
+  top: -16px;
+  right: 0;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--bd);
+  border-radius: 999px;
+  background: var(--s2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+}
+.m:not(.last) .a:focus-within,
+.m.sel .a {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: hover) {
+  .m:not(.last):hover .a {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.m:not(.last) .a button {
+  width: 36px;
+  height: 36px;
 }
 .m .a .n {
   font-size: 13px;
   color: var(--mu);
   padding: 0 2px;
 }
-.m.user .a {
+.m.user.last .a {
   justify-content: flex-end;
 }
 .hint {
@@ -731,29 +779,47 @@ hr {
   display: grid;
   gap: 8px;
 }
-.chr {
-  display: flex;
-  align-items: stretch;
+.ch {
   gap: 6px;
+  padding-top: 2px;
 }
-.chb {
-  flex: 1;
-  min-width: 0;
+.ch .chr {
   display: flex;
   align-items: stretch;
-  gap: 10px;
-  padding: 11px 11px 11px 15px;
-  border: 1px solid var(--bdi);
-  border-radius: 16px;
+  border: 1px solid var(--bd);
+  border-radius: 14px;
   background: var(--s1);
+  transition: border-color 0.15s;
+}
+.ch .chr:hover,
+.ch .chr:focus-within {
+  border-color: var(--acb);
 }
 .ch .cht {
   flex: 1;
   min-width: 0;
-  padding: 2px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 4px 9px 11px;
   text-align: left;
-  border-radius: 10px;
+  border-radius: 14px 0 0 14px;
   font: calc(var(--fs) - 1px) / 1.5 var(--rf);
+}
+.chn {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--s3);
+  color: var(--ac);
+  font: 700 12px/1 var(--sans);
+}
+.chx {
+  min-width: 0;
 }
 .ch .che {
   flex: none;
@@ -761,32 +827,16 @@ hr {
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--bd);
-  border-radius: 16px;
-  background: var(--s1);
+  border-radius: 0 14px 14px 0;
   color: var(--mu);
 }
-.ch .chs {
-  flex: none;
-  align-self: center;
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border-radius: 12px;
-  background: var(--s2);
-  color: var(--ac);
-}
 .ch .che:hover,
-.ch .che:focus-visible {
-  border-color: var(--ac);
+.ch .che:focus-visible,
+.ch .cht:hover .chn {
   color: var(--fg);
 }
-
 .ch .cht:hover,
 .ch .cht:focus-visible {
-  border-color: var(--ac);
   background: var(--s2);
 }
 #live .b {
@@ -876,6 +926,42 @@ hr {
   line-height: 1.45;
 }
 #err:empty {
+  display: none;
+}
+#err button {
+  display: block;
+  margin: 8px 0 0 auto;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 107, 107, 0.14);
+  color: #ffd6d6;
+  font-size: 13px;
+  font-weight: 600;
+}
+#newm {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 15px;
+  border: 1px solid var(--ac);
+  border-radius: 999px;
+  background: var(--s2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  animation: scnf 0.2s ease-out;
+}
+#err:not(:empty):not(.e) ~ #newm {
+  bottom: 52px;
+}
+#chat.reading #newm {
   display: none;
 }
 #tk {

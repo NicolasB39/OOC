@@ -108,7 +108,10 @@ const github = async route => {
 
 let delay = 0,
   antReq = null,
-  pg = null;
+  pg = null,
+  groqFail = false,
+  groqN = 0,
+  groqReq = null;
 const browser = await chromium.launch();
 const errors = [];
 const watch = pg => pg.on('pageerror', e => errors.push(e.message));
@@ -163,6 +166,14 @@ try {
     if (route.request().method() == 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     const bad = strict(route.request());
     if (bad) return bad(route);
+    groqN++;
+    groqReq = JSON.parse(route.request().postData());
+    if (groqFail)
+      return route.fulfill({
+        status: 400,
+        headers: { ...CORS, 'content-type': 'application/json' },
+        body: JSON.stringify({ error: { message: 'Requête refusée (test)' } })
+      });
     await wait(delay);
     route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: oaSSE(story(5)) });
   });
@@ -221,6 +232,8 @@ try {
     await send('Je regarde autour de moi.');
     assert.equal(await pg.locator('#msgs .m.assistant').count(), 2);
     assert.ok((await pg.locator('.ch').count()) > 0);
+    assert.deepEqual(await pg.locator('.ch .chn').allTextContents(), ['1', '2', '3']);
+    assert.equal(await pg.locator('.ch .chr').first().locator('button').count(), 2, 'envoyer et modifier');
   });
 
   await step('affichage progressif identique au rendu complet', async () => {
@@ -277,6 +290,97 @@ try {
     assert.equal((await db()).at(-1), 2);
     await send('Je continue.');
     assert.deepEqual((await db()).filter(Boolean), []);
+  });
+
+  const msgsOf = () =>
+    pg.evaluate(async () => {
+      const st = await import('/js/store.js');
+      const a = (await st.getAll()).find(x => x.name == 'Test');
+      return (await st.getOne(a.id)).messages.map(m => [m.role, m.content]);
+    });
+  // Certaines relances partent après une écriture en base : on attend la requête, puis la fin de la réponse.
+  const answered = async n0 => {
+    const end = Date.now() + 20000;
+    while (groqN <= n0) {
+      if (Date.now() > end) throw new Error('aucune requête partie');
+      await wait(50);
+    }
+    await until(pg, () => !document.querySelector('#send').hidden);
+    await wait(200);
+  };
+  await step('erreur : le bouton Réessayer relance sans doubler le tour', async () => {
+    groqFail = true;
+    const users = await pg.locator('#msgs .m.user[data-i]').count();
+    await pg.fill('#inp', 'Je tente.');
+    await pg.click('#send');
+    await pg.waitForSelector('#err.e button');
+    assert.equal(await pg.textContent('#err.e button'), 'Réessayer');
+    groqFail = false;
+    const n0 = groqN;
+    await pg.click('#err.e button');
+    await answered(n0);
+    assert.equal(await pg.textContent('#err'), '');
+    assert.equal(await pg.locator('#msgs .m.user[data-i]').count(), users + 1);
+    assert.equal((await msgsOf()).at(-1)[0], 'assistant');
+  });
+
+  await step('régénérer avec une indication (clic droit) : envoyée une fois, jamais enregistrée', async () => {
+    const n0 = groqN;
+    await pg.locator('#msgs .m[data-i] [aria-label="Régénérer"]').last().click({ button: 'right' });
+    await pg.waitForSelector('#dq[open]');
+    await pg.fill('#dqi', 'plus court');
+    await pg.click('#dqo');
+    await answered(n0);
+    const last = groqReq.messages.at(-1).content;
+    assert.match(last, /<indication>[\s\S]*plus court/);
+    assert.ok(!JSON.stringify(await msgsOf()).includes('indication'));
+    assert.equal(await pg.textContent('.a .n'), '2/2');
+    const n1 = groqN;
+    await pg.locator('#msgs .m[data-i] [aria-label="Régénérer"]').last().click();
+    await answered(n1);
+    assert.ok(!groqReq.messages.at(-1).content.includes('<indication>'), 'l’indication ne reste pas');
+  });
+
+  await step('modifier et renvoyer un tour : la suite est remplacée', async () => {
+    const before = await msgsOf(),
+      i = before.map(m => m[0]).lastIndexOf('user');
+    // Les actions d'un ancien message n'apparaissent qu'au survol (ou au toucher).
+    const old = pg.locator('#msgs .m[data-i="' + i + '"]');
+    assert.equal(await old.locator('.a').evaluate(e => getComputedStyle(e).opacity), '0');
+    await old.locator('.b').hover();
+    await old.locator('[aria-label="Autres actions"]').click();
+    assert.ok(await pg.isVisible('#maw'));
+    await pg.click('#maw');
+    assert.match(await pg.textContent('#den'), /réponse suivante sera remplacée/);
+    assert.equal(await pg.textContent('#des'), 'Renvoyer');
+    await pg.fill('#et', 'Je tente autre chose.');
+    const n0 = groqN;
+    await pg.click('#des');
+    await answered(n0);
+    const after = await msgsOf();
+    assert.equal(after.length, before.length);
+    assert.deepEqual(after[i], ['user', 'Je tente autre chose.']);
+    assert.ok(groqReq.messages.at(-1).content.startsWith('Je tente autre chose.'));
+    // Le menu d'une réponse ne propose pas « Modifier et renvoyer ».
+    await pg.locator('#msgs .m.assistant[data-i] [aria-label="Autres actions"]').last().click();
+    assert.ok(!(await pg.isVisible('#maw')));
+    await pg.click('#damc');
+  });
+
+  await step('pastille « Nouveau message » quand la réponse arrive hors de vue', async () => {
+    delay = 2500;
+    await pg.fill('#inp', 'Je remonte lire.');
+    await pg.click('#send');
+    await wait(300);
+    await pg.evaluate(() => (document.querySelector('#msgs').scrollTop = 0));
+    await until(pg, () => !document.querySelector('#newm').hidden);
+    assert.match(await pg.textContent('#newm'), /Réponse en cours/);
+    await until(pg, () => !document.querySelector('#send').hidden);
+    delay = 0;
+    await wait(200);
+    assert.match(await pg.textContent('#newm'), /Nouveau message/);
+    await pg.click('#newm');
+    await until(pg, () => document.querySelector('#newm').hidden);
   });
 
   await step('Claude : en-têtes, marqueurs de cache et compteur', async () => {
@@ -481,6 +585,11 @@ try {
     await say('J’entre.', 'Elle sourit.\n\n{{img::alice_alice}}\n\nLe comptoir brille.\n\n<etat>\nLieu: Auberge du Pont\n</etat>');
     let g = await last('cut');
     assert.match(g.dec, /decors\/taverne\.png$/, 'décor par mot-clé');
+    assert.match(
+      await p3.evaluate(() => document.querySelector('#chat header.dk')?.style.getPropertyValue('--hdi') || ''),
+      /taverne\.png/,
+      'en-tête teinté par le décor du moment'
+    );
     assert.ok(Math.abs(g.ratio - 16 / 9) < 0.05, 'format de la scène : ' + g.ratio);
     assert.ok(Math.abs(g.hfrac - 0.9) < 0.03, 'hauteur du personnage : ' + g.hfrac);
     assert.ok(Math.abs(g.cx - 2 / 3) < 0.02, 'centre à ' + g.cx);

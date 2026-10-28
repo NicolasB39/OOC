@@ -96,7 +96,7 @@ const relOf = (mem, name) => {
       return '\nRelation (état enregistré, peut dater ; les événements récents priment) : ' + mem.relations[r];
   return '';
 };
-export function buildInfo(s, cont) {
+export function buildInfo(s, cont, hint) {
   const nm = s.pname?.trim() || '';
   const U = t => t.replace(/\{\{user\}\}/gi, nm || 'Joueur');
   const c = s.remote ? ctx : { system: s.system, avatar: s.avatar };
@@ -152,6 +152,12 @@ export function buildInfo(s, cont) {
         : 'Aucun. Invente des valeurs de départ cohérentes avec le scénario.') +
       '\n</etat_precedent>';
   }
+  // Indication de régénération : valable pour cette réponse seulement, jamais enregistrée dans l'histoire.
+  if (hint?.trim())
+    add +=
+      '\n\n<indication>\nPour cette réponse seulement, le joueur demande : ' +
+      hint.trim() +
+      '\nRespecte-la sans la mentionner dans le récit.\n</indication>';
   add += P.tail;
   if (add && l?.role == 'user') l.content += U(add);
 
