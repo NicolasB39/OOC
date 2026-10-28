@@ -20,6 +20,7 @@ scenarios/
     systeme.md              prompt système (obligatoire)
     cover.webp              couverture (optionnelle)
     etat.md                 champs du panneau d'état (optionnel)
+    intro.md                accroche et débuts proposés, affichés avant le premier tour (optionnel)
     avatar.md               description du personnage du joueur
     personnages/
       Alice/
@@ -153,7 +154,17 @@ Sous le dernier message restent les actions qu'on utilise en lisant : écouter, 
 
 - Pas de trait entre les messages : l'espacement suffit à séparer les tours.
 - Les tours du joueur sont des cartes alignées à droite, texte aligné à gauche, avec un liseré de la couleur d'accent.
-- L'en-tête prend la teinte du décor du moment (image du décor floutée et assombrie), s'il y en a un.
+- L'en-tête prend la teinte du décor du moment (image floutée et assombrie) ; sans décor, celle de la couverture de l'histoire ; sans l'un ni l'autre, il reste neutre.
+- Une lettrine ouvre chaque scène : la première réponse du récit, puis chaque réponse dont le lieu de l'état change. Un intertitre en italique annonce le lieu : en tête du récit pour la première scène, puis juste avant la réponse qui change de lieu.
+- Typographie française à l'affichage (récit et choix) : apostrophes courbes, guillemets « », tirets de dialogue (une ligne qui commence par `- ` ou `-- `), points de suspension, espaces insécables avant `; ! ? :` et dans les guillemets. Le texte enregistré, copié ou envoyé à l'IA ne change pas. Les heures (12:30) et les adresses restent intactes.
+- Le panneau d'état tient en une rangée de pastilles : les trois premières valeurs avec leur variation, et « +N » pour le reste. Le toucher le déplie en grille détaillée avec les jauges ; plié ou déplié, le choix vaut pour toutes les histoires.
+- Les scènes illustrées (décor et personnage) occupent toute la largeur, se fondent dans le fond par le bas et portent le lieu en légende. Les portraits sans décor gardent leur cadre.
+- L'en-tête montre les personnages en scène (ceux que les six derniers messages nomment) : trois avatars empilés au plus, puis « +N ». Sans personnage en scène, l'icône Personnages revient. Les toucher ouvre la fenêtre Personnages.
+- Histoire vide : sous la couverture, le titre, l'accroche et jusqu'à trois débuts proposés (toucher pour envoyer, crayon pour modifier). Source : `intro.md` pour un scénario GitHub, le champ « Introduction » de la feuille Scénario sinon. Les lignes qui commencent par `- ` ou `1. ` sont les débuts, le reste l'accroche.
+- Pendant l'attente de la réponse, le premier personnage en scène « réfléchit » (avec son avatar), sur trois lignes fantômes ; sans personnage, « Réflexion… ». Le compteur de secondes apparaît après 2 secondes.
+- Ouvrir une histoire depuis la liste fait glisser sa couverture jusqu'à l'en-tête (transition de vue, environ 0,4 s ; aucune animation si l'appareil demande moins d'animations ou ne gère pas les transitions de vue).
+- Couleur d'accent par scénario (feuille Scénario, sous la couverture) : au choix, ou tirée de la couverture (la teinte la plus vive, éclaircie pour rester lisible). Elle colore le liseré des tours, les numéros des choix, la lettrine, les intertitres et le bouton d'envoi de cette histoire seulement. « Par défaut » revient à la couleur de l'appli.
+- Les compteurs (option « Afficher les compteurs ») tiennent dans une pastille : tokens du dernier envoi et coût estimé du tour, quand le modèle a un tarif. La toucher affiche le détail (budget, cache, messages envoyés).
 - Les suggestions sont des lignes numérotées : toucher le texte l'envoie, le crayon à droite le place dans la zone de saisie.
 
 **Bifurquer d'ici** crée une nouvelle histoire qui reprend jusqu'à ce message inclus, et l'ouvre : on essaie une autre direction sans rien perdre de l'originale, qui reste intacte dans la liste. La copie garde les réglages du scénario, la note, les souvenirs et les relations ; les lignes récentes et les repères de la mémoire sont coupés au point de bifurcation. Le résumé, lui, ne peut pas être coupé : si le message choisi est déjà résumé, la notification invite à relire le résumé (… › Mémoire), qui peut raconter la suite.

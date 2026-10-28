@@ -41,6 +41,18 @@ export const raw = m =>
   (m.choices?.length
     ? '\n\n<choix>\n' + m.choices.map((c, i) => i + 1 + '. ' + c).join('\n') + '\n</choix>'
     : '');
+// Introduction d'un scénario (intro.md, ou champ du scénario local) : le texte d'accroche, et jusqu'à trois
+// débuts proposés, un par ligne commençant par « - » ou « 1. ».
+export const parseIntro = t => {
+  const starts = [],
+    rest = [];
+  for (const l of String(t || '').split('\n')) {
+    const m = l.match(/^\s*(?:[-•]|\d+[.)])\s+(.+)$/);
+    if (m && starts.length < 3) starts.push(m[1].trim());
+    else if (!m) rest.push(l);
+  }
+  return { pitch: rest.join('\n').trim(), starts };
+};
 export const lastEtat = ms => {
   for (let i = ms.length - 1; i >= 0; i--)
     if (ms[i].role == 'assistant' && ms[i].state?.length) return ms[i].state;
@@ -57,6 +69,24 @@ const imgNode = (c, d) => {
   const u = imgFor(c);
   return u ? scene(u, d ?? decorFor(''), { cls: 'pic' }) : el('span', { class: 'miss', text: 'image introuvable : ' + c.trim() });
 };
+// Typographie française, à l'affichage seulement (le texte enregistré et envoyé ne change pas) : apostrophes
+// courbes, guillemets « », tirets de dialogue, points de suspension, espaces insécables avant ; ! ? : et dans
+// les guillemets. Chaque règle ne regarde que les caractères voisins : un paragraphe s'affiche pareil pendant
+// le streaming et une fois complet.
+const NB = '\u00a0',
+  FN = '\u202f';
+export const fr = s =>
+  s
+    .replace(/(\p{L})'(?=\p{L})/gu, '$1’')
+    .replace(/(^|[\s(\[—–*])"[ \t]*/gmu, '$1«' + NB)
+    .replace(/[ \t]*"/g, NB + '»')
+    .replace(/«[ \t]+/g, '«' + NB)
+    .replace(/[ \t]+»/g, NB + '»')
+    .replace(/^(\s*)--? (?=\S)/gm, '$1— ')
+    .replace(/ -- /g, ' — ')
+    .replace(/\.\.\./g, '…')
+    .replace(/([^\s;!?(«\u00a0\u202f])[ \t]?([;!?]+)(?=[\s»)\]*_.,:…’'"]|$)/gu, '$1' + FN + '$2')
+    .replace(/([^\s\d:\/(«\u00a0\u202f])[ \t]?:(?=\s|$)/gu, '$1' + NB + ':');
 const INL = /\*\*([^*]+?)\*\*|\*([^*]+?)\*|(^|[\s(])_([^_\n]+?)_(?=$|[\s.,;:!?)])/g;
 const inline = (s, out) => {
   let i = 0,
@@ -84,7 +114,7 @@ const blocks = (s, out) => {
     q = false;
     if (!t.trim()) return;
     const c = [];
-    inline(t, c);
+    inline(fr(t), c);
     out.push(el('p', k ? { class: 'q' } : null, c));
   };
   for (const ln of s.split('\n')) {
@@ -106,7 +136,7 @@ const blocks = (s, out) => {
 };
 export const line = t => {
   const out = [];
-  inline(t, out);
+  inline(fr(t), out);
   return out;
 };
 export const settled = (v, from = 0) => {

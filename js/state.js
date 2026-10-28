@@ -10,7 +10,7 @@ export const PROVIDERS = {
   claude: { n: 'Claude (Anthropic)', u: 'https://api.anthropic.com/v1', m: 'claude-sonnet-5-5', fmt: 'anthropic' }
 };
 export const S = { provider: 'groq', keys: {}, models: {} };
-export const ctx = { system: '', avatar: '', chars: [], lore: [], images: [], stat: '', decors: [], decorDef: '' };
+export const ctx = { system: '', avatar: '', chars: [], lore: [], images: [], stat: '', decors: [], decorDef: '', intro: '' };
 export const IMG = {};
 export const app = {
   cur: null,

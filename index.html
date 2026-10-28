@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.anthropic.com https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="71449826b3">
+<meta name="app-version" content="6705918f5d">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
@@ -146,6 +146,11 @@
 <p id="scw" class="note warn" hidden></p>
 <label for="sav">Avatar</label>
 <textarea id="sav" style="min-height:80px"></textarea>
+<label for="sint">Introduction</label>
+<textarea id="sint" style="min-height:80px" placeholder="Une nuit de tempête, un gardien qui ment, une lumière qui ne s'éteint jamais.
+- Je frappe à la porte du phare.
+- J'observe la lumière depuis la plage."></textarea>
+<p class="note">Affichée avant le premier tour, sous la couverture. Les lignes qui commencent par « - » deviennent des débuts proposés (trois au plus). Pour un scénario GitHub : le fichier intro.md du dossier.</p>
 <label for="snm">Nom du joueur</label>
 <input id="snm">
 <div id="scv">
@@ -153,6 +158,9 @@
 <div class="cvr"><img id="scvi" alt="" hidden><button id="scva">Choisir une image</button><button id="scvx" hidden>Retirer</button></div>
 <input id="scvf" type="file" accept="image/*" hidden>
 </div>
+<label for="sacc">Couleur d'accent</label>
+<div class="acr"><input id="sacc" type="color" value="#e8b45c"><button id="saca">Depuis la couverture</button><button id="sacx">Par défaut</button></div>
+<p id="sacn" class="note"></p>
 
 <details>
 <summary>Narration</summary>

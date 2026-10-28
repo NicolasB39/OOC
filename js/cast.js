@@ -15,7 +15,7 @@ const relOf = name => rels().find(([k]) => sameName(k, name))?.[1] || '';
 
 const dec = () => decorNow(app.cur?.messages || []);
 
-const face = c => {
+export const face = c => {
   const u = c.images?.length ? urlOf(c.images[0]) : '';
   return u
     ? scene(u, dec(), { x: 0.5, fill: 1.9, top: 0.06, sa: 1, cls: 'pav av' })

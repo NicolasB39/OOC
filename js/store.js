@@ -56,11 +56,13 @@ export const clean = x => {
     avatar: s(x.avatar),
     pname: s(x.pname),
     note: s(x.note),
+    intro: s(x.intro),
     choicePrompt: s(x.choicePrompt),
     noChoices: !!x.noChoices,
     noStyle: !!x.noStyle,
     noPre: !!x.noPre,
     cover: typeof x.cover == 'string' && x.cover.startsWith('data:') ? x.cover : '',
+    accent: typeof x.accent == 'string' && /^#[0-9a-f]{6}$/i.test(x.accent) ? x.accent.toLowerCase() : '',
     maxTok: n(x.maxTok),
     effort: ['low', 'medium', 'high'].includes(x.effort) ? x.effort : '',
     models:

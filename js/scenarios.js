@@ -122,7 +122,7 @@ export async function loadCtx() {
   const g = ++gen,
     im = {};
   for (const k in IMG) delete IMG[k];
-  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '', decors: [], decorDef: '' });
+  Object.assign(ctx, { system: '', avatar: '', chars: [], lore: [], images: [], stat: '', decors: [], decorDef: '', intro: '' });
   if (!app.cur.remote) return;
   const base = 'scenarios/' + app.cur.folder + '/',
     pb = base + 'personnages/';
@@ -131,7 +131,8 @@ export async function loadCtx() {
     txt(base + 'systeme.md'),
     txt(base + 'avatar.md')
   ]);
-  const stat = T.includes(base + 'etat.md') ? (await txt(base + 'etat.md')).trim() : '';
+  const stat = T.includes(base + 'etat.md') ? (await txt(base + 'etat.md')).trim() : '',
+    intro = T.includes(base + 'intro.md') ? (await txt(base + 'intro.md')).trim() : '';
   const ch = {};
   for (const p of T) {
     if (!p.startsWith(pb)) continue;
@@ -232,5 +233,5 @@ export async function loadCtx() {
     decorDef = def?.url || '';
   if (g !== gen) return;
   Object.assign(IMG, im);
-  Object.assign(ctx, { system, avatar, chars, lore, images, stat, decors, decorDef });
+  Object.assign(ctx, { system, avatar, chars, lore, images, stat, decors, decorDef, intro });
 }

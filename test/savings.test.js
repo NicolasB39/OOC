@@ -6,7 +6,7 @@ globalThis.matchMedia = () => ({ matches: false });
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.window = globalThis;
 
-const { MEM_CLAUDE, chat, effortOk, keepWarm, lastWarmable, memModel, toAnt } = await import('../js/ai.js');
+const { MEM_CLAUDE, chat, effortOk, keepWarm, lastTurn, lastWarmable, memModel, toAnt } = await import('../js/ai.js');
 const { S, app } = await import('../js/state.js');
 const { modelOf } = await import('../js/protocol.js');
 const { extrasOf } = await import('../js/prompt.js');
@@ -96,6 +96,16 @@ test('keepWarm renvoie la dernière requête de narration avec max_tokens 0, san
   assert.deepEqual(w.output_config, { effort: 'low' }, 'même effort : il fait partie du préfixe');
   assert.equal(SESSION['claude/claude-opus-5-5'][2], 2, 'la relance est comptée dans les statistiques');
   assert.equal(SESSION['claude/claude-opus-5-5'][4], 4000, 'cache lu compté à part');
+});
+
+test('lastTurn garde le dernier tour de narration, ni la mémoire ni la relance du cache', async () => {
+  await chat(ms, { primary: true, model: 'claude-opus-5-5' });
+  const t = lastTurn();
+  assert.equal(t.key, 'claude/claude-opus-5-5');
+  assert.deepEqual(t.e.slice(2), [1, 0, 2000, 0, 0], 'une requête réelle, cache lu compté');
+  await chat(ms, { model: MEM_CLAUDE });
+  await keepWarm();
+  assert.equal(lastTurn(), t);
 });
 
 test('keepWarm ne fait rien après un changement de fournisseur', async () => {

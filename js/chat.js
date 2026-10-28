@@ -1,11 +1,13 @@
-import { WARM_AT, chat, keepWarm, lastWarmable, summarize, waitMsg } from './ai.js';
+import { WARM_AT, chat, keepWarm, lastTurn, lastWarmable, summarize, waitMsg } from './ai.js';
 import { sync } from './backup.js';
 import { on } from './bus.js';
-import { body, keepImgs, line, paintLive, raw, split } from './format.js';
+import { face } from './cast.js';
+import { costOf, money, priceOf } from './cost.js';
+import { body, fr, keepImgs, line, paintLive, parseIntro, raw, split } from './format.js';
 import { showList } from './list.js';
 import { cutLines } from './memory.js';
-import { buildInfo, statOn } from './prompt.js';
-import { decorNow, decorsOf, zoomScene } from './scene.js';
+import { buildInfo, inScene, statOn } from './prompt.js';
+import { decorNow, decorsOf, lieuOf, zoomScene } from './scene.js';
 import { conflicts, modelOf } from './protocol.js';
 import { last as rlLast, status, wait } from './rate.js';
 import {
@@ -22,7 +24,7 @@ import {
 import { TERR, coverOf, loadCtx } from './scenarios.js';
 import { S, app, ctx } from './state.js';
 import { forkOf, getOne, save, saveSet } from './store.js';
-import { $, LS, dlg, el, err, fit, ic, plain, strip, toast, uid, vt } from './util.js';
+import { $, LS, accentVars, dlg, el, err, fit, ic, nz, plain, strip, toast, uid, vt } from './util.js';
 
 export async function openScenario(id) {
   stopSpeech();
@@ -48,7 +50,16 @@ export async function openScenario(id) {
       : app.cur.remote && TERR
         ? 'GitHub indisponible (' + TERR + ') : fiches, images et lorebooks peuvent manquer.'
         : '';
+  // Ouverture : la couverture de la carte glisse jusqu'à l'en-tête (transition de vue partagée).
+  const src = [...document.querySelectorAll('#items .ttl')]
+      .find(b => b.dataset.id == id)
+      ?.closest('.item')
+      ?.querySelector('.cv, .art'),
+    hd = $('#chat header');
+  if (src && !$('#list').hidden) src.style.viewTransitionName = 'hcov';
   await vt(() => {
+    if (src) src.style.viewTransitionName = '';
+    hd.style.viewTransitionName = src ? 'hcov' : '';
     $('#list').hidden = true;
     $('#chat').hidden = false;
     err(bad || warn, !!bad);
@@ -56,6 +67,7 @@ export async function openScenario(id) {
     fit();
     render(true);
   });
+  setTimeout(() => (hd.style.viewTransitionName = ''), 600);
   if (back > 0) {
     const e = document.querySelector('#msgs .m[data-i="' + back + '"]');
     if (e) {
@@ -128,22 +140,37 @@ export function tk(info) {
   const r = info || infoOf(),
     n = app.cur.messages.length,
     sentN = Math.max(0, n - r.win),
-    f = x => x.toLocaleString('fr-FR');
-  e.className = r.over ? 'w' : '';
-  e.textContent = r.over
-    ? 'Prompt de base trop long pour la limite (≈ ' +
+    f = x => x.toLocaleString('fr-FR'),
+    k = x => (x < 1000 ? f(x) : (x / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' k');
+  e.className = r.over ? 'w' : e.classList.contains('open') ? 'open' : '';
+  if (r.over)
+    e.textContent =
+      'Prompt de base trop long pour la limite (≈ ' +
       f(r.used) +
       ' / ' +
       f(r.budget) +
-      ' tokens) : réduisez le prompt système, le lorebook ou la mémoire.'
-    : '≈ ' +
-      f(r.used) +
-      (r.budget ? ' / ' + f(r.budget) : '') +
-      ' tokens envoyés' +
-      (app.pt ? ' (réel : ' + f(app.pt) + ')' : '') +
-      (rlLast.cached ? ' · ' + f(rlLast.cached) + ' lus en cache' : '') +
-      (rlLast.wrote ? ' · ' + f(rlLast.wrote) + ' mis en cache' : '') +
-      (n ? ' · ' + sentN + (sentN > 1 ? ' messages envoyés' : ' message envoyé') + ' sur ' + n : '');
+      ' tokens) : réduisez le prompt système, le lorebook ou la mémoire.';
+  else {
+    // Pastille courte (tokens et coût du dernier tour) ; le détail s'ouvre en la touchant.
+    const c = app.turn?.id == app.cur.id ? app.turn.cost : null,
+      long =
+        '≈ ' +
+        f(r.used) +
+        (r.budget ? ' / ' + f(r.budget) : '') +
+        ' tokens envoyés' +
+        (app.pt ? ' (réel : ' + f(app.pt) + ')' : '') +
+        (rlLast.cached ? ' · ' + f(rlLast.cached) + ' lus en cache' : '') +
+        (rlLast.wrote ? ' · ' + f(rlLast.wrote) + ' mis en cache' : '') +
+        (n ? ' · ' + sentN + (sentN > 1 ? ' messages envoyés' : ' message envoyé') + ' sur ' + n : '');
+    e.replaceChildren(
+      el(
+        'button',
+        { class: 'tks', 'aria-expanded': String(e.classList.contains('open')), 'aria-label': 'Détail des compteurs' },
+        '≈ ' + k(app.pt || r.used) + ' tokens' + (c != null ? ' · ' + money(c, S.fx) + ' ce tour' : '')
+      ),
+      el('span', { class: 'tkl', text: long })
+    );
+  }
   e.hidden = !S.counters && !r.over;
   rlView(r.used);
 }
@@ -214,58 +241,114 @@ const prevState = i => {
     if (ms[j].role == 'assistant' && ms[j].state?.length) return ms[j].state;
   return [];
 };
+// Panneau d'état : une rangée de pastilles (les premières valeurs, avec leur variation), dépliée d'un toucher
+// en grille détaillée avec les jauges. Le choix plié / déplié vaut pour toute l'appli.
+const ST_N = 3;
 const stCard = (i, m) => {
   if (!m.state?.length || !statOn(app.cur)) return null;
-  const pm = new Map(prevState(i));
+  const pm = new Map(prevState(i)),
+    open = LS.get('stOpen') == '1',
+    rows = m.state.map(([k, v]) => {
+      const a = numOf(v),
+        b = pm.has(k) ? numOf(pm.get(k)) : null,
+        d = a != null && b != null && a !== b ? a - b : null;
+      return { k, v, d };
+    }),
+    dl = (d, short) =>
+      d != null &&
+      el('em', {
+        class: 'dl ' + (d > 0 ? 'up' : 'dn'),
+        text: (d > 0 ? (short ? '▲' : '▲ +') : short ? '▼' : '▼ ') + Math.round(Math.abs(d) * 100) / 100
+      }),
+    more = rows.length - ST_N;
   return el(
     'div',
-    { class: 'st' },
-    el('span', { class: 'stl', text: 'État' }),
+    { class: 'st' + (open ? ' open' : '') },
+    el(
+      'button',
+      { class: 'stc', 'aria-expanded': String(open), 'aria-label': 'Détail de l’état' },
+      rows.slice(0, ST_N).map(r => el('span', { class: 'stp' }, el('span', { text: r.k }), ' ' + r.v, dl(r.d, true))),
+      more > 0 && el('span', { class: 'stp stm', text: '+' + more }),
+      ic('down', 14)
+    ),
     el(
       'div',
-      { class: 'stg' },
-      m.state.map(([k, v]) => {
-        const r = v.match(/^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/),
-          p = r
-            ? Math.max(0, Math.min(100, (+r[1].replace(',', '.') / +r[2].replace(',', '.')) * 100))
-            : null,
-          a = numOf(v),
-          b = pm.has(k) ? numOf(pm.get(k)) : null,
-          d = a != null && b != null && a !== b ? a - b : null;
-        return el(
-          'div',
-          { class: 'kv' },
-          el('span', { text: k }),
-          el(
-            'b',
-            null,
-            v,
-            d != null &&
-              el('em', {
-                class: 'dl ' + (d > 0 ? 'up' : 'dn'),
-                text: (d > 0 ? '▲ +' : '▼ ') + Math.round(d * 100) / 100
-              })
-          ),
-          p != null && el('i', { class: 'bar' }, el('u', { style: 'width:' + p + '%' }))
-        );
-      })
+      { class: 'stx' },
+      el('button', { class: 'stl', 'aria-expanded': String(open) }, 'État', ic('down', 14)),
+      el(
+        'div',
+        { class: 'stg' },
+        rows.map(({ k, v, d }) => {
+          const r = v.match(/^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/),
+            p = r
+              ? Math.max(0, Math.min(100, (+r[1].replace(',', '.') / +r[2].replace(',', '.')) * 100))
+              : null;
+          return el(
+            'div',
+            { class: 'kv' },
+            el('span', { text: k }),
+            el('b', null, v, dl(d)),
+            p != null && el('i', { class: 'bar' }, el('u', { style: 'width:' + p + '%' }))
+          );
+        })
+      )
     )
   );
 };
+// Débuts de scène, ornés d'une lettrine et d'un intertitre : la première réponse du récit, puis chaque
+// réponse dont le lieu de l'état change. LIEU[i] : le lieu connu à la fin du message i, pour l'intertitre et
+// la légende des images.
+let LT = new Set(),
+  LIEU = [];
+const sceneStarts = ms => {
+  const out = new Set(),
+    at = [];
+  let lieu = '',
+    shown = '',
+    first = true;
+  ms.forEach((m, i) => {
+    if (m.role == 'assistant') {
+      const v = lieuOf(m.state),
+        l = nz(v);
+      if (first || (l && lieu && l != lieu)) out.add(i);
+      first = false;
+      if (l) {
+        lieu = l;
+        shown = v;
+      }
+    }
+    at.push(shown);
+  });
+  LIEU = at;
+  return out;
+};
 const msgNode = (i, m, last, d = '') => {
+  const t = LT.has(i),
+    p = m.role == 'assistant' ? LIEU[i] || '' : '',
+    b = el('div', { class: 'b' }, body(m.content, d));
+  // Légende des scènes : le lieu, en bas à gauche de l'image (masquée pour un portrait sans décor).
+  if (p) for (const s of b.querySelectorAll('.scn')) s.append(el('span', { class: 'scap', text: fr(p) }));
   const n = el(
     'div',
-    { class: 'm ' + m.role + (last ? ' last' : ''), data: { i } },
+    { class: 'm ' + m.role + (last ? ' last' : '') + (t ? ' lt' : ''), data: { i } },
     el('span', { class: 'sr', text: (m.role == 'user' ? 'Joueur' : 'Récit') + ' :' }),
-    el('div', { class: 'b' }, body(m.content, d)),
+    b,
     stCard(i, m),
     act(i, m, last)
   );
-  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state), d };
+  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state), d, t, p };
   return n;
 };
 const same = (a, b) =>
-  a && a.c === b.c && a.a === b.a && a.l === b.l && a.n === b.n && a.s === b.s && a.d === b.d;
+  a &&
+  a.c === b.c &&
+  a.a === b.a &&
+  a.l === b.l &&
+  a.n === b.n &&
+  a.s === b.s &&
+  a.d === b.d &&
+  a.t === b.t &&
+  a.p === b.p;
 const dayOf = t => new Date(t).toDateString();
 const cut6h = (t, p) => dayOf(t) !== dayOf(p) || t - p > 216e5;
 const dayLab = (t, p) => {
@@ -296,6 +379,7 @@ export function render(sc) {
     st = Math.max(0, n - app.LIM);
   const info = app.cur.mem ? infoOf() : null,
     D = decorsOf(ms);
+  LT = sceneStarts(ms);
   const cv = !st && coverOf(app.cur);
   head.replaceChildren(
     ...[
@@ -325,7 +409,9 @@ export function render(sc) {
         l: i == n - 1,
         n: ms[i].alts?.length || 0,
         s: sig(ms[i].state),
-        d: D[i]
+        d: D[i],
+        t: LT.has(i),
+        p: ms[i].role == 'assistant' ? LIEU[i] || '' : ''
       };
     if (!same(e._k, k)) {
       const x = msgNode(i, ms[i], k.l, D[i]);
@@ -357,38 +443,70 @@ export function render(sc) {
       );
     pt = t;
   }
+  // Intertitre de lieu : avant la réponse qui change de lieu ; la première scène s'annonce en tête du récit.
+  for (const e of w.querySelectorAll(':scope > .scene')) e.remove();
+  let first = true;
+  for (const i of LT) {
+    const at = first ? 0 : i;
+    first = false;
+    if (at < st || !LIEU[i]) continue;
+    w.querySelector(':scope > .m[data-i="' + at + '"]')?.before(el('div', { class: 'scene', text: fr(LIEU[i]) }));
+  }
   const lm = ms.at(-1),
     cs = lm?.role == 'assistant' && !app.cur.noChoices ? lm.choices || [] : [];
-  // En-tête teinté par le décor du moment, flouté et assombri en CSS.
-  const dn = decorNow(ms),
+  // En-tête teinté par le décor du moment, à défaut par la couverture, flouté et assombri en CSS. L'adresse
+  // est rendue absolue : relative, la feuille de style qui lit la variable la résoudrait depuis css/.
+  const dn = decorNow(ms) || coverOf(app.cur),
     hd = $('#chat header');
   hd.classList.toggle('dk', !!dn);
-  hd.style.setProperty('--hdi', dn ? 'url(' + JSON.stringify(dn) + ')' : 'none');
-  foot.replaceChildren(
-    ...[
-      cs.length &&
+  const av = accentVars(app.cur.accent),
+    ch = $('#chat');
+  for (const k of ['--ac', '--acs', '--act', '--acb', '--on'])
+    if (av) ch.style.setProperty(k, av[k]);
+    else ch.style.removeProperty(k);
+  hd.style.setProperty('--hdi', dn ? 'url(' + JSON.stringify(new URL(dn, document.baseURI).href) + ')' : 'none');
+  castView(inScene(ms.slice(-6)));
+  const chList = list =>
+    el(
+      'div',
+      { class: 'ch' },
+      list.map((c, k) =>
         el(
           'div',
-          { class: 'ch' },
-          cs.map((c, k) =>
-            el(
-              'div',
-              { class: 'chr' },
-              el(
-                'button',
-                { class: 'cht', data: { t: c }, 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
-                el('span', { class: 'chn', 'aria-hidden': 'true', text: k + 1 }),
-                el('span', { class: 'chx' }, line(c))
-              ),
-              el(
-                'button',
-                { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c.replace(/\*/g, '') },
-                ic('edit', 17)
-              )
-            )
+          { class: 'chr' },
+          el(
+            'button',
+            { class: 'cht', data: { t: c }, 'aria-label': 'Envoyer : ' + c.replace(/\*/g, '') },
+            el('span', { class: 'chn', 'aria-hidden': 'true', text: k + 1 }),
+            el('span', { class: 'chx' }, line(c))
+          ),
+          el(
+            'button',
+            { class: 'che', 'aria-label': 'Modifier avant d’envoyer : ' + c.replace(/\*/g, '') },
+            ic('edit', 17)
           )
-        ),
-      !n && el('p', { class: 'hint', text: "Écrivez votre premier tour pour lancer l'histoire." })
+        )
+      )
+    );
+  // Histoire vide : titre, accroche et débuts proposés de l'introduction, sous la couverture.
+  const it = !n && parseIntro(app.cur.remote ? ctx.intro : app.cur.intro);
+  foot.replaceChildren(
+    ...[
+      cs.length && chList(cs),
+      it &&
+        el(
+          'div',
+          { class: 'intro' },
+          el('h2', { class: 'ith', text: app.cur.name }),
+          it.pitch && el('div', { class: 'itp b' }, body(it.pitch)),
+          it.starts.length && chList(it.starts),
+          el('p', {
+            class: 'hint',
+            text: it.starts.length
+              ? 'Choisissez un début, ou écrivez le vôtre.'
+              : "Écrivez votre premier tour pour lancer l'histoire."
+          })
+        )
     ].filter(Boolean)
   );
   if (sc) {
@@ -407,6 +525,27 @@ export function render(sc) {
   tk(info);
   navView();
   refreshSpeech();
+}
+// En-tête : les personnages en scène (trois avatars au plus, puis « +N ») à la place de l'icône Personnages.
+// Reconstruit seulement quand la distribution change, pour ne pas recharger les images à chaque rendu.
+function castView(pr) {
+  const pe = $('#pe'),
+    k = app.cur.id + ':' + pr.map(c => c.name).join('|');
+  if (pe.dataset.k === k) return;
+  pe.dataset.k = k;
+  pe.classList.toggle('pea', !!pr.length);
+  pe.setAttribute(
+    'aria-label',
+    pr.length ? 'Personnages en scène : ' + pr.map(c => c.name).join(', ') : 'Personnages'
+  );
+  pe.replaceChildren(
+    ...(pr.length
+      ? [
+          ...pr.slice(0, 3).map(face),
+          pr.length > 3 && el('span', { class: 'pav pam', 'aria-hidden': 'true', text: '+' + (pr.length - 3) })
+        ].filter(Boolean)
+      : [ic('users')])
+  );
 }
 async function delFrom(i) {
   stopSpeech();
@@ -534,7 +673,16 @@ async function ask(old, cont, hint) {
     raf = 0,
     pend = ['', false];
   const z = { fl: 0, fn: 0, ft: '' },
-    dl = decorNow(s.messages);
+    dl = decorNow(s.messages),
+    // Attente : le personnage en scène « réfléchit », sur des lignes fantômes. Un seul nœud, réutilisé à
+    // chaque image, pour ne pas recharger l'avatar.
+    who = inScene(s.messages.slice(-6))[0],
+    wt = el(
+      'div',
+      { class: 'wt' },
+      el('div', { class: 'wth' }, who && face(who), el('span', { class: 'act' })),
+      el('div', { class: 'wts', 'aria-hidden': 'true' }, el('i'), el('i'), el('i'))
+    );
   const paint = () => {
     raf = 0;
     if (app.cur !== s || !pend) return;
@@ -549,13 +697,10 @@ async function ask(old, cont, hint) {
     }
     const v = strip(t),
       sec = Math.round((Date.now() - t0) / 1000);
-    paintLive(
-      e.firstChild,
-      v,
-      z,
-      v || !(sec > 2 || th) ? null : el('span', { class: 'act', text: 'Réflexion… ' + sec + ' s' }),
-      dl
-    );
+    if (!v)
+      wt.querySelector('.act').textContent =
+        (who ? fr(who.name + ' réfléchit…') : 'Réflexion…') + (sec > 2 || th ? ' ' + sec + ' s' : '');
+    paintLive(e.firstChild, v, z, v ? null : wt, dl);
     if (S.follow && m.scrollHeight - m.scrollTop - m.clientHeight < 200)
       m.scrollTop = m.scrollHeight;
     m.dispatchEvent(new Event('scroll'));
@@ -592,6 +737,8 @@ async function ask(old, cont, hint) {
       }
     });
     app.stream = { mode: S.ns?.[p] ? 'off' : r.mode, chunks: r.chunks, ms: r.ms };
+    const lt = lastTurn();
+    app.turn = lt && { id: s.id, cost: costOf(lt.e, priceOf(lt.key, S.prices)) };
     const out = r.t;
     cut = r.cut;
     part = !!r.partial;
@@ -714,6 +861,12 @@ $('#send').onclick = async () => {
   ask();
 };
 $('#stop').onclick = () => app.ctl?.abort('stop');
+$('#tk').onclick = e => {
+  const t = $('#tk');
+  if (t.classList.contains('w') || !e.target.closest('.tks, .tkl')) return;
+  t.classList.toggle('open');
+  t.querySelector('.tks')?.setAttribute('aria-expanded', String(t.classList.contains('open')));
+};
 $('#inp').oninput = () => {
   LS.set('draft:' + app.cur.id, $('#inp').value);
   fit();
@@ -749,6 +902,15 @@ $('#msgs').onclick = e => {
     app.LIM += 50;
     render();
     m.scrollTop = y + m.scrollHeight - h;
+    return;
+  }
+  if (b.matches('.stc, .stl')) {
+    const open = LS.get('stOpen') != '1';
+    LS.set('stOpen', open ? '1' : '0');
+    for (const s of $('#msgs').querySelectorAll('.st')) {
+      s.classList.toggle('open', open);
+      for (const x of s.querySelectorAll('.stc, .stl')) x.setAttribute('aria-expanded', String(open));
+    }
     return;
   }
   const row = b.closest('.chr');

@@ -7,10 +7,10 @@ import { extrasOf, statOn } from './prompt.js';
 import { DEFAULT_FIELDS, conflicts, modelOf } from './protocol.js';
 import { fillLec, setReading } from './read.js';
 import { reset as rlReset } from './rate.js';
-import { TERR, getTree, loadCtx } from './scenarios.js';
+import { TERR, coverOf, getTree, loadCtx } from './scenarios.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { clean, put, save, saveSet } from './store.js';
-import { $, LS, dlg, el, ic, num, nz } from './util.js';
+import { $, LS, dlg, el, ic, num, nz, pickAccent, toast } from './util.js';
 
 // Prévient que température et Top P ne partiront pas : l'API Claude les refuse sur tous les modèles.
 const sampNote = (e, p) => {
@@ -66,8 +66,49 @@ const extrasNote = () => {
     (per != null ? ' (≈ ' + money(per * 100, S.fx) + ' pour 100 réponses)' : '') +
     '. Décochez ce qui ne vous sert pas.';
 };
+// Couleur d'accent du scénario ; vide : celle de l'appli.
+const ACC0 = '#e8b45c';
+let ACC = '';
+const accView = () => {
+  $('#sacc').value = ACC || ACC0;
+  $('#sacx').hidden = !ACC;
+  $('#sacn').textContent = ACC
+    ? 'Liseré de vos tours, numéros des choix, lettrine et bouton d’envoi prennent cette couleur dans cette histoire.'
+    : 'Couleur de l’appli. Choisissez-en une, ou tirez-la de la couverture.';
+};
+$('#sacc').oninput = () => {
+  ACC = $('#sacc').value.toLowerCase();
+  accView();
+};
+$('#sacx').onclick = () => {
+  ACC = '';
+  accView();
+};
+$('#saca').onclick = async () => {
+  const src = COVER || coverOf(app.cur);
+  if (!src) {
+    toast('Pas de couverture pour cette histoire');
+    return;
+  }
+  try {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    const c = Object.assign(document.createElement('canvas'), { width: 32, height: 32 }),
+      g = c.getContext('2d');
+    g.drawImage(img, 0, 0, 32, 32);
+    const h = pickAccent(g.getImageData(0, 0, 32, 32).data);
+    if (!h) throw new Error('image trop sombre');
+    ACC = h;
+    accView();
+  } catch (e) {
+    toast('Impossible de lire la couverture');
+  }
+};
 export function openSc() {
   const c = app.cur.remote ? ctx : app.cur;
+  ACC = app.cur.accent || '';
+  accView();
   sampNote($('#stpn'), S.provider);
   $('#smo').value = app.cur.models?.[S.provider] || '';
   $('#sef').value = app.cur.effort || '';
@@ -75,7 +116,8 @@ export function openSc() {
   extrasNote();
   $('#ssys').value = c.system;
   $('#sav').value = c.avatar;
-  $('#ssys').readOnly = $('#sav').readOnly = !!app.cur.remote;
+  $('#sint').value = c.intro || '';
+  $('#ssys').readOnly = $('#sav').readOnly = $('#sint').readOnly = !!app.cur.remote;
   const cf = conflicts(c.system);
   $('#scw').hidden = !cf.length;
   $('#scw').textContent = cf.length
@@ -196,9 +238,11 @@ $('#dss').onclick = async () => {
   if (!app.cur.remote) {
     app.cur.system = $('#ssys').value;
     app.cur.avatar = $('#sav').value;
+    app.cur.intro = $('#sint').value.trim();
   }
   app.cur.pname = $('#snm').value.trim();
   app.cur.cover = COVER;
+  app.cur.accent = ACC;
   app.cur.maxTok = +$('#smx').value || 0;
   app.cur.effort = $('#sef').value;
   const mo = $('#smo').value.trim();

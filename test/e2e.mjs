@@ -227,8 +227,16 @@ try {
     await pg.fill('#dqi', 'Test');
     await pg.click('#dqo');
     await pg.click('#tp1');
-    await pg.click('#dsc');
+    await pg.waitForSelector('#ds[open]');
+    await pg.fill('#sint', 'Une nuit de tempête.\n- Je frappe à la porte.\n- J\'observe la plage.');
+    await pg.click('#dss');
+    await pg.waitForSelector('#ds', { state: 'hidden' });
+    // Histoire vide : titre, accroche et débuts proposés.
+    assert.equal(await pg.textContent('.intro .ith'), 'Test');
+    assert.match(await pg.textContent('.intro .itp'), /Une nuit de tempête/);
+    assert.deepEqual(await pg.locator('.intro .cht .chx').allTextContents(), ['Je frappe à la porte.', 'J’observe la plage.']);
     await send('Bonjour');
+    assert.equal(await pg.locator('.intro').count(), 0, 'l’introduction disparaît au premier tour');
     await send('Je regarde autour de moi.');
     assert.equal(await pg.locator('#msgs .m.assistant').count(), 2);
     assert.ok((await pg.locator('.ch').count()) > 0);
@@ -270,6 +278,9 @@ try {
     await pg.click('#send');
     await wait(400);
     await pg.evaluate(() => (T.length = 0));
+    // Attente : sans personnage en scène, « Réflexion… » sur des lignes fantômes.
+    assert.match(await pg.textContent('#live .wt .act'), /^Réflexion…/);
+    assert.equal(await pg.locator('#live .wts i').count(), 3);
     await done();
     await wait(500);
     const tops = await pg.evaluate(() => (clearInterval(iv), [...new Set(T)]));
@@ -414,6 +425,13 @@ try {
     const tk = await pg.textContent('#tk');
     assert.match(tk, /lus en cache/);
     assert.match(tk, /mis en cache/);
+    // Pastille courte avec le coût du tour ; le détail s'ouvre en la touchant.
+    assert.match(await pg.textContent('#tk .tks'), /tokens · [\d,]+ \$ ce tour/);
+    assert.ok(!(await pg.isVisible('#tk .tkl')));
+    await pg.click('#tk .tks');
+    assert.ok(await pg.isVisible('#tk .tkl'));
+    await pg.click('#tk .tkl');
+    assert.ok(await pg.isVisible('#tk .tks'));
     assert.match(await pg.locator('#msgs .m.assistant[data-i]').last().textContent(), /pluie/);
   });
 
@@ -572,6 +590,7 @@ try {
           dec: d.querySelector('img')?.getAttribute('src') || (d.classList.contains('art') ? 'généré' : ''),
           decShown: getComputedStyle(d).display != 'none',
           ratio: r.width / r.height,
+          full: Math.abs(r.width - document.querySelector('#msgs').clientWidth) < 2,
           hfrac: (i.height * 0.85) / r.height,
           cx: (i.left + i.width / 2 - r.left) / r.width,
           feet: i.top + i.height * 0.95 - r.bottom
@@ -590,12 +609,16 @@ try {
     await say('J’entre.', 'Elle sourit.\n\n{{img::alice_alice}}\n\nLe comptoir brille.\n\n<etat>\nLieu: Auberge du Pont\n</etat>');
     let g = await last('cut');
     assert.match(g.dec, /decors\/taverne\.png$/, 'décor par mot-clé');
-    assert.match(
-      await p3.evaluate(() => document.querySelector('#chat header.dk')?.style.getPropertyValue('--hdi') || ''),
-      /taverne\.png/,
+    // L'image réellement utilisée par la feuille de style : une adresse relative y serait résolue depuis css/.
+    assert.equal(
+      await p3.evaluate(() => getComputedStyle(document.querySelector('#chat header.dk'), '::before').backgroundImage),
+      'url("' + base + '/scenarios/demo/decors/taverne.png")',
       'en-tête teinté par le décor du moment'
     );
+    assert.equal(await p3.locator('#msgs .m.lt').count(), 1, 'lettrine sur la première réponse');
     assert.ok(Math.abs(g.ratio - 16 / 9) < 0.05, 'format de la scène : ' + g.ratio);
+    assert.ok(g.full, 'scène pleine largeur');
+    assert.equal(await p3.textContent('#msgs .m[data-i="1"] .scn .scap'), 'Auberge du Pont');
     assert.ok(Math.abs(g.hfrac - 0.9) < 0.03, 'hauteur du personnage : ' + g.hfrac);
     assert.ok(Math.abs(g.cx - 2 / 3) < 0.02, 'centre à ' + g.cx);
     assert.ok(Math.abs(g.feet) < 2, 'pieds à ' + g.feet + ' px du bas');
@@ -603,10 +626,23 @@ try {
     await say('Qui est là ?', 'Bob arrive.\n\n{{img::bob_bob}}');
     g = await last('flat');
     assert.ok(g.flat && !g.decShown, 'image non détourée affichée seule');
+    await p3.waitForSelector('#pe.pea .pav');
+    assert.match(await p3.getAttribute('#pe', 'aria-label'), /Personnages en scène : .*Bob/, 'Bob en scène dans l’en-tête');
 
     await say('Je pars.', 'Un volcan gronde.\n\n{{img::alice_alice}}\n\n<etat>\nLieu: Volcan\n</etat>');
     g = await last('cut');
     assert.match(g.dec, /decors\/defaut\.png$/, 'lieu inconnu : fond par défaut');
+    assert.deepEqual(
+      await p3.locator('#msgs .m.lt').evaluateAll(es => es.map(e => +e.dataset.i)),
+      [1, 5],
+      'lettrine au changement de lieu, pas à chaque réponse'
+    );
+    assert.deepEqual(await p3.locator('#msgs .scene').allTextContents(), ['Auberge du Pont', 'Volcan'], 'intertitres de lieu');
+    assert.equal(
+      await p3.evaluate(() => document.querySelector('#msgs .scene + .m')?.dataset.i),
+      '0',
+      'la première scène s’annonce en tête du récit'
+    );
     assert.match(
       await p3.locator('#msgs .m[data-i] .scn .dec img').first().getAttribute('src'),
       /taverne\.png$/,

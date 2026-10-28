@@ -115,20 +115,23 @@ const pause = (ms, sig) =>
       r();
     }, { once: true });
   });
-const track = (ms, out, u, key) => {
+// Dernier tour de narration, au format des statistiques, pour afficher son coût sous la conversation.
+let TURN = null;
+export const lastTurn = () => TURN;
+const track = (ms, out, u, key, primary) => {
   try {
     const x = usageOf(u);
     if (x) {
       const [cr, cw] = cacheOf(u),
-        h1 = ANT(key.split('/')[0]) && S.c1h;
-      return record(key, x[0], x[1], false, Date.now(), [cr, h1 ? 0 : cw, h1 ? cw : 0]);
+        h1 = ANT(key.split('/')[0]) && S.c1h,
+        ca = [cr, h1 ? 0 : cw, h1 ? cw : 0];
+      if (primary) TURN = { key, e: [x[0], x[1], 1, 0, ...ca] };
+      return record(key, x[0], x[1], false, Date.now(), ca);
     }
-    record(
-      key,
-      ms.reduce((a, m) => a + estTok(m.content) + 4, 0),
-      estTok(out),
-      true
-    );
+    const p = ms.reduce((a, m) => a + estTok(m.content) + 4, 0),
+      c = estTok(out);
+    if (primary) TURN = { key, e: [p, c, 1, 1] };
+    record(key, p, c, true);
   } catch (e) {}
 };
 const calib = (ms, u) => {
@@ -146,6 +149,7 @@ export async function chat(
   const p = S.provider,
     k = S.keys[p];
   if (!k) throw new Error('clé API manquante');
+  if (primary) TURN = null;
   let jm = json;
   const A = ANT(p),
     mdl = model || S.models[p] || PROVIDERS[p].m;
@@ -276,7 +280,7 @@ export async function chat(
         us = normU(us);
         if (primary) calib(ms, us);
         note(r.headers, us, mdl, primary);
-        track(ms, out, us, p + '/' + mdl);
+        track(ms, out, us, p + '/' + mdl, primary);
         return {
           t: out,
           cut: fr == 'length' || fr == 'max_tokens',
@@ -327,7 +331,7 @@ export async function chat(
               .join('')
           : (ch?.message?.content ?? '')
       );
-      track(ms, out, u, p + '/' + mdl);
+      track(ms, out, u, p + '/' + mdl, primary);
       if (!out)
         throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
       return {
