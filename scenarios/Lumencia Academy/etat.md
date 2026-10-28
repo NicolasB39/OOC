@@ -1,1 +1,1 @@
-Date, Lieu, Rang et affiliation, Statut et condition, Compétences, Stats, Talent, Inventaire
+Date, Lieu, Rang et affiliation, Condition, Stats et talent
