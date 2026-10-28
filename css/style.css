@@ -754,6 +754,22 @@ hr {
   width: 36px;
   height: 36px;
 }
+/* Tours du joueur : la bulle peut être courte et collée à droite, la barre irait sur le texte. Elle se range
+   à gauche de la bulle, dans une place réservée pour que rien ne bouge à son apparition. */
+.m.user:not(.last) {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.m.user:not(.last) .a {
+  position: static;
+  order: -1;
+  flex: none;
+}
+.m.user:not(.last) .b {
+  min-width: 0;
+}
 .m .a .n {
   font-size: 13px;
   color: var(--mu);

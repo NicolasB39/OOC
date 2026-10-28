@@ -346,8 +346,13 @@ try {
       i = before.map(m => m[0]).lastIndexOf('user');
     // Les actions d'un ancien message n'apparaissent qu'au survol (ou au toucher).
     const old = pg.locator('#msgs .m[data-i="' + i + '"]');
+    await pg.mouse.move(0, 0);
+    await wait(250);
     assert.equal(await old.locator('.a').evaluate(e => getComputedStyle(e).opacity), '0');
     await old.locator('.b').hover();
+    // La barre apparaît à côté de la bulle, jamais sur le texte.
+    const [bb, ab] = await Promise.all([old.locator('.b').boundingBox(), old.locator('.a').boundingBox()]);
+    assert.ok(ab.x + ab.width <= bb.x, 'barre à gauche de la bulle : ' + JSON.stringify({ bb, ab }));
     await old.locator('[aria-label="Autres actions"]').click();
     assert.ok(await pg.isVisible('#maw'));
     await pg.click('#maw');
