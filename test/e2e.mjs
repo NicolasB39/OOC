@@ -628,6 +628,7 @@ try {
     await p3.click('#mo');
     await p3.click('#sc');
     await p3.waitForSelector('#ds[open]');
+    await p3.click('#ds summary:has-text("Narration")');
     await p3.check('#sfb');
     await p3.click('#dss');
     await p3.waitForSelector('#ds', { state: 'hidden' });
