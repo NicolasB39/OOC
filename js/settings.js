@@ -481,8 +481,9 @@ $('#sri').oninput = () => {
   srT = setTimeout(srRun, 180);
 };
 $('#dsrc').onclick = () => $('#dsr').close();
-// Sommaire : les scènes du récit (lieu, tours, première phrase) avec, sous chacune, les lignes de la mémoire
-// qui la résument. Sans lieu dans l'état, la liste des lignes récentes, comme avant.
+// Sommaire : les scènes du récit (lieu, tours), repliées ; ouverte, une scène montre sa première phrase, les
+// lignes de la mémoire qui la résument et un bouton pour y aller. Sans lieu dans l'état, la liste des lignes
+// récentes, comme avant.
 $('#msm').onclick = () => {
   $('#dmn').close();
   const L = app.cur.mem.lines || [],
@@ -491,33 +492,40 @@ $('#msm').onclick = () => {
       $('#dsm').close();
       if (i >= 0) jump(i);
     },
-    line = x => el('button', { class: 'sli', onclick: go(x.i) }, fr(x.t));
+    line = x => el('button', { class: 'sli', onclick: go(x.i) }, fr(x.t)),
+    // Toucher l'en-tête ouvre ou referme la scène.
+    fold = (cls, head, ...body) => {
+      const h = el('button', { class: 'sch', 'aria-expanded': 'false' }, ...head),
+        g = el('div', { class: cls }, h, el('div', { class: 'scb' }, ...body));
+      h.onclick = () => h.setAttribute('aria-expanded', String(g.classList.toggle('open')));
+      return g;
+    };
   $('#smn').textContent = T
-    ? 'Une entrée par lieu, dans l’ordre du récit. Touchez une scène ou une ligne pour y aller.'
+    ? 'Une entrée par lieu, dans l’ordre du récit. Touchez une scène pour l’ouvrir.'
     : 'Une ligne par message déjà résumé. Touchez pour y aller. Avec un champ « Lieu » dans le panneau d’état, le sommaire se range par scènes.';
   if (T) {
-    const loose = L.filter(x => x.i < 0);
-    $('#sml').replaceChildren(
-      ...T.map(s =>
-        el(
-          'div',
-          { class: 'scg' + (s.cur ? ' cur' : '') },
-          el(
-            'button',
-            { class: 'sch', onclick: go(s.from) },
-            el('span', { class: 'sct' }, el('b', { text: s.k + 1 }), fr(s.lieu || (s.k ? 'Scène sans lieu' : 'Début'))),
+    const loose = L.filter(x => x.i < 0),
+      G = T.map(s =>
+        fold(
+          'scg' + (s.cur ? ' cur' : ''),
+          [
+            el('span', { class: 'sct' }, fr(s.lieu || (s.k ? 'Scène sans lieu' : 'Début')), el('span', { class: 'scv' })),
             el('span', {
               class: 'scm',
               text: s.turns + (s.turns > 1 ? ' tours' : ' tour') + (s.cur ? ' · en cours' : '')
-            }),
-            s.preview && el('span', { class: 'scx', text: fr(s.preview) })
-          ),
-          s.lines.length && el('div', { class: 'scl' }, s.lines.map(line))
+            })
+          ],
+          s.preview && el('p', { class: 'scx', text: fr(s.preview) }),
+          // Une longueur nulle serait écrite telle quelle : el() n'ignore que false et null.
+          s.lines.length > 0 && el('div', { class: 'scl' }, s.lines.map(line)),
+          el('button', { class: 'scgo', onclick: go(s.from) }, 'Aller à cette scène')
         )
-      ),
-      loose.length &&
-        el('div', { class: 'scg' }, el('span', { class: 'sct' }, 'Autres lignes'), el('div', { class: 'scl' }, loose.map(line)))
-    );
+      );
+    if (loose.length)
+      G.push(
+        fold('scg', [el('span', { class: 'sct' }, 'Autres lignes', el('span', { class: 'scv' }))], el('div', { class: 'scl' }, loose.map(line)))
+      );
+    $('#sml').replaceChildren(...G);
   } else
     $('#sml').replaceChildren(
       ...(L.length

@@ -13,7 +13,7 @@ import './nav.js';
 import './settings.js';
 import './backup.js';
 
-const VERSION = '6c6b7eec6d';
+const VERSION = 'cd506f4b88';
 const pv = document.querySelector('meta[name="app-version"]')?.content;
 if (pv !== VERSION)
   window.__boot?.warn(
