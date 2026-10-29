@@ -484,7 +484,7 @@ export function render(sc) {
           { class: 'intro' },
           el('h2', { class: 'ith', text: app.cur.name }),
           it.pitch && el('div', { class: 'itp b' }, body(it.pitch)),
-          it.starts.length && chList(it.starts),
+          it.starts.length > 0 && chList(it.starts),
           el('p', {
             class: 'hint',
             text: it.starts.length

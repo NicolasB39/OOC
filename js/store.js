@@ -1,7 +1,7 @@
 import { S, app } from './state.js';
 import { split } from './format.js';
 import { LS, plain, uid } from './util.js';
-import { REL_MAX, cutLines } from './memory.js';
+import { REL_MAX, cutLines, unnum } from './memory.js';
 
 let db;
 const one = m => {
@@ -86,7 +86,8 @@ export const clean = x => {
         ? mm.lines
             .map(v => (typeof v == 'string' ? { i: -1, t: v } : v))
             .filter(v => v && typeof v.t == 'string')
-            .map(v => ({ i: 0 | v.i, t: v.t }))
+            // Les lignes déjà enregistrées perdent aussi le numéro recopié par le modèle.
+            .map(v => ({ i: 0 | v.i, t: unnum(v.t) }))
             .slice(-24)
         : [],
       relations: rel,

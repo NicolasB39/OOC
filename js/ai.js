@@ -1,5 +1,5 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
-import { clip, mergeMem, mergeRel, splitSummary } from './memory.js';
+import { clip, mergeMem, mergeRel, splitSummary, unnum } from './memory.js';
 import { hintOf, hit429, note, resetDur, wait } from './rate.js';
 import { cacheOf, record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
@@ -432,7 +432,7 @@ const addLines = (s, ln, n) => {
   if (ln.length)
     s.mem.lines = [
       ...(s.mem.lines || []),
-      ...ln.map((t, k) => ({ i: ln.length == n ? s.mem.upto + k : -1, t }))
+      ...ln.map((t, k) => ({ i: ln.length == n ? s.mem.upto + k : -1, t: unnum(t) }))
     ].slice(-LINES_MAX);
 };
 const bullets = t =>

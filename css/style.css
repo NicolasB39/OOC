@@ -799,6 +799,10 @@ hr {
   gap: 6px;
   padding-top: 2px;
 }
+/* Sous la dernière réponse, les choix s'y rattachent : 8 px au lieu de l'écart entre messages. */
+#mfoot > .ch {
+  margin-top: -14px;
+}
 .ch .chr {
   display: flex;
   align-items: stretch;

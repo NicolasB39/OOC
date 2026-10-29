@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { clean } from '../js/store.js';
 import { buildInfo } from '../js/prompt.js';
-import { cutLines, mergeRel, splitSummary } from '../js/memory.js';
+import { cutLines, mergeRel, splitSummary, unnum } from '../js/memory.js';
 import { protocol } from '../js/protocol.js';
 import { settled } from '../js/format.js';
 import { S, ctx } from '../js/state.js';
@@ -65,6 +65,13 @@ test('cutLines retire les lignes des messages supprimés', () => {
   const l = [{ i: -1, t: 'a' }, { i: 3, t: 'b' }, { i: 8, t: 'c' }];
   assert.deepEqual(cutLines(l, 5).map(x => x.t), ['a', 'b']);
   assert.deepEqual(cutLines(undefined, 5), []);
+});
+
+test('unnum retire le numéro de message recopié en tête de ligne', () => {
+  for (const t of ['3. Bob arrive.', '3) Bob arrive.', '3 : Bob arrive.', '**3.** Bob arrive.', ' 10. Bob arrive.'])
+    assert.equal(unnum(t), 'Bob arrive.', t);
+  for (const t of ['3 gardes arrivent.', '12:30, Bob arrive.', '3.5 litres de vin.', 'Bob arrive.'])
+    assert.equal(unnum(t), t, t);
 });
 
 test('sans consigne de style, les choix ne demandent pas d’astérisques', () => {

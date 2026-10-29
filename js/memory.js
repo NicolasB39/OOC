@@ -94,6 +94,9 @@ export function splitSummary(t) {
 }
 
 export const cutLines = (lines, i) => (lines || []).filter(l => l.i < i);
+// Les messages partent numérotés vers la mémoire (« 1. Joueur : … ») et le modèle recopie souvent ce numéro en
+// tête de ligne : « 3. », « 3) », « 3 : », éventuellement en gras. « 12:30 » ou « 3 gardes » restent intacts.
+export const unnum = t => t.replace(/^[\s*_]*\d{1,2}\s*[.):][\s*_]+/, '').trim();
 export const clip = (t, max) => {
   t = String(t || '').trim();
   if (t.length <= max) return t;
