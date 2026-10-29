@@ -1,5 +1,5 @@
 import { IMG, app, ctx } from './state.js';
-import { decorFor, scene } from './scene.js';
+import { KNEES, decorFor, scene } from './scene.js';
 import { el, ikey } from './util.js';
 
 export const CHX = /<choix>[\s\S]*?(?:<\/choix>|$)/gi;
@@ -65,9 +65,12 @@ const imgFor = c => {
   const m = ctx.images.filter(i => ikey(i.code).endsWith('_' + k));
   return m.length == 1 ? m[0].url : '';
 };
+// Cadrage des personnages détourés : aux genoux par défaut, en pied si le scénario le demande.
 const imgNode = (c, d) => {
   const u = imgFor(c);
-  return u ? scene(u, d ?? decorFor(''), { cls: 'pic' }) : el('span', { class: 'miss', text: 'image introuvable : ' + c.trim() });
+  return u
+    ? scene(u, d ?? decorFor(''), app.cur?.fullBody ? { cls: 'pic' } : { cls: 'pic kn', ...KNEES })
+    : el('span', { class: 'miss', text: 'image introuvable : ' + c.trim() });
 };
 // Typographie française, à l'affichage seulement (le texte enregistré et envoyé ne change pas) : apostrophes
 // courbes, guillemets « », tirets de dialogue, points de suspension, espaces insécables avant ; ! ? : et dans

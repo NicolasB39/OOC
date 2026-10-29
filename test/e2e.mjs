@@ -593,7 +593,8 @@ try {
           full: Math.abs(r.width - document.querySelector('#msgs').clientWidth) < 2,
           hfrac: (i.height * 0.85) / r.height,
           cx: (i.left + i.width / 2 - r.left) / r.width,
-          feet: i.top + i.height * 0.95 - r.bottom
+          feet: i.top + i.height * 0.95 - r.bottom,
+          head: (i.top + i.height * 0.1 - r.top) / r.height
         };
       });
     };
@@ -619,9 +620,20 @@ try {
     assert.ok(Math.abs(g.ratio - 16 / 9) < 0.05, 'format de la scène : ' + g.ratio);
     assert.ok(g.full, 'scène pleine largeur');
     assert.equal(await p3.textContent('#msgs .m[data-i="1"] .scn .scap'), 'Auberge du Pont');
-    assert.ok(Math.abs(g.hfrac - 0.9) < 0.03, 'hauteur du personnage : ' + g.hfrac);
+    // Cadrage aux genoux par défaut : silhouette à 130 % de la hauteur, haut de la silhouette à 3 %.
+    assert.ok(Math.abs(g.hfrac - 1.3) < 0.03, 'hauteur du personnage : ' + g.hfrac);
+    assert.ok(Math.abs(g.head - 0.03) < 0.01, 'haut de la silhouette à ' + g.head);
     assert.ok(Math.abs(g.cx - 2 / 3) < 0.02, 'centre à ' + g.cx);
-    assert.ok(Math.abs(g.feet) < 2, 'pieds à ' + g.feet + ' px du bas');
+    // Option du scénario : en pied, 90 % de la hauteur, pieds au bas de l'image.
+    await p3.click('#mo');
+    await p3.click('#sc');
+    await p3.waitForSelector('#ds[open]');
+    await p3.check('#sfb');
+    await p3.click('#dss');
+    await p3.waitForSelector('#ds', { state: 'hidden' });
+    g = await last('cut');
+    assert.ok(Math.abs(g.hfrac - 0.9) < 0.03, 'en pied, hauteur du personnage : ' + g.hfrac);
+    assert.ok(Math.abs(g.feet) < 2, 'en pied, pieds à ' + g.feet + ' px du bas');
 
     await say('Qui est là ?', 'Bob arrive.\n\n{{img::bob_bob}}');
     g = await last('flat');
@@ -638,6 +650,14 @@ try {
       'lettrine au changement de lieu, pas à chaque réponse'
     );
     assert.deepEqual(await p3.locator('#msgs .scene').allTextContents(), ['Auberge du Pont', 'Volcan'], 'intertitres de lieu');
+    // Sommaire par scènes : une entrée par lieu, la dernière en cours ; toucher une scène y mène.
+    await p3.click('#mo');
+    await p3.click('#msm');
+    await p3.waitForSelector('#dsm[open]');
+    assert.deepEqual(await p3.locator('#sml .sch .sct').allTextContents(), ['1Auberge du Pont', '2Volcan']);
+    assert.match(await p3.textContent('#sml .scg.cur .scm'), /1 tour · en cours/);
+    await p3.locator('#sml .sch').first().click();
+    await p3.waitForSelector('#dsm', { state: 'hidden' });
     assert.equal(
       await p3.evaluate(() => document.querySelector('#msgs .scene + .m')?.dataset.i),
       '0',

@@ -1,7 +1,49 @@
 import { app, ctx } from './state.js';
-import { el, hue, nz } from './util.js';
+import { el, hue, nz, plain } from './util.js';
 
 export const lieuOf = st => (st || []).find(([k]) => /^(lieu|endroit|localisation|position)/.test(nz(k)))?.[1] || '';
+// Scènes du récit, dans l'ordre : la première réponse en ouvre une, puis chaque réponse dont le lieu de l'état
+// change. at : cette réponse (lettrine) ; from / to : les messages de la scène, la première partant du début ;
+// lieu : le premier lieu connu de la scène (vide si l'état n'en donne pas).
+export const scenesOf = ms => {
+  const out = [];
+  let cur = '';
+  ms.forEach((m, i) => {
+    if (m.role != 'assistant') return;
+    const v = lieuOf(m.state),
+      l = nz(v);
+    if (!out.length || (l && cur && l != cur)) out.push({ at: i, from: out.length ? i : 0, lieu: v });
+    else if (v && !out.at(-1).lieu) out.at(-1).lieu = v;
+    if (l) cur = l;
+  });
+  out.forEach((s, k) => (s.to = k + 1 < out.length ? out[k + 1].from - 1 : ms.length - 1));
+  return out;
+};
+// Première phrase d'un message, en texte simple, pour l'aperçu d'une scène.
+const opening = (t, nm) => {
+  const p = plain(t, nm)
+    .replace(/[*_>#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const m = p.match(/^.{20,160}?[.!?…»](?=\s|$)/);
+  return m ? m[0] : p.length > 150 ? p.slice(0, 150).replace(/\s+\S*$/, '') + '…' : p;
+};
+// Sommaire par scènes : null si aucune scène n'a de lieu (le Sommaire garde alors la liste des lignes).
+// lines : les lignes récentes de la mémoire ({ i, t }), rangées dans la scène du message qu'elles résument.
+export const tocOf = (ms, lines = [], nm = '') => {
+  const S = scenesOf(ms);
+  if (!S.some(s => s.lieu)) return null;
+  return S.map((s, k) => ({
+    k,
+    lieu: s.lieu,
+    from: s.from,
+    // Tours : les réponses du récit (une scène commence à la réponse qui change de lieu).
+    turns: ms.slice(s.from, s.to + 1).filter(m => m.role == 'assistant').length,
+    preview: opening(ms[s.at].content, nm),
+    lines: lines.filter(x => x.i >= s.from && x.i <= s.to),
+    cur: k == S.length - 1
+  }));
+};
 
 export const decorFor = (text, D = ctx.decors) => {
   const t = nz(text || '');
@@ -39,6 +81,9 @@ export const decorNow = (ms, extra = '') => {
 };
 
 export const SA = 16 / 9;
+// Cadrage aux genoux, comme dans un roman visuel : le haut de la silhouette à 3 % du haut de la scène, et
+// environ les trois quarts de sa hauteur visibles. Les pieds sortent de l'image, qui se fond par le bas.
+export const KNEES = { fill: 1.3, top: 0.03 };
 export const place = (a, { x = 2 / 3, fill = 0.9, top = null, sa = SA } = {}) => {
   const [bx0, bx1, by0, by1] = a.b,
     hp = fill / (by1 - by0),

@@ -61,6 +61,7 @@ export const clean = x => {
     noChoices: !!x.noChoices,
     noStyle: !!x.noStyle,
     noPre: !!x.noPre,
+    fullBody: !!x.fullBody,
     cover: typeof x.cover == 'string' && x.cover.startsWith('data:') ? x.cover : '',
     accent: typeof x.accent == 'string' && /^#[0-9a-f]{6}$/i.test(x.accent) ? x.accent.toLowerCase() : '',
     maxTok: n(x.maxTok),

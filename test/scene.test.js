@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SA, decorFor, decorNow, decorsOf, lieuOf, place } from '../js/scene.js';
+import { KNEES, SA, decorFor, decorNow, decorsOf, lieuOf, place } from '../js/scene.js';
 import { ctx } from '../js/state.js';
 
 const re = k => new RegExp('(^|[^a-z0-9])' + k + '(?![a-z0-9])');
@@ -67,6 +67,16 @@ test('place : un personnage large est décalé pour rester entier', () => {
   assert.ok(p.left + 0.2 * p.width >= 2 - 1e-9);
   const c = place({ r: 1, b: [0.2, 0.9, 0, 1] }, { x: 0.5, top: 0.06, fill: 1.9, sa: 1 });
   assert.ok('top' in c && !('bottom' in c));
+});
+
+test('place aux genoux : haut de la silhouette à 3 %, trois quarts visibles, toujours aux 2/3', () => {
+  const a = { r: 0.5, b: [0.4, 0.6, 0.1, 0.95] },
+    p = place(a, KNEES),
+    hp = KNEES.fill / 0.85;
+  assert.ok(Math.abs(p.top + 0.1 * hp * 100 - 3) < 1e-9, 'haut de la silhouette : ' + (p.top + 0.1 * hp * 100));
+  const seen = (1 - KNEES.top) / KNEES.fill;
+  assert.ok(seen > 0.7 && seen < 0.8, 'part visible : ' + seen);
+  assert.ok(Math.abs(p.left + 0.5 * p.width - 200 / 3) < 1e-9);
 });
 
 test('la scène est un plan 16/9, le personnage y fait 90 % de la hauteur', () => {

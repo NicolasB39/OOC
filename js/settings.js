@@ -2,11 +2,13 @@ import { authH, effortOk, memModel } from './ai.js';
 import { on } from './bus.js';
 import { jump, render, tk } from './chat.js';
 import { money, priceOf } from './cost.js';
+import { fr } from './format.js';
 import { draw, showList } from './list.js';
 import { extrasOf, statOn } from './prompt.js';
 import { DEFAULT_FIELDS, conflicts, modelOf } from './protocol.js';
 import { fillLec, setReading } from './read.js';
 import { reset as rlReset } from './rate.js';
+import { tocOf } from './scene.js';
 import { TERR, coverOf, getTree, loadCtx } from './scenarios.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { clean, put, save, saveSet } from './store.js';
@@ -138,6 +140,7 @@ export function openSc() {
   $('#sld').value = app.cur.loreDepth || '';
   $('#slm').value = app.cur.loreMax || '';
   $('#sch').checked = !app.cur.noChoices;
+  $('#sfb').checked = !!app.cur.fullBody;
   $('#sgs').checked = !app.cur.noStyle;
   $('#scp').value = app.cur.choicePrompt || '';
   $('#sst').checked = statOn(app.cur);
@@ -256,6 +259,7 @@ $('#dss').onclick = async () => {
   app.cur.loreDepth = +$('#sld').value || 0;
   app.cur.loreMax = +$('#slm').value || 0;
   app.cur.noChoices = !$('#sch').checked;
+  app.cur.fullBody = $('#sfb').checked;
   app.cur.noStyle = !$('#sgs').checked;
   app.cur.noPre = $('#spre').checked;
   app.cur.choicePrompt = $('#scp').value.trim();
@@ -477,20 +481,51 @@ $('#sri').oninput = () => {
   srT = setTimeout(srRun, 180);
 };
 $('#dsrc').onclick = () => $('#dsr').close();
+// Sommaire : les scènes du récit (lieu, tours, première phrase) avec, sous chacune, les lignes de la mémoire
+// qui la résument. Sans lieu dans l'état, la liste des lignes récentes, comme avant.
 $('#msm').onclick = () => {
   $('#dmn').close();
-  const L = app.cur.mem.lines || [];
-  $('#sml').replaceChildren(
-    ...(L.length
-      ? L.map(x =>
-          hit(x.i, 'assistant', x.t, () => {
-            $('#dsm').close();
-            if (x.i >= 0) jump(x.i);
-          })
+  const L = app.cur.mem.lines || [],
+    T = tocOf(app.cur.messages, L, app.cur.pname?.trim() || ''),
+    go = i => () => {
+      $('#dsm').close();
+      if (i >= 0) jump(i);
+    },
+    line = x => el('button', { class: 'sli', onclick: go(x.i) }, fr(x.t));
+  $('#smn').textContent = T
+    ? 'Une entrée par lieu, dans l’ordre du récit. Touchez une scène ou une ligne pour y aller.'
+    : 'Une ligne par message déjà résumé. Touchez pour y aller. Avec un champ « Lieu » dans le panneau d’état, le sommaire se range par scènes.';
+  if (T) {
+    const loose = L.filter(x => x.i < 0);
+    $('#sml').replaceChildren(
+      ...T.map(s =>
+        el(
+          'div',
+          { class: 'scg' + (s.cur ? ' cur' : '') },
+          el(
+            'button',
+            { class: 'sch', onclick: go(s.from) },
+            el('span', { class: 'sct' }, el('b', { text: s.k + 1 }), fr(s.lieu || (s.k ? 'Scène sans lieu' : 'Début'))),
+            el('span', {
+              class: 'scm',
+              text: s.turns + (s.turns > 1 ? ' tours' : ' tour') + (s.cur ? ' · en cours' : '')
+            }),
+            s.preview && el('span', { class: 'scx', text: fr(s.preview) })
+          ),
+          s.lines.length && el('div', { class: 'scl' }, s.lines.map(line))
         )
-      : [el('p', { class: 'note', text: 'Le sommaire se remplit à mesure que la mémoire résume les messages.' })])
-  );
+      ),
+      loose.length &&
+        el('div', { class: 'scg' }, el('span', { class: 'sct' }, 'Autres lignes'), el('div', { class: 'scl' }, loose.map(line)))
+    );
+  } else
+    $('#sml').replaceChildren(
+      ...(L.length
+        ? L.map(x => hit(x.i, 'assistant', x.t, go(x.i)))
+        : [el('p', { class: 'note', text: 'Le sommaire se remplit à mesure que la mémoire résume les messages.' })])
+    );
   $('#dsm').showModal();
+  $('#sml .scg.cur')?.scrollIntoView({ block: 'nearest' });
 };
 $('#dsmc').onclick = () => $('#dsm').close();
 

@@ -7,7 +7,7 @@ import { body, fr, keepImgs, line, paintLive, parseIntro, raw, split } from './f
 import { showList } from './list.js';
 import { cutLines } from './memory.js';
 import { buildInfo, inScene, statOn } from './prompt.js';
-import { decorNow, decorsOf, lieuOf, zoomScene } from './scene.js';
+import { decorNow, decorsOf, lieuOf, scenesOf, zoomScene } from './scene.js';
 import { conflicts, modelOf } from './protocol.js';
 import { last as rlLast, status, wait } from './rate.js';
 import {
@@ -24,7 +24,7 @@ import {
 import { TERR, coverOf, loadCtx } from './scenarios.js';
 import { S, app, ctx } from './state.js';
 import { forkOf, getOne, save, saveSet } from './store.js';
-import { $, LS, accentVars, dlg, el, err, fit, ic, nz, plain, strip, toast, uid, vt } from './util.js';
+import { $, LS, accentVars, dlg, el, err, fit, ic, plain, strip, toast, uid, vt } from './util.js';
 
 export async function openScenario(id) {
   stopSpeech();
@@ -295,32 +295,16 @@ const stCard = (i, m) => {
     )
   );
 };
-// Débuts de scène, ornés d'une lettrine et d'un intertitre : la première réponse du récit, puis chaque
-// réponse dont le lieu de l'état change. LIEU[i] : le lieu connu à la fin du message i, pour l'intertitre et
-// la légende des images.
+// Débuts de scène (scenesOf, scene.js), ornés d'une lettrine et d'un intertitre. LIEU[i] : le lieu connu à la
+// fin du message i, pour la légende des images.
 let LT = new Set(),
-  LIEU = [];
+  LIEU = [],
+  SC = [];
 const sceneStarts = ms => {
-  const out = new Set(),
-    at = [];
-  let lieu = '',
-    shown = '',
-    first = true;
-  ms.forEach((m, i) => {
-    if (m.role == 'assistant') {
-      const v = lieuOf(m.state),
-        l = nz(v);
-      if (first || (l && lieu && l != lieu)) out.add(i);
-      first = false;
-      if (l) {
-        lieu = l;
-        shown = v;
-      }
-    }
-    at.push(shown);
-  });
-  LIEU = at;
-  return out;
+  let shown = '';
+  SC = scenesOf(ms);
+  LIEU = ms.map(m => (shown = (m.role == 'assistant' && lieuOf(m.state)) || shown));
+  return new Set(SC.map(s => s.at));
 };
 const msgNode = (i, m, last, d = '') => {
   const t = LT.has(i),
@@ -336,7 +320,7 @@ const msgNode = (i, m, last, d = '') => {
     stCard(i, m),
     act(i, m, last)
   );
-  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state), d, t, p };
+  n._k = { c: m.content, a: m.ai, l: last, n: m.alts?.length || 0, s: sig(m.state), d, t, p, f: !!app.cur.fullBody };
   return n;
 };
 const same = (a, b) =>
@@ -348,7 +332,8 @@ const same = (a, b) =>
   a.s === b.s &&
   a.d === b.d &&
   a.t === b.t &&
-  a.p === b.p;
+  a.p === b.p &&
+  a.f === b.f;
 const dayOf = t => new Date(t).toDateString();
 const cut6h = (t, p) => dayOf(t) !== dayOf(p) || t - p > 216e5;
 const dayLab = (t, p) => {
@@ -411,7 +396,8 @@ export function render(sc) {
         s: sig(ms[i].state),
         d: D[i],
         t: LT.has(i),
-        p: ms[i].role == 'assistant' ? LIEU[i] || '' : ''
+        p: ms[i].role == 'assistant' ? LIEU[i] || '' : '',
+        f: !!app.cur.fullBody
       };
     if (!same(e._k, k)) {
       const x = msgNode(i, ms[i], k.l, D[i]);
@@ -445,12 +431,11 @@ export function render(sc) {
   }
   // Intertitre de lieu : avant la réponse qui change de lieu ; la première scène s'annonce en tête du récit.
   for (const e of w.querySelectorAll(':scope > .scene')) e.remove();
-  let first = true;
-  for (const i of LT) {
-    const at = first ? 0 : i;
-    first = false;
-    if (at < st || !LIEU[i]) continue;
-    w.querySelector(':scope > .m[data-i="' + at + '"]')?.before(el('div', { class: 'scene', text: fr(LIEU[i]) }));
+  for (const s of SC) {
+    if (s.from < st || !s.lieu) continue;
+    w.querySelector(':scope > .m[data-i="' + (s.from ? s.at : 0) + '"]')?.before(
+      el('div', { class: 'scene', text: fr(s.lieu) })
+    );
   }
   const lm = ms.at(-1),
     cs = lm?.role == 'assistant' && !app.cur.noChoices ? lm.choices || [] : [];

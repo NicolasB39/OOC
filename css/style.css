@@ -1137,11 +1137,18 @@ hr {
   -webkit-mask-image: linear-gradient(to bottom, #000 86%, transparent);
   mask-image: linear-gradient(to bottom, #000 86%, transparent);
 }
+/* Cadrage aux genoux : le bas se fond plus tôt, les jambes s'effacent au lieu d'être coupées net. */
+.m .b .scn.kn.cut:not(.av):not(.tile) {
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+/* Légende en haut à gauche : en bas, elle disparaîtrait dans le fondu. */
 .scap {
   position: absolute;
   z-index: 1;
   left: 16px;
-  bottom: 10px;
+  top: 10px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
   color: var(--mu2);
   font: italic 400 13px/1.2 var(--ser);
 }
@@ -1855,6 +1862,67 @@ dialog input[type='range'] {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+/* Sommaire par scènes : en-tête de scène, puis ses lignes de mémoire. */
+.scg {
+  display: grid;
+  gap: 4px;
+}
+.scg + .scg {
+  margin-top: 6px;
+}
+.sch {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--s2);
+  text-align: left;
+}
+.scg.cur .sch {
+  border-color: var(--acb);
+}
+.sct {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font: italic 400 16px/1.3 var(--ser);
+}
+.sct b {
+  color: var(--ac);
+  font: 700 12px/1 var(--sans);
+  font-style: normal;
+}
+.scm {
+  color: var(--mu);
+  font-size: 12px;
+}
+.scg.cur .scm {
+  color: var(--ac);
+}
+.scx {
+  color: var(--mu2);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.scl {
+  display: grid;
+  margin-left: 14px;
+  padding-left: 10px;
+  border-left: 1px solid var(--bd);
+}
+.sli {
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--mu2);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+}
+.sli:hover {
+  background: var(--s2);
+  color: var(--fg);
 }
 .cvr {
   display: flex;
