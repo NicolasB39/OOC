@@ -184,14 +184,18 @@ export async function ask(old, cont, hint) {
     const fin = lv && !msg && m.querySelector(':scope > .m[data-i="' + (s.messages.length - 1) + '"]');
     if (fin) keepImgs(lv, fin);
     lv?.remove();
+    const sc = fin?.previousElementSibling,
+      nsc = !!sc?.matches('.scene') && !had;
     if (!S.follow) {
       m.scrollTop = y;
       // Lieu connu seulement à la fin : l'intertitre arrive en fondu au-dessus de la réponse, et le défilement
-      // compense sa hauteur pour que le texte en cours de lecture ne bouge pas.
-      if (fin && top < m.getBoundingClientRect().bottom) m.scrollTop += fin.getBoundingClientRect().top - top;
+      // compense sa hauteur pour que le texte en cours de lecture ne bouge pas. Sa hauteur seule : le message
+      // du joueur, qui n'est plus le dernier, raccourcit aussi (barre d'actions rangée à côté de la bulle), et
+      // caler la réponse sur sa place d'avant ferait descendre tout le fil d'autant.
+      if (nsc && top < m.getBoundingClientRect().bottom)
+        m.scrollTop += fin.getBoundingClientRect().top - sc.getBoundingClientRect().top;
     }
-    const sc = fin?.previousElementSibling;
-    if (sc?.matches('.scene') && !had) sc.classList.add('in');
+    if (nsc) sc.classList.add('in');
     if (!msg && unseen(tail())) newShow('Nouveau message');
     else $('#newm').hidden = true;
     if (!msg && !cont) autoRead(s.messages.length - 1);
