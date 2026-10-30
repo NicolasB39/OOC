@@ -33,7 +33,10 @@ export async function ask(old, cont, hint) {
   const s = app.cur,
     p = S.provider,
     k = S.keys[p],
-    again = cont ? () => ask(null, true) : old ? () => regen(hint) : () => ask(null, false, hint);
+    again = cont ? () => ask(null, true) : old ? () => regen(hint) : () => ask(null, false, hint),
+    // Réessayer n'a de sens que si le fil finit encore comme au départ : tour du joueur à envoyer, ou
+    // réponse à continuer (le joueur a pu supprimer ou modifier des messages entre-temps).
+    still = cont ? () => s.messages.at(-1)?.role == 'assistant' : old ? () => true : () => s.messages.at(-1)?.role == 'user';
   if (!k) {
     if (old) s.messages.push(old);
     render();
@@ -118,6 +121,7 @@ export async function ask(old, cont, hint) {
       }
     });
     app.stream = { mode: S.ns?.[p] ? 'off' : r.mode, chunks: r.chunks, ms: r.ms };
+    app.pt = r.pt ? { id: s.id, n: r.pt } : null;
     const lt = lastTurn();
     app.turn = lt && { id: s.id, cost: costOf(lt.e, priceOf(lt.key, S.prices)) };
     const out = r.t;
@@ -151,6 +155,8 @@ export async function ask(old, cont, hint) {
   } catch (e) {
     msg = e.message;
     if (old) s.messages.push(old);
+    // Un résumé fini pendant le tour n'a rien enregistré (persist, ai.js) : on le fait ici.
+    await save(s).catch(() => {});
   }
   clearInterval(tick);
   cancelAnimationFrame(raf);
@@ -170,7 +176,7 @@ export async function ask(old, cont, hint) {
       msg && {
         label: 'Réessayer',
         fn: () => {
-          if (!app.busy && app.cur === s) again();
+          if (!app.busy && app.cur === s && still()) again();
         }
       }
     );
@@ -245,17 +251,23 @@ export async function regen(hint) {
 $('#send').onclick = async () => {
   const t = $('#inp').value.trim();
   if (!t || app.busy) return;
-  stopSpeech();
-  $('#inp').value = '';
-  fit();
-  LS.del('draft:' + app.cur.id);
-  const pv = app.cur.messages.at(-1);
-  if (pv?.alts) {
-    delete pv.alts;
-    delete pv.ai;
+  // Verrou posé avant l'enregistrement : un double toucher pendant l'attente enverrait deux fois le tour.
+  app.busy = true;
+  try {
+    stopSpeech();
+    $('#inp').value = '';
+    fit();
+    LS.del('draft:' + app.cur.id);
+    const pv = app.cur.messages.at(-1);
+    if (pv?.alts) {
+      delete pv.alts;
+      delete pv.ai;
+    }
+    app.cur.messages.push({ role: 'user', content: t, t: Date.now() });
+    await save();
+  } finally {
+    app.busy = false;
   }
-  app.cur.messages.push({ role: 'user', content: t, t: Date.now() });
-  await save();
   render(true);
   ask();
 };

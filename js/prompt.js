@@ -36,7 +36,9 @@ export const inScene = ms => {
   const t = textOf(ms);
   return (ctx.chars || []).filter(c => (c.keys || []).some(r => r.test(t)));
 };
-const small = C => C.reduce((a, c) => a + estTok(c.text), 0) <= CAST_FREE;
+// Rapport fixe, pas S.cpt : recalibré à chaque réponse, il ferait basculer les fiches d'un tour à l'autre entre
+// la partie fixe du prompt et la fin du dernier message, et réécrire tout le cache de Claude.
+const small = C => C.reduce((a, c) => a + Math.ceil(c.text.length / 3.4) + 4, 0) <= CAST_FREE;
 const charsPerm = () => {
   const C = (ctx.chars || []).filter(c => c.text);
   return small(C) ? C : C.filter(c => c.always);

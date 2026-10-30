@@ -4,7 +4,7 @@ import { hintOf, hit429, note, resetDur, wait } from './rate.js';
 import { cacheOf, record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
 import { getOne, save } from './store.js';
-import { err, strip } from './util.js';
+import { $, err, strip } from './util.js';
 
 const ANT = p => PROVIDERS[p]?.fmt == 'anthropic';
 export const sumGate = (u, big, go) => (big ? u >= 80 || (go && u > 40) : u >= 40);
@@ -130,8 +130,8 @@ const track = (ms, out, u, key, primary) => {
       const [cr, cw] = cacheOf(u),
         h1 = ANT(key.split('/')[0]) && S.c1h,
         ca = [cr, h1 ? 0 : cw, h1 ? cw : 0];
-      if (primary) TURN = { key, e: [x[0], x[1], 1, 0, ...ca] };
-      return record(key, x[0], x[1], false, Date.now(), ca);
+      if (primary) TURN = { key, e: [x[0], x[1], 1, u.est ? 1 : 0, ...ca] };
+      return record(key, x[0], x[1], !!u.est, Date.now(), ca);
     }
     const p = ms.reduce((a, m) => a + estTok(m.content) + 4, 0),
       c = estTok(out);
@@ -145,7 +145,6 @@ const calib = (ms, u) => {
   if (!pt || pt <= ov) return;
   const r = ms.reduce((a, m) => a + m.content.length, 0) / (pt - ov);
   if (r > 2 && r < 6) S.cpt = +((S.cpt || 3.4) * 0.75 + r * 0.25).toFixed(3);
-  app.pt = pt;
 };
 export async function chat(
   ms,
@@ -219,7 +218,8 @@ export async function chat(
           part = false,
           n = 0,
           us = null,
-          ex = '';
+          ex = '',
+          et = '';
         const feed = l => {
           if (!l.startsWith('data:')) return;
           const d = l.slice(5).trim();
@@ -239,6 +239,7 @@ export async function chat(
               } else if (o.type == 'message_stop') fin = true;
               else if (o.type == 'error') {
                 ex = o.error?.message || 'erreur du fournisseur';
+                et = o.error?.type || '';
                 fin = true;
               }
             } catch (e) {}
@@ -273,16 +274,33 @@ export async function chat(
           }
           if (!fin && buf) feed(buf);
           rd.cancel().catch(() => {});
-          if (ex && !tt) throw new Error(ex);
-          if (ex) part = true;
+          if (ex && !tt) {
+            // Surcharge annoncée dans le flux avant tout texte (Claude répond 200 puis envoie l'erreur) :
+            // rien n'a été écrit, on retente comme pour un 529.
+            if (/^(overloaded|api)_error$/.test(et) && a < TRIES) {
+              await retry(backoff(a), 'busy');
+              continue;
+            }
+            throw new Error(ex);
+          }
+          // Flux fermé sans fin annoncée (ni message_stop, ni [DONE], ni raison d'arrêt) : réponse incomplète.
+          if (ex || (!fin && !fr)) part = true;
         } catch (e) {
-          if (!(tt && (ac.signal.reason == 'timeout' || ac.signal.reason == 'stop'))) throw e;
+          // Coupure après du texte (réseau, délai, Arrêter) : le texte reçu est gardé.
+          if (!tt) throw e;
           part = true;
         }
         const out = strip(tt);
         if (!out)
           throw new Error('réponse vide (modèle de raisonnement ? augmentez la longueur maximale)');
         us = normU(us);
+        // Réponse arrêtée en route : Claude n'a donné que l'usage de message_start (environ 1 jeton de
+        // sortie). La sortie est estimée sur le texte reçu, et le compte marqué comme estimé.
+        if (part && us) {
+          const c = estTok(out);
+          if ((us.completion_tokens || 0) < c)
+            us = { ...us, completion_tokens: c, total_tokens: (us.prompt_tokens || 0) + c, est: true };
+        }
         if (primary) calib(ms, us);
         note(r.headers, us, mdl, primary);
         track(ms, out, us, p + '/' + mdl, primary);
@@ -292,7 +310,8 @@ export async function chat(
           mode: 'stream',
           chunks: n,
           ms: Date.now() - t0,
-          partial: part
+          partial: part,
+          pt: us?.prompt_tokens || 0
         };
       }
       const j = await r.json().catch(() => ({}));
@@ -344,7 +363,8 @@ export async function chat(
         cut: A ? j.stop_reason == 'max_tokens' : ch?.finish_reason == 'length',
         mode: 'block',
         chunks: 1,
-        ms: Date.now() - t0
+        ms: Date.now() - t0,
+        pt: u?.prompt_tokens || 0
       };
     }
   } catch (e) {
@@ -395,13 +415,22 @@ const absorb = (s, x) => {
   if (Object.keys(x.relations).length)
     s.mem.relations = mergeRel(s.mem.relations, x.relations, known());
 };
+// Histoire ouverte : on l'enregistre telle quelle, une copie relue en base pourrait dater d'avant la
+// réponse que l'envoi est en train d'enregistrer. Pendant un tour, rien : la mémoire est sur le même objet
+// et la fin du tour l'enregistrera (Régénérer a retiré la réponse en mémoire seulement, l'enregistrer ici
+// la perdrait). Histoire fermée : seulement si la base n'a pas changé depuis (synchronisation).
 const persist = async s => {
+  if (app.cur?.id == s.id) {
+    app.cur.mem = s.mem;
+    if (!app.busy) await save(app.cur);
+    return;
+  }
   const f = await getOne(s.id);
-  if (f) {
+  if (f && f.updated === s.updated) {
     f.mem = s.mem;
     await save(f);
+    s.updated = f.updated;
   }
-  if (app.cur && app.cur.id == s.id && app.cur !== s) app.cur.mem = s.mem;
 };
 export const asJson = t => {
   const b = t.lastIndexOf('}');
@@ -439,10 +468,30 @@ const addLines = (s, ln, n) => {
       ...ln.map((t, k) => ({ i: ln.length == n ? s.mem.upto + k : -1, t: unnum(t) }))
     ].slice(-LINES_MAX);
 };
+// Instantané d'un lot de n messages à résumer. Pendant l'appel, le joueur peut supprimer ou modifier un
+// message du lot, corriger la mémoire à la main, ou l'histoire être rechargée depuis un autre appareil
+// (cur : l'histoire ouverte) : la fonction rendue dit alors que le résultat ne vaut plus, il est abandonné
+// (nouvel essai au prochain tour).
+export const batchGuard = (s, n) => {
+  const u0 = s.mem.upto,
+    src = s.messages.slice(u0, u0 + n),
+    c0 = src.map(m => m.content),
+    { summary, memories } = s.mem;
+  return cur =>
+    s.mem.upto !== u0 ||
+    s.mem.summary !== summary ||
+    s.mem.memories !== memories ||
+    (cur?.id == s.id && cur !== s) ||
+    src.some((m, k) => s.messages[u0 + k] !== m || m.content !== c0[k]);
+};
 export async function summarize(s) {
   if (!s || SUMS.has(s.id)) return;
   SUMS.add(s.id);
-  let shown = false;
+  // État de la mémoire dans la bande #err : seulement si elle est vide ou porte encore notre message, pour ne
+  // jamais écrire ni effacer celui d'un tour (échec avec Réessayer, réponse coupée, attente de débit).
+  let said = '';
+  const mine = () => app.cur === s && !app.busy && [said, ''].includes($('#err').textContent);
+  const say = t => mine() && err((said = t));
   try {
     const big = ANT(S.provider) && !S.ctxLim;
     let go = false;
@@ -451,10 +500,7 @@ export async function summarize(s) {
       return go || (S.ctxLim && omittedCount(s) >= 6);
     };
     while (need()) {
-      if (app.cur === s && !app.busy) {
-        err('Mise à jour de la mémoire…');
-        shown = true;
-      }
+      say('Mise à jour de la mémoire…');
       const pr = splitSummary(s.mem.summary);
       if (pr.summary && pr.summary !== (s.mem.summary || '').trim()) {
         absorb(s, pr);
@@ -474,6 +520,7 @@ export async function summarize(s) {
         parts.push(x);
         acc += estTok(x);
       }
+      const stale = batchGuard(s, parts.length);
       const useJson = !S.nj?.[S.provider];
       const { t } = await chat(
         [
@@ -501,11 +548,11 @@ export async function summarize(s) {
           json: useJson,
           timeout: 300000,
           onWait: (w, why) => {
-            if (app.cur === s && !app.busy)
-              err(w ? 'Mémoire : ' + waitMsg(w, why) : 'Mise à jour de la mémoire…');
+            if (said) say(w ? 'Mémoire : ' + waitMsg(w, why) : 'Mise à jour de la mémoire…');
           }
         }
       );
+      if (stale(app.cur)) break;
       const j = useJson ? asJson(t) : null;
       if (useJson && !j) {
         S.jf = (S.jf || 0) + 1;
@@ -533,16 +580,15 @@ export async function summarize(s) {
       s.mem.upto += parts.length;
       await persist(s);
     }
-    if (shown && !app.busy) err('');
+    if (said && mine()) err('');
   } catch (e) {
-    if (app.cur === s)
-      err(
-        'Mémoire non mise à jour (' +
-          (/^réponse vide/.test(e.message)
-            ? 'le modèle a raisonné sans donner de réponse : choisissez un modèle sans raisonnement dans « Modèle pour la mémoire »'
-            : e.message) +
-          ') : nouvel essai au prochain tour.'
-      );
+    say(
+      'Mémoire non mise à jour (' +
+        (/^réponse vide/.test(e.message)
+          ? 'le modèle a raisonné sans donner de réponse : choisissez un modèle sans raisonnement dans « Modèle pour la mémoire »'
+          : e.message) +
+        ') : nouvel essai au prochain tour.'
+    );
   } finally {
     SUMS.delete(s.id);
   }

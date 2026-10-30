@@ -1,4 +1,4 @@
-import { costMap, costOf, money, parsePrice, priceOf } from './cost.js';
+import { costMap, costOf, money, parseAmount, parsePrice, priceOf } from './cost.js';
 import { PROVIDERS, S } from './state.js';
 import { saveSet } from './store.js';
 import {
@@ -271,9 +271,15 @@ $('#usk').onclick = async () => {
       ok: 'Enregistrer'
     });
   if (v === null) return;
-  const n = +v.trim().replace(',', '.');
-  S.cap = v.trim() && n > 0 ? n / fx : 0;
-  LS.del('cap:' + monthKey(dayKey()));
+  const n = parseAmount(v);
+  if (n === undefined) {
+    await dlg('Montant illisible', { m: 'Écrivez un nombre, par exemple 15 ou 7,50.', no: 'Fermer' });
+    return;
+  }
+  const cap = n ? n / fx : 0;
+  // Repère du mois (avertissement déjà donné) remis à zéro seulement si le plafond change.
+  if (Math.abs(cap - (S.cap || 0)) > 1e-9) LS.del('cap:' + monthKey(dayKey()));
+  S.cap = cap;
   await saveSet();
   view();
   capCheck();
@@ -305,8 +311,12 @@ $('#usf').onclick = async () => {
     ok: 'Enregistrer'
   });
   if (v === null) return;
-  const n = +v.trim().replace(',', '.');
-  S.fx = v.trim() && n > 0 ? n : 0;
+  const n = parseAmount(v);
+  if (n === undefined) {
+    await dlg('Taux illisible', { m: 'Écrivez un nombre, par exemple 0,92.', no: 'Fermer' });
+    return;
+  }
+  S.fx = n || 0;
   await saveSet();
   view();
 };

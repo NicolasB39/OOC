@@ -62,6 +62,14 @@ export const money = (usd, fx) => {
   );
 };
 
+// « 15 € », « 1 000 », « 0,92 » → nombre ; vide → null ; illisible ou nul → undefined.
+export const parseAmount = t => {
+  const s = String(t ?? '').trim();
+  if (!s) return null;
+  const m = s.replace(/[\s  ]/g, '').match(/^\D*(\d+(?:[.,]\d+)?)\D*$/),
+    n = m ? +m[1].replace(',', '.') : 0;
+  return n > 0 ? n : undefined;
+};
 // « 2 / 10 » ou « 2,5 10 0,25 » → [2, 10] / [2.5, 10, 0.25] ; vide → null ; illisible → undefined.
 export const parsePrice = t => {
   const s = String(t ?? '').trim();

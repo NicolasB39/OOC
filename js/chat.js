@@ -70,17 +70,24 @@ export async function openScenario(id) {
     }
   }
 }
-on('cur:remote', async k => {
+// Rend true si la version distante (de date u) est bien installée. Sinon backup.js garde le conflit pour la
+// synchronisation suivante : pendant une réponse (le texte en cours se figerait, et la fin de l'envoi
+// enregistrerait l'ancienne version par-dessus), ou quand une écriture locale l'a déjà remplacée en base.
+on('cur:remote', async (k, u) => {
   const id = app.cur?.id;
-  if (!id) return;
+  if (!id) return false;
   if (k == 'deleted') {
     toast('Cette histoire a été supprimée sur un autre appareil');
     $('#back').click();
-    return;
+    return true;
   }
-  app.cur = await getOne(id);
+  if (app.busy) return false;
+  const c = await getOne(id);
+  if (!c || c.updated !== u || app.cur?.id != id || app.busy) return false;
+  app.cur = c;
   render();
   toast('Histoire mise à jour depuis un autre appareil');
+  return true;
 });
 async function delFrom(i) {
   stopSpeech();
@@ -90,6 +97,9 @@ async function delFrom(i) {
     removed = c.messages.splice(i);
   c.mem.upto = Math.min(upto, i);
   c.mem.lines = cutLines(lines, i);
+  // Histoire GitHub vidée pour recommencer : à synchroniser quand même (syncable, merge.js).
+  const r0 = c.reset;
+  if (!i && c.remote) c.reset = Date.now();
   await save();
   render(true);
   toast(
@@ -105,6 +115,7 @@ async function delFrom(i) {
         c.messages.push(...removed);
         c.mem.upto = upto;
         c.mem.lines = lines;
+        c.reset = r0;
         await save();
         render(true);
       }
@@ -127,7 +138,13 @@ async function resendFrom(i, t) {
     delete pv.ai;
   }
   Object.assign(c.messages[i], { content: t, t: Date.now() });
-  await save();
+  // Verrou jusqu'à ask() : un second Renvoyer pendant l'enregistrement relancerait un tour en double.
+  app.busy = true;
+  try {
+    await save();
+  } finally {
+    app.busy = false;
+  }
   render(true);
   if (n || i < upto)
     toast(
@@ -268,17 +285,23 @@ $('#des').onclick = async () => {
     resendFrom(app.editI, $('#et').value.trim());
     return;
   }
-  const m = app.cur.messages[app.editI],
-    p = split($('#et').value);
+  const c = app.cur,
+    i = app.editI,
+    m = c.messages[i],
+    p = split($('#et').value),
+    old = m.content !== p.content && i < c.mem.upto;
   m.content = p.content;
   delete m.choices;
   delete m.state;
   if (p.choices) m.choices = p.choices;
   if (p.state) m.state = p.state;
   if (m.alts) m.alts[m.ai] = p;
+  // Message déjà résumé : sa ligne récente racontait l'ancienne version, et le résumé la garde.
+  if (old) c.mem.lines = (c.mem.lines || []).filter(l => l.i !== i);
   await save();
   render();
   $('#de').close();
+  if (old) toast('Message modifié · le résumé de la mémoire garde la trace de l’ancienne version : relisez-le (… › Mémoire)');
 };
 $('#dpic').onclick = () => $('#dpic').close();
 $('#dpic').addEventListener('close', () => {
