@@ -71,13 +71,14 @@ const GH = new Map(),
   ghLog = [];
 let sha = 0;
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
-GH.set('histoires-backup.json', {
-  text: JSON.stringify({
-    v: 1,
-    scenarios: [{ id: 'zz', name: 'Distante', updated: 5000, messages: [{ role: 'user', content: 'Bonjour distant' }] }],
-    tomb: {}
-  }),
+// Sauvegarde existante, faite depuis un autre appareil : une histoire absente de celui-ci.
+GH.set('histoires-backup/index.json', {
+  text: JSON.stringify({ v: 2, saved: 5000, items: [{ id: 'zz', name: 'Distante', updated: 5000, remote: false, n: 1, cv: '' }], tomb: {} }),
   sha: 's0'
+});
+GH.set('histoires-backup/zz.json', {
+  text: JSON.stringify({ id: 'zz', name: 'Distante', updated: 5000, messages: [{ role: 'user', content: 'Bonjour distant' }], cv: '' }),
+  sha: 's00'
 });
 const github = async route => {
   const q = route.request();
@@ -121,43 +122,6 @@ const step = async (name, fn) => {
 };
 
 try {
-  const c1 = await browser.newContext(),
-    p1 = await c1.newPage();
-  watch(p1);
-  await step('migration d’une base de l’ancienne version', async () => {
-    await p1.goto(base + '/__blank');
-    await p1.evaluate(
-      () =>
-        new Promise(res => {
-          const r = indexedDB.open('histoires', 3);
-          r.onupgradeneeded = () => {
-            const d = r.result;
-            d.createObjectStore('scenarios', { keyPath: 'id' });
-            d.createObjectStore('settings', { keyPath: 'key' });
-            d.createObjectStore('meta', { keyPath: 'id' });
-          };
-          r.onsuccess = () => {
-            const d = r.result,
-              t = d.transaction(['scenarios', 'meta'], 'readwrite'),
-              ms = Array.from({ length: 30 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'Ancien message ' + i })),
-              cover = 'data:image/png;base64,iVBORw0KGgo=';
-            t.objectStore('scenarios').put({ id: 'old1', name: 'Histoire ancienne', updated: 1000, system: 'Narrateur.', messages: ms, cover, mem: {} });
-            t.objectStore('meta').put({ id: 'old1', name: 'Histoire ancienne', updated: 1000, cover, n: 30, pv: '' });
-            t.oncomplete = () => {
-              d.close();
-              res();
-            };
-          };
-        })
-    );
-    await p1.goto(base + '/index.html');
-    await p1.getByText('Histoire ancienne').first().click();
-    await p1.waitForSelector('#msgs .m[data-i="29"]');
-    assert.match(await p1.textContent('#msgs .m[data-i="29"]'), /Ancien message 29/);
-    assert.equal(await p1.locator('#msgs .m[data-i]').count(), 30);
-  });
-  await c1.close();
-
   const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
   pg = await ctx.newPage();
   watch(pg);
@@ -436,7 +400,7 @@ try {
   });
 
   const syncDone = () => until(pg, () => !document.querySelector('#sy').classList.contains('spin'));
-  await step('synchronisation : migration de l’ancien fichier unique', async () => {
+  await step('synchronisation : envoi des histoires locales, réception de la distante', async () => {
     await pg.click('#back');
     await pg.waitForSelector('#list:not([hidden])');
     await pg.click('#cfg');
@@ -454,6 +418,7 @@ try {
     const idx = JSON.parse(GH.get('histoires-backup/index.json').text);
     assert.equal(idx.v, 2);
     assert.ok(idx.items.some(x => x.name == 'Test'));
+    assert.ok(idx.items.some(x => x.name == 'Distante'));
     await pg.waitForSelector('text=Distante');
   });
 
@@ -642,7 +607,9 @@ try {
     await p3.waitForSelector('#pe.pea .pav');
     assert.match(await p3.getAttribute('#pe', 'aria-label'), /Personnages en scène : .*Bob/, 'Bob en scène dans l’en-tête');
 
-    await say('Je pars.', 'Un volcan gronde.\n\n{{img::alice_alice}}\n\n<etat>\nLieu: Volcan\n</etat>');
+    // Lieu annoncé en tête de réponse : lu pendant l'affichage, jamais montré.
+    await say('Je pars.', '<lieu>Volcan</lieu>\n\nUn volcan gronde.\n\n{{img::alice_alice}}\n\n<etat>\nLieu: Volcan\n</etat>');
+    assert.doesNotMatch(await p3.textContent('#msgs'), /<\/?lieu/, 'balise <lieu> invisible');
     g = await last('cut');
     assert.match(g.dec, /decors\/defaut\.png$/, 'lieu inconnu : fond par défaut');
     assert.deepEqual(

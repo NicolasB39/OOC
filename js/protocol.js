@@ -7,8 +7,20 @@ export const modelOf = (s = app.cur) =>
   s?.models?.[S.provider] || S.models[S.provider] || PROVIDERS[S.provider]?.m || '';
 export const family = m => (S.proto == 'full' || S.proto == 'lean' ? S.proto : LEAN.test(m || '') ? 'lean' : 'full');
 
+// Le lieu arrive avec l'état, en fin de réponse : trop tard pour l'affichage progressif. Quand il change,
+// une balise <lieu> en tête l'annonce dès les premiers mots (intertitre, lettrine, décor) ; l'état reste en
+// fin de réponse, pour suivre ce qui s'y passe.
+const lieuBlock = (fields, lean) => {
+  const f = fields.match(/(?:^|,\s*)((?:lieu|endroit|localisation|position)[^,]*)/i)?.[1].trim();
+  if (!f) return '';
+  return lean
+    ? '\nQuand le lieu change, ouvre ta réponse par <lieu>nouveau lieu</lieu> seul sur sa ligne (même valeur que le champ ' + f + ') ; sinon, pas de balise.'
+    : '\nQuand le lieu change dans ta réponse, ouvre-la par une ligne <lieu>nouveau lieu</lieu>, seule sur sa ligne et avant la narration, avec exactement la valeur que tu donneras au champ ' +
+        f +
+        ". Sans changement de lieu, n'écris pas cette ligne.";
+};
 const stateBlock = (fields, lean, choices) =>
-  lean
+  (lean
     ? '\n\n# État\nAprès la narration' +
       (choices ? ', avant le bloc <choix>' : '') +
       ", ajoute un bloc <etat> listant « Champ: valeur », un par ligne. Champs : " +
@@ -18,7 +30,7 @@ const stateBlock = (fields, lean, choices) =>
       (choices ? ' et avant le bloc de choix' : '') +
       ", écris l'état courant, une ligne « Champ: valeur » par champ :\n<etat>\nChamp: valeur\n</etat>\nChamps à suivre : " +
       fields +
-      ".\nUne valeur numérique avec un maximum s'écrit 80/100.";
+      ".\nUne valeur numérique avec un maximum s'écrit 80/100.") + lieuBlock(fields, lean);
 
 const choiceBlock = (prompt, lean) =>
   lean

@@ -1,5 +1,5 @@
 import { budgetOf, estTok, omittedCount } from './prompt.js';
-import { clip, mergeMem, mergeRel, splitSummary, unnum } from './memory.js';
+import { SUM_MAX, clip, mergeMem, mergeRel, splitSummary, unnum } from './memory.js';
 import { hintOf, hit429, note, resetDur, wait } from './rate.js';
 import { cacheOf, record, usageOf } from './stats.js';
 import { PROVIDERS, S, app, ctx } from './state.js';
@@ -8,6 +8,11 @@ import { err, strip } from './util.js';
 
 const ANT = p => PROVIDERS[p]?.fmt == 'anthropic';
 export const sumGate = (u, big, go) => (big ? u >= 80 || (go && u > 40) : u >= 40);
+// Messages par appel de résumé. Avec Claude, deux paquets de 20 (au lieu de quatre de 10) : moitié moins
+// d'appels, et le résumé, les relations et les souvenirs ne repartent que deux fois. Pas plus de 20 : le
+// modèle doit rendre une ligne par message, et un compte faux fait perdre le lien des lignes à leur message.
+// om : messages sortis de la fenêtre (limite de tokens), à résumer en priorité.
+export const sumBatch = (big, om = 0) => (om >= 6 ? Math.min(om, 12) : big ? 20 : 10);
 export const authH = (p, k) =>
   ANT(p)
     ? { 'x-api-key': k, 'anthropic-version': ANT_VERSION, 'anthropic-dangerous-direct-browser-access': 'true' }
@@ -377,7 +382,6 @@ const SUMJ =
   'Les tableaux et objets peuvent être vides. Écris en français.\n' +
   "Pour les relations : uniquement les personnages récurrents, jamais les figurants de passage. Reprends EXACTEMENT les noms déjà connus, sans les reformuler ni y ajouter de titre.";
 const SUMS = new Set();
-const SUM_MAX = 1400;
 const LINES_MAX = 24;
 export const sect = (t, n) => {
   const m = t.match(
@@ -435,11 +439,6 @@ const addLines = (s, ln, n) => {
       ...ln.map((t, k) => ({ i: ln.length == n ? s.mem.upto + k : -1, t: unnum(t) }))
     ].slice(-LINES_MAX);
 };
-const bullets = t =>
-  t
-    .split('\n')
-    .map(v => v.replace(/^[\s\-•*]+/, '').trim())
-    .filter(x => x && !/^aucun/i.test(x));
 export async function summarize(s) {
   if (!s || SUMS.has(s.id)) return;
   SUMS.add(s.id);
@@ -462,7 +461,7 @@ export async function summarize(s) {
         s.mem.summary = pr.summary;
       }
       const om = S.ctxLim ? omittedCount(s) : 0,
-        n = Math.min(om >= 6 ? Math.min(om, 12) : 10, s.messages.length - s.mem.upto),
+        n = Math.min(sumBatch(big, om), s.messages.length - s.mem.upto),
         room = S.ctxLim
           ? Math.max(400, budgetOf(s) - estTok(SUMP) - estTok(s.mem.summary || '') - 300)
           : Infinity,
@@ -528,9 +527,9 @@ export async function summarize(s) {
       const x = splitSummary(sum);
       s.mem.summary = clip(x.summary || sum, SUM_MAX);
       absorb(s, x);
-      s.mem.memories = mergeMem(s.mem.memories, bullets(sect(t, 'SOUVENIRS')));
-      s.mem.relations = mergeRel(s.mem.relations, toRel(bullets(sect(t, 'RELATIONS'))), known());
-      addLines(s, bullets(sect(t, 'LIGNES')), parts.length);
+      s.mem.memories = mergeMem(s.mem.memories, strs(sect(t, 'SOUVENIRS')));
+      s.mem.relations = mergeRel(s.mem.relations, toRel(strs(sect(t, 'RELATIONS'))), known());
+      addLines(s, strs(sect(t, 'LIGNES')), parts.length);
       s.mem.upto += parts.length;
       await persist(s);
     }

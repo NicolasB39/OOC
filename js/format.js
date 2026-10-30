@@ -4,6 +4,10 @@ import { el, ikey } from './util.js';
 
 export const CHX = /<choix>[\s\S]*?(?:<\/choix>|$)/gi;
 export const ETX = /<etat>[\s\S]*?(?:<\/etat>|$)/gi;
+// Annonce du lieu en tête de réponse (protocol.js) : lue pendant l'affichage progressif, jamais affichée ni
+// gardée. Pendant l'écriture, une balise encore incomplète en tout début de texte est masquée aussi.
+export const LIX = /<lieu>[\s\S]*?(?:<\/lieu>|$)|^\s*<[a-z]{0,4}$/gi;
+export const lieuTag = t => t.match(/<lieu>([^<\n]{1,80})<\/lieu>/i)?.[1].trim() || '';
 export const parseEtat = t => {
   const m = t.match(/<etat>([\s\S]*?)<\/etat>/i);
   if (!m) return [];
@@ -28,7 +32,7 @@ export const choicesOf = t => {
     : [];
 };
 export const split = raw => {
-  const o = { content: raw.replace(CHX, '').replace(ETX, '').trim() },
+  const o = { content: raw.replace(CHX, '').replace(ETX, '').replace(LIX, '').trim() },
     c = choicesOf(raw),
     s = parseEtat(raw);
   if (c.length) o.choices = c;
@@ -176,6 +180,7 @@ export const body = (t, d) => {
   const out = [];
   t.replace(CHX, '')
     .replace(ETX, '')
+    .replace(LIX, '')
     .replace(/\{\{user\}\}/gi, app.cur?.pname?.trim() || 'Joueur')
     .replace(/\s*\{\{[^}]*$/, '')
     .split(/\{\{img::([^}]*)\}\}/g)

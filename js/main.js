@@ -1,6 +1,5 @@
-import { gis, sync } from './backup.js';
+import { sync } from './backup.js';
 import { showList } from './list.js';
-import { S } from './state.js';
 import { STATS, load as loadUsage, watch } from './stats.js';
 import { loadSet, loadStats, openDB, saveStats } from './store.js';
 import { capCheck } from './statview.js';
@@ -13,7 +12,7 @@ import './nav.js';
 import './settings.js';
 import './backup.js';
 
-const VERSION = '850acebb23';
+const VERSION = '1e717bc1c4';
 const pv = document.querySelector('meta[name="app-version"]')?.content;
 if (pv !== VERSION)
   window.__boot?.warn(
@@ -72,10 +71,7 @@ openDB()
     applyFs();
     return showList();
   })
-  .then(() => {
-    if (S.bk?.p == 'drive') gis().catch(() => {});
-    sync();
-  })
+  .then(() => sync())
   .catch(e =>
     window.__boot?.fail(
       'Stockage local indisponible (navigation privée ?) : ' + (e?.message || e)

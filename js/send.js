@@ -1,0 +1,274 @@
+import { chat, keepWarm, lastTurn, lastWarmable, summarize, waitMsg, WARM_AT } from './ai.js';
+import { sync } from './backup.js';
+import { face } from './cast.js';
+import { costOf, priceOf } from './cost.js';
+import { fr, keepImgs, lieuTag, LIX, paintLive, split } from './format.js';
+import { buildInfo, inScene } from './prompt.js';
+import { modelOf } from './protocol.js';
+import { autoRead, stopSpeech } from './read.js';
+import { decorNow } from './scene.js';
+import { app, S } from './state.js';
+import { save, saveSet } from './store.js';
+import { $, dlg, el, err, fit, LS, strip } from './util.js';
+import { liveScene, newShow, render, tail, unseen } from './view.js';
+
+// Envoi d'un tour : appel au modèle, affichage progressif, erreurs, maintien du cache, zone de saisie.
+export async function regenHint() {
+  if (app.busy || $('#dq').open) return;
+  const h = await dlg('Régénérer avec une indication', {
+    m: 'Pour cette réponse seulement : l’indication n’est pas gardée dans l’histoire.',
+    v: '',
+    ph: 'Plus court, plus sombre, fais parler Elias…',
+    ok: 'Régénérer'
+  });
+  if (h !== null && !app.busy) regen(h);
+}
+function setBusy(b) {
+  app.busy = b;
+  $('#send').hidden = b;
+  $('#stop').hidden = !b;
+  err('');
+}
+export async function ask(old, cont, hint) {
+  const s = app.cur,
+    p = S.provider,
+    k = S.keys[p],
+    again = cont ? () => ask(null, true) : old ? () => regen(hint) : () => ask(null, false, hint);
+  if (!k) {
+    if (old) s.messages.push(old);
+    render();
+    err("Ajoutez une clé API dans les réglages IA (menu « … » en haut).", 1);
+    return;
+  }
+  setBusy(true);
+  warmStop();
+  $('#gst').textContent = 'Réponse en cours.';
+  const t0 = Date.now();
+  let msg = '',
+    cut = false,
+    part = false,
+    raf = 0,
+    pend = ['', false],
+    dl = decorNow(s.messages),
+    lieu = '';
+  const z = { fl: 0, fn: 0, ft: '' },
+    // Attente : le personnage en scène « réfléchit », sur des lignes fantômes. Un seul nœud, réutilisé à
+    // chaque image, pour ne pas recharger l'avatar.
+    who = inScene(s.messages.slice(-6))[0],
+    wt = el(
+      'div',
+      { class: 'wt' },
+      el('div', { class: 'wth' }, who && face(who), el('span', { class: 'act' })),
+      el('div', { class: 'wts', 'aria-hidden': 'true' }, el('i'), el('i'), el('i'))
+    );
+  const paint = () => {
+    raf = 0;
+    if (app.cur !== s || !pend) return;
+    const [t, th] = pend;
+    const m = $('#msgs');
+    let e = document.querySelector('#live');
+    if (!e) {
+      const end = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
+      e = el('div', { class: 'm assistant', id: 'live' }, el('div', { class: 'b' }));
+      $('#mfoot').before(e);
+      if (end) m.scrollTop = m.scrollHeight;
+    }
+    // Lieu annoncé en tête : la scène s'installe avant le texte (intertitre, lettrine, décor).
+    const lt = !cont && lieuTag(t);
+    if (lt && lt != lieu) dl = liveScene((lieu = lt));
+    const v = strip(t).replace(LIX, ''),
+      sec = Math.round((Date.now() - t0) / 1000);
+    if (!v)
+      wt.querySelector('.act').textContent =
+        (who ? fr(who.name + ' réfléchit…') : 'Réflexion…') + (sec > 2 || th ? ' ' + sec + ' s' : '');
+    paintLive(e.firstChild, v, z, v ? null : wt, dl);
+    if (S.follow && m.scrollHeight - m.scrollTop - m.clientHeight < 200)
+      m.scrollTop = m.scrollHeight;
+    m.dispatchEvent(new Event('scroll'));
+    if (unseen(e)) newShow('Réponse en cours');
+  };
+  const live = (t, th) => {
+    pend = [t, th];
+    if (!raf) raf = requestAnimationFrame(paint);
+  };
+  paint();
+  const tick = setInterval(() => {
+    if (!pend[0] && !raf) paint();
+  }, 1000);
+  try {
+    const info = buildInfo(s, cont, hint);
+    const r = await chat(info.msgs, {
+      max: +s.maxTok || 0,
+      ac: (app.ctl = new AbortController()),
+      od: S.ns?.[p] ? null : live,
+      temp: s.temp ?? S.temp,
+      top: s.top ?? S.top,
+      model: modelOf(s),
+      effort: s.effort || 'low',
+      primary: true,
+      onWait: (w, why) => {
+        if (app.cur !== s) return;
+        if (w) {
+          const t = waitMsg(w, why);
+          err(t.charAt(0).toUpperCase() + t.slice(1));
+        } else {
+          err('');
+          live('');
+        }
+      }
+    });
+    app.stream = { mode: S.ns?.[p] ? 'off' : r.mode, chunks: r.chunks, ms: r.ms };
+    const lt = lastTurn();
+    app.turn = lt && { id: s.id, cost: costOf(lt.e, priceOf(lt.key, S.prices)) };
+    const out = r.t;
+    cut = r.cut;
+    part = !!r.partial;
+    const p2 = split(out);
+    if (cont) {
+      const m = s.messages.at(-1);
+      m.content = m.content.trimEnd() + (/^[\s.,;:!?…»)]/.test(p2.content) ? '' : ' ') + p2.content;
+      delete m.choices;
+      delete m.state;
+      if (p2.choices) m.choices = p2.choices;
+      if (p2.state) m.state = p2.state;
+      if (m.alts) m.alts[m.ai] = { content: m.content, choices: m.choices, state: m.state };
+    } else {
+      const base = old?.role == 'assistant' ? old.alts || [{ content: old.content, choices: old.choices, state: old.state }] : null,
+        al = base ? [...base, p2].slice(-10) : null;
+      s.messages.push(
+        al
+          ? { role: 'assistant', ...p2, alts: al, ai: al.length - 1, t: Date.now() }
+          : { role: 'assistant', ...p2, t: Date.now() }
+      );
+    }
+    old = null;
+    s.mem.win = info.win;
+    await save(s);
+    saveSet();
+  } catch (e) {
+    msg = e.message;
+    if (old) s.messages.push(old);
+  }
+  clearInterval(tick);
+  cancelAnimationFrame(raf);
+  pend = null;
+  const lv = document.querySelector('#live');
+  setBusy(false);
+  if (app.cur === s) {
+    err(
+      msg ||
+        (part
+          ? 'Réponse interrompue : le texte reçu est conservé. Continuez (double chevron) ou régénérez.'
+          : cut
+            ? 'Réponse coupée par la longueur maximale. Augmentez-la dans les réglages du scénario, continuez ou régénérez.'
+            : ''),
+      !!msg,
+      msg && {
+        label: 'Réessayer',
+        fn: () => {
+          if (!app.busy && app.cur === s) again();
+        }
+      }
+    );
+    $('#gst').textContent = msg ? 'Échec : ' + msg : 'Réponse reçue.';
+    const m = $('#msgs'),
+      y = m.scrollTop,
+      // Position de la réponse à l'écran, et son intertitre s'il était déjà là (lieu annoncé en tête).
+      top = lv?.getBoundingClientRect().top,
+      had = !!lv?.previousElementSibling?.matches('.scene');
+    render(S.follow);
+    const fin = lv && !msg && m.querySelector(':scope > .m[data-i="' + (s.messages.length - 1) + '"]');
+    if (fin) keepImgs(lv, fin);
+    lv?.remove();
+    if (!S.follow) {
+      m.scrollTop = y;
+      // Lieu connu seulement à la fin : l'intertitre arrive en fondu au-dessus de la réponse, et le défilement
+      // compense sa hauteur pour que le texte en cours de lecture ne bouge pas.
+      if (fin && top < m.getBoundingClientRect().bottom) m.scrollTop += fin.getBoundingClientRect().top - top;
+    }
+    const sc = fin?.previousElementSibling;
+    if (sc?.matches('.scene') && !had) sc.classList.add('in');
+    if (!msg && unseen(tail())) newShow('Nouveau message');
+    else $('#newm').hidden = true;
+    if (!msg && !cont) autoRead(s.messages.length - 1);
+  } else lv?.remove();
+  if (!msg) {
+    warmN = 0;
+    warmArm(s);
+    summarize(s);
+  }
+  if (app.cur !== s && LS.get('bkd')) sync();
+}
+// Maintien du cache Claude pendant les pauses (keepWarm, ai.js) : une relance peu avant l'échéance des
+// 5 minutes, au plus WARM_N d'affilée sans nouvel envoi (une vingtaine de minutes), seulement tant que la
+// conversation est ouverte et la page visible. Inutile avec le cache d'une heure.
+const WARM_N = 3;
+let warmT = 0,
+  warmN = 0,
+  warmS = null;
+function warmStop() {
+  clearTimeout(warmT);
+  warmT = 0;
+}
+function warmArm(s) {
+  warmStop();
+  warmS = s;
+  const L = lastWarmable();
+  if (!L || S.warm === false || S.c1h || L.p !== S.provider || warmN >= WARM_N) return;
+  const age = Date.now() - L.at;
+  if (age >= 295000) return;
+  warmT = setTimeout(async () => {
+    warmT = 0;
+    if (app.busy || app.cur !== s || $('#chat').hidden || document.hidden) return;
+    warmN++;
+    if (await keepWarm()) warmArm(s);
+  }, Math.max(0, WARM_AT - age));
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && warmS && app.cur === warmS && !warmT && !app.busy) warmArm(warmS);
+});
+export async function regen(hint) {
+  if (app.busy) return;
+  stopSpeech();
+  const old = app.cur.messages.at(-1)?.role == 'assistant' ? app.cur.messages.pop() : null;
+  render(true);
+  ask(old, false, hint);
+}
+$('#send').onclick = async () => {
+  const t = $('#inp').value.trim();
+  if (!t || app.busy) return;
+  stopSpeech();
+  $('#inp').value = '';
+  fit();
+  LS.del('draft:' + app.cur.id);
+  const pv = app.cur.messages.at(-1);
+  if (pv?.alts) {
+    delete pv.alts;
+    delete pv.ai;
+  }
+  app.cur.messages.push({ role: 'user', content: t, t: Date.now() });
+  await save();
+  render(true);
+  ask();
+};
+$('#stop').onclick = () => app.ctl?.abort('stop');
+$('#inp').oninput = () => {
+  LS.set('draft:' + app.cur.id, $('#inp').value);
+  fit();
+};
+$('#inp').onkeydown = e => {
+  if (e.key == 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) {
+    e.preventDefault();
+    $('#send').click();
+  }
+};
+$('#ast').onclick = () => {
+  const t = $('#inp'),
+    a = t.selectionStart,
+    b = t.selectionEnd,
+    v = t.value;
+  t.value = v.slice(0, a) + '*' + v.slice(a, b) + '*' + v.slice(b);
+  t.focus();
+  t.setSelectionRange(a + 1, b + 1);
+  t.dispatchEvent(new Event('input'));
+};

@@ -36,6 +36,26 @@ test('le mode concis est plus court et supprime le rappel', () => {
   assert.equal(b.tail, '');
 });
 
+test('lieu annoncé en tête : demandé seulement si l’état suit un lieu', () => {
+  for (const model of ['llama-3.3-70b-versatile', 'gpt-5']) {
+    assert.match(protocol({ model, stat: true, fields: 'Objectif, Lieu actuel, Humeur' }).sys, /<lieu>nouveau lieu<\/lieu>[^\n]*champ Lieu actuel/);
+    assert.doesNotMatch(protocol({ model, stat: true, fields: 'Objectif, Humeur' }).sys, /<lieu>/);
+    assert.doesNotMatch(protocol({ model, stat: false, fields: 'Lieu' }).sys, /<lieu>/);
+  }
+});
+
+test('la balise <lieu> est lue puis retirée du texte', async () => {
+  const { LIX, lieuTag, split } = await import('../js/format.js');
+  const t = '<lieu>Volcan</lieu>\n\nUn volcan gronde.\n\n<etat>\nLieu: Volcan\n</etat>';
+  assert.equal(lieuTag(t), 'Volcan');
+  assert.equal(split(t).content, 'Un volcan gronde.');
+  assert.deepEqual(split(t).state, [['Lieu', 'Volcan']]);
+  // Pendant l'écriture : balise incomplète masquée, texte ordinaire intact.
+  for (const p of ['<', '<li', '<lieu>Vol']) assert.equal(p.replace(LIX, ''), '', p);
+  assert.equal('Il entre. <3'.replace(LIX, ''), 'Il entre. <3');
+  assert.equal(lieuTag('Pas de balise.'), '');
+});
+
 test('le rappel ne liste que les blocs activés', () => {
   assert.match(protocol({ stat: true, choices: false }).tail, /le bloc <etat>\.$/m);
   assert.match(protocol({ stat: true, choices: true }).tail, /<etat> puis le bloc <choix>/);

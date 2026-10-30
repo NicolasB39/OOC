@@ -2,6 +2,8 @@ import { nz } from './util.js';
 
 export const REL_MAX = 12;
 export const MEM_MAX = 60;
+// Taille du résumé, gardé et envoyé : la consigne en demande 1200 caractères, un peu de marge en plus.
+export const SUM_MAX = 1400;
 
 const key = s =>
   nz(String(s))

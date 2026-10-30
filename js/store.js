@@ -140,33 +140,12 @@ export const openDB = () =>
   new Promise((res, rej) => {
     // Nom historique de la base : le renommer reviendrait à repartir d'une base vide.
     const r = indexedDB.open('histoires', 4);
-    r.onupgradeneeded = e => {
-      const d = r.result,
-        t = r.transaction,
-        o = e.oldVersion;
-      if (o < 1) {
-        d.createObjectStore('scenarios', { keyPath: 'id' });
-        d.createObjectStore('settings', { keyPath: 'key' });
-      }
-      if (o < 2) d.createObjectStore('meta', { keyPath: 'id' });
-      if (o < 4) {
-        d.createObjectStore('chunks', { keyPath: 'k' });
-        d.createObjectStore('covers', { keyPath: 'id' });
-      }
-      if (o && o < 4)
-        t.objectStore('scenarios').openCursor().onsuccess = ev => {
-          const c = ev.target.result;
-          if (!c) return;
-          const { messages = [], cover, ...h } = c.value;
-          h.nc = Math.ceil(messages.length / CH);
-          h.rev = uid();
-          for (let i = 0; i < messages.length; i += CH)
-            t.objectStore('chunks').put({ k: [h.id, i / CH], m: messages.slice(i, i + CH) });
-          if (cover) t.objectStore('covers').put({ id: h.id, d: cover });
-          t.objectStore('meta').put(META(c.value));
-          c.update(h);
-          c.continue();
-        };
+    // Création d'une base neuve. Les bases des versions 1 à 3 (histoire d'un seul bloc) ne sont plus
+    // converties : tous les appareils sont passés à la version 4.
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      for (const [n, k] of [['scenarios', 'id'], ['settings', 'key'], ['meta', 'id'], ['chunks', 'k'], ['covers', 'id']])
+        if (!d.objectStoreNames.contains(n)) d.createObjectStore(n, { keyPath: k });
     };
     r.onblocked = () =>
       rej(new Error('Une autre fenêtre de l’application est ouverte : fermez-la, puis rechargez cette page.'));

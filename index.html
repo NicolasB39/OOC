@@ -2,9 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; connect-src 'self' https://api.anthropic.com https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.anthropic.com https://api.groq.com https://generativelanguage.googleapis.com https://api.mistral.ai https://openrouter.ai https://api.github.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script src="js/boot.js"></script>
-<meta name="app-version" content="850acebb23">
+<meta name="app-version" content="1e717bc1c4">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nocturne</title>
 <link rel="manifest" href="manifest.json">
@@ -37,12 +37,14 @@
 <link rel="modulepreload" href="js/recall.js">
 <link rel="modulepreload" href="js/scenarios.js">
 <link rel="modulepreload" href="js/scene.js">
+<link rel="modulepreload" href="js/send.js">
 <link rel="modulepreload" href="js/settings.js">
 <link rel="modulepreload" href="js/state.js">
 <link rel="modulepreload" href="js/stats.js">
 <link rel="modulepreload" href="js/statview.js">
 <link rel="modulepreload" href="js/store.js">
 <link rel="modulepreload" href="js/util.js">
+<link rel="modulepreload" href="js/view.js">
 <!--/PRELOAD-->
 </head>
 <body>
@@ -400,7 +402,7 @@
 <dialog id="dbk" aria-labelledby="hdbk">
 <h2 id="hdbk">Sauvegarde en ligne</h2>
 <label for="bp">Service</label>
-<select id="bp"><option value="">Désactivée</option><option value="gh">GitHub (dépôt privé)</option><option value="drive">Google Drive</option></select>
+<select id="bp"><option value="">Désactivée</option><option value="gh">GitHub (dépôt privé)</option></select>
 <div id="bgh" hidden>
 <label for="bgr">Dépôt privé (proprietaire/depot)</label>
 <input id="bgr" placeholder="proprietaire/sauvegardes" autocomplete="off" autocapitalize="off">
@@ -409,11 +411,6 @@
 <label for="bgf">Fichier (défaut : histoires-backup.json)</label>
 <input id="bgf" autocomplete="off" autocapitalize="off">
 <p class="note">Créez un dépôt privé, puis un jeton limité à ce dépôt avec la permission Contents en lecture et écriture.</p>
-</div>
-<div id="bdr" hidden>
-<label for="bci">ID client OAuth Google</label>
-<input id="bci" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off" autocapitalize="off">
-<p class="note">La connexion Google dure environ une heure : au-delà, touchez le nuage pour vous reconnecter.</p>
 </div>
 <p id="bks" class="note"></p>
 <div class="row l"><button id="bkn" hidden>Synchroniser maintenant</button><button id="bkx">Effacer la configuration</button></div>

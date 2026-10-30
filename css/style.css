@@ -551,9 +551,6 @@ header button:hover {
   border-radius: 4px 14px 14px 4px;
   background: var(--s1);
 }
-.m.user .a {
-  text-align: right;
-}
 .m .b {
   font: var(--fs) / var(--lh) var(--rf);
 }
@@ -706,6 +703,7 @@ hr {
 }
 .m.user .a {
   margin: 6px -8px 0 0;
+  text-align: right;
 }
 .m .a:hover,
 .m .a:focus-within {
@@ -793,9 +791,6 @@ hr {
 }
 .ch {
   display: grid;
-  gap: 8px;
-}
-.ch {
   gap: 6px;
   padding-top: 2px;
 }
@@ -1120,6 +1115,10 @@ hr {
   color: var(--ac);
   font: italic 400 15px/1.3 var(--ser);
   text-align: center;
+}
+/* Intertitre posé pendant ou juste après la réponse : il apparaît en fondu. */
+.scene.in {
+  animation: scnf 0.5s ease-out;
 }
 .scene::before,
 .scene::after {
@@ -1477,6 +1476,11 @@ dialog label:has(> input[type='checkbox']) {
   transform: translateX(-50%);
   bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
   z-index: 50;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  white-space: nowrap;
   padding: 10px 18px;
   border-radius: 999px;
   background: var(--s3);
@@ -1622,14 +1626,6 @@ dialog label:has(> input[type='checkbox']) {
   color: var(--mu);
   font-size: 12px;
   word-break: break-all;
-}
-
-#toast {
-  display: flex;
-  align-items: center;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  white-space: nowrap;
 }
 
 #sy {

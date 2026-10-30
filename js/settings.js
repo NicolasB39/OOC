@@ -1,6 +1,6 @@
 import { authH, effortOk, memModel } from './ai.js';
 import { on } from './bus.js';
-import { jump, render, tk } from './chat.js';
+import { jump, render, tk } from './view.js';
 import { money, priceOf } from './cost.js';
 import { fr } from './format.js';
 import { draw, showList } from './list.js';
@@ -516,8 +516,7 @@ $('#msm').onclick = () => {
             })
           ],
           s.preview && el('p', { class: 'scx', text: fr(s.preview) }),
-          // Une longueur nulle serait écrite telle quelle : el() n'ignore que false et null.
-          s.lines.length > 0 && el('div', { class: 'scl' }, s.lines.map(line)),
+          s.lines.length && el('div', { class: 'scl' }, s.lines.map(line)),
           el('button', { class: 'scgo', onclick: go(s.from) }, 'Aller à cette scène')
         )
       );

@@ -2,7 +2,7 @@ import { emit } from './bus.js';
 import { merge } from './merge.js';
 import { S, app } from './state.js';
 import { clean, del, getAll, getFull, getOne, put, saveSet } from './store.js';
-import { $, LS, ago, dlg, toast, uid } from './util.js';
+import { $, LS, ago, dlg, toast } from './util.js';
 
 async function doExport() {
   const f = new File(
@@ -129,11 +129,10 @@ const GH = {
     if (!Array.isArray(j)) throw new Error('Le dossier de sauvegarde porte le nom d’un fichier existant.');
     return new Map(j.filter(x => x.type == 'file').map(x => [x.name, x.sha]));
   },
-  read: (B, tok, n) => GH.get(B, GH.dir(B) + '/' + n),
-  write: (B, tok, n, text, ref) =>
+  read: (B, n) => GH.get(B, GH.dir(B) + '/' + n),
+  write: (B, n, text, ref) =>
     GH.send(B, GH.dir(B) + '/' + n, 'PUT', { content: b64e(text), ...(ref ? { sha: ref } : {}) }),
-  remove: (B, tok, n, ref) => GH.send(B, GH.dir(B) + '/' + n, 'DELETE', { sha: ref }),
-  legacy: B => GH.get(B, GH.file(B)),
+  remove: (B, n, ref) => GH.send(B, GH.dir(B) + '/' + n, 'DELETE', { sha: ref }),
   async squash(B) {
     const j = async (p, body, method = 'POST') => {
       const r = await fetch(`https://api.github.com/repos/${B.repo.trim()}${p}`, {
@@ -158,94 +157,9 @@ const GH = {
     return true;
   }
 };
-export const gis = () =>
-  new Promise((res, rej) => {
-    if (window.google?.accounts?.oauth2) return res();
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.onload = res;
-    s.onerror = () => rej(new Error('Google indisponible (hors ligne ?)'));
-    document.head.append(s);
-  });
-const DR = {
-  async auth(B, manual) {
-    const c = JSON.parse(LS.get('bk:tok') || 'null');
-    if (c && c.exp > Date.now() + 6e4) return c.t;
-    if (!manual) {
-      const e = new Error('Connexion Google requise.');
-      e.quiet = true;
-      throw e;
-    }
-    await gis();
-    return new Promise((res, rej) => {
-      const tc = google.accounts.oauth2.initTokenClient({
-        client_id: B.cid.trim(),
-        scope: 'https://www.googleapis.com/auth/drive.appdata',
-        callback: r => {
-          if (r.error) return rej(new Error(r.error_description || r.error));
-          LS.set(
-            'bk:tok',
-            JSON.stringify({ t: r.access_token, exp: Date.now() + (r.expires_in - 60) * 1000 })
-          );
-          res(r.access_token);
-        },
-        error_callback: e =>
-          rej(
-            new Error(
-              e.type == 'popup_closed' ? 'Connexion annulée.' : 'Connexion Google impossible.'
-            )
-          )
-      });
-      tc.requestAccessToken({ prompt: '' });
-    });
-  },
-  async api(tok, url, o = {}) {
-    const r = await fetch(url, { ...o, headers: { Authorization: 'Bearer ' + tok, ...o.headers } });
-    if (r.status == 401) {
-      LS.del('bk:tok');
-      throw new Error('Session Google expirée : touchez le nuage pour vous reconnecter.');
-    }
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      throw new Error(j.error?.message || 'Erreur Google ' + r.status);
-    }
-    return r;
-  },
-  q: n => 'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1000&fields=files(id,name)&q=' + encodeURIComponent(n),
-  async read(B, tok, n, ref) {
-    return {
-      data: parseBk(await (await DR.api(tok, 'https://www.googleapis.com/drive/v3/files/' + ref + '?alt=media')).text()),
-      ref
-    };
-  },
-  async list(B, tok) {
-    const l = await (await DR.api(tok, DR.q("name contains 'sync-'"))).json();
-    return new Map((l.files || []).filter(f => f.name.startsWith('sync-')).map(f => [f.name.slice(5), f.id]));
-  },
-  async legacy(B, tok) {
-    const l = await (await DR.api(tok, DR.q("name='" + FN + "'"))).json();
-    const id = l.files?.[0]?.id;
-    return id ? DR.read(B, tok, FN, id) : null;
-  },
-  async write(B, tok, n, text, ref) {
-    if (ref)
-      return DR.api(tok, 'https://www.googleapis.com/upload/drive/v3/files/' + ref + '?uploadType=media', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: text
-      });
-    const bd = 'b' + uid();
-    return DR.api(tok, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: { 'Content-Type': 'multipart/related; boundary=' + bd },
-      body: `--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: 'sync-' + n, parents: ['appDataFolder'] })}\r\n--${bd}\r\nContent-Type: application/json\r\n\r\n${text}\r\n--${bd}--`
-    });
-  },
-  remove: (B, tok, n, ref) => DR.api(tok, 'https://www.googleapis.com/drive/v3/files/' + ref, { method: 'DELETE' })
-};
 export const bkOn = () => {
   const B = S.bk;
-  return B && ((B.p == 'gh' && B.repo && B.tok) || (B.p == 'drive' && B.cid)) ? B : null;
+  return B && B.p == 'gh' && B.repo && B.tok ? B : null;
 };
 const bkMsg = t => {
   const B = S.bk || {};
@@ -261,22 +175,9 @@ const bkMsg = t => {
           : '');
 };
 let bkBusy = false;
-async function syncOnce(B, manual) {
-  const P = B.p == 'gh' ? GH : DR;
-  const tok = P.auth ? await P.auth(B, manual) : null;
-  const L = await P.list(B, tok);
-  let idx = L.has(IDX) ? (await P.read(B, tok, IDX, L.get(IDX))).data : null,
-    old = null;
-  if (!idx) {
-    const o = await P.legacy(B, tok);
-    old = new Map(
-      (Array.isArray(o?.data?.scenarios) ? o.data.scenarios : [])
-        .map(clean)
-        .filter(Boolean)
-        .map(x => [x.id, x])
-    );
-    idx = { tomb: o?.data?.tomb || {}, items: [...old.values()].map(stub) };
-  }
+async function syncOnce(B) {
+  const L = await GH.list(B),
+    idx = (L.has(IDX) && (await GH.read(B, IDX)).data) || {};
   const all = await getAll(),
     ls = all.map(stub),
     LC = new Map(all.map((x, i) => [x.id, [x.cover || '', ls[i].cv]])),
@@ -284,10 +185,9 @@ async function syncOnce(B, manual) {
     R = new Map(items.map(x => [x.id, x])),
     m = merge(ls, items, S.tomb || {}, idx.tomb || {}, { seen: S.bkSeen || {} });
   const remote = async id => {
-    if (old?.has(id)) return old.get(id);
     const f = fname(id);
     if (!L.has(f)) throw new Error('Sauvegarde incomplète : fichier ' + f + ' manquant.');
-    const d = (await P.read(B, tok, f, L.get(f))).data || {};
+    const d = (await GH.read(B, f)).data || {};
     let cover = typeof d.cover == 'string' ? d.cover : '';
     if (!cover && d.cv) {
       const [lc, lh] = LC.get(id) || [];
@@ -295,7 +195,7 @@ async function syncOnce(B, manual) {
       else {
         const g = cname(id);
         if (!L.has(g)) throw new Error('Sauvegarde incomplète : fichier ' + g + ' manquant.');
-        cover = (await P.read(B, tok, g, L.get(g))).data?.d || '';
+        cover = (await GH.read(B, g)).data?.d || '';
       }
     }
     const x = clean({ ...d, cover });
@@ -318,13 +218,13 @@ async function syncOnce(B, manual) {
       h = cvh(cover);
     x.cv = h;
     if (h && !(L.has(g) && R.get(x.id)?.cv === h)) {
-      await P.write(B, tok, g, JSON.stringify({ d: cover }), L.get(g));
+      await GH.write(B, g, JSON.stringify({ d: cover }), L.get(g));
       n++;
     } else if (!h && L.has(g)) {
-      await P.remove(B, tok, g, L.get(g));
+      await GH.remove(B, g, L.get(g));
       n++;
     }
-    await P.write(B, tok, f, JSON.stringify({ ...rest, cv: h }), L.get(f));
+    await GH.write(B, f, JSON.stringify({ ...rest, cv: h }), L.get(f));
     n++;
   }
   const live = new Set(m.keep.map(x => x.id));
@@ -332,20 +232,15 @@ async function syncOnce(B, manual) {
     if (!live.has(id))
       for (const f of [fname(id), cname(id)])
         if (L.has(f)) {
-          await P.remove(B, tok, f, L.get(f));
+          await GH.remove(B, f, L.get(f));
           n++;
         }
   if (n || m.up || !L.has(IDX)) {
-    await P.write(
-      B,
-      tok,
-      IDX,
-      JSON.stringify({ v: 2, saved: Date.now(), items: m.keep.map(stub), tomb: m.tomb }),
-      L.get(IDX)
-    );
+    await GH.write(B, IDX, JSON.stringify({ v: 2, saved: Date.now(), items: m.keep.map(stub), tomb: m.tomb }), L.get(IDX));
     n++;
   }
-  if (B.p == 'gh' && n) {
+  // Historique compacté tous les SQ fichiers écrits, pour que le dépôt ne grossisse pas indéfiniment.
+  if (n) {
     B.cc = (B.cc || 0) + n;
     if (B.cc >= SQ && B.nosq !== B.repo.trim())
       try {
@@ -372,7 +267,7 @@ export async function sync(manual) {
   try {
     for (let a = 0; ; a++) {
       try {
-        await syncOnce(B, manual);
+        await syncOnce(B);
         break;
       } catch (e) {
         if (e.conflict && a < 2) continue;
@@ -385,7 +280,7 @@ export async function sync(manual) {
     LS.del('bkd');
   } catch (e) {
     const n = e instanceof TypeError;
-    if (!e.quiet && !(n && !manual)) B.err = n ? 'Réseau indisponible.' : e.message;
+    if (!(n && !manual)) B.err = n ? 'Réseau indisponible.' : e.message;
   }
   await saveSet();
   bkBusy = false;
@@ -395,10 +290,7 @@ export async function sync(manual) {
 }
 const bkShow = () => {
   const p = $('#bp').value;
-  $('#bgh').hidden = p != 'gh';
-  $('#bdr').hidden = p != 'drive';
-  $('#bkn').hidden = !p;
-  if (p == 'drive') gis().catch(() => {});
+  $('#bgh').hidden = $('#bkn').hidden = !p;
 };
 function openBk() {
   const B = S.bk || {};
@@ -406,7 +298,6 @@ function openBk() {
   $('#bgr').value = B.repo || '';
   $('#bgt').value = B.tok || '';
   $('#bgf').value = B.path || '';
-  $('#bci').value = B.cid || '';
   bkShow();
   bkMsg();
   if (!$('#dbk').open) $('#dbk').showModal();
@@ -417,8 +308,7 @@ async function bkSave() {
       p: $('#bp').value,
       repo: $('#bgr').value.trim(),
       tok: $('#bgt').value.trim(),
-      path: $('#bgf').value.trim(),
-      cid: $('#bci').value.trim()
+      path: $('#bgf').value.trim()
     };
   S.bk = { ...o, ...n, ...(Object.keys(n).some(k => (o[k] || '') !== n[k]) ? { err: '' } : {}) };
   await saveSet();
@@ -457,12 +347,11 @@ $('#bkn').onclick = async () => {
 $('#sy').onclick = () => (bkOn() ? syncNow() : openBk());
 $('#bkx').onclick = async () => {
   const r = await dlg('Effacer la configuration ?', {
-    m: "Le service, le jeton ou l'ID client et la connexion Google seront oubliés sur cet appareil. Vos histoires et la sauvegarde en ligne ne sont pas touchées.",
+    m: "Le dépôt et le jeton seront oubliés sur cet appareil. Vos histoires et la sauvegarde en ligne ne sont pas touchées.",
     ok: 'Effacer'
   });
   if (!r) return;
   S.bk = {};
-  LS.del('bk:tok');
   LS.del('bks');
   await saveSet();
   openBk();

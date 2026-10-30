@@ -1,4 +1,4 @@
-import { clip, sameName } from './memory.js';
+import { SUM_MAX, clip, sameName } from './memory.js';
 import { DEFAULT_FIELDS, modelOf, protocol } from './protocol.js';
 import { RECALL_N, recall, recallTag } from './recall.js';
 import { S, ctx } from './state.js';
@@ -17,7 +17,6 @@ export const statFields = s =>
 const CAST_FREE = 900;
 const MEM_N = 20;
 const WIN_STEP = 8;
-const SUM_MAX = 1400;
 
 const textOf = ms =>
   nz(
@@ -226,5 +225,4 @@ export const extrasOf = (ms, n = 30) => {
     share: (ch + st) / out
   };
 };
-export const build = (s, cont) => buildInfo(s, cont).msgs;
 export const omittedCount = s => buildInfo(s).omitted;

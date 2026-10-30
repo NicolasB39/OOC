@@ -156,6 +156,7 @@ Sous le dernier message restent les actions qu'on utilise en lisant : écouter, 
 - Les tours du joueur sont des cartes alignées à droite, texte aligné à gauche, avec un liseré de la couleur d'accent.
 - L'en-tête prend la teinte du décor du moment (image floutée et assombrie) ; sans décor, celle de la couverture de l'histoire ; sans l'un ni l'autre, il reste neutre.
 - Une lettrine ouvre chaque scène : la première réponse du récit, puis chaque réponse dont le lieu de l'état change. Un intertitre en italique annonce le lieu : en tête du récit pour la première scène, puis juste avant la réponse qui change de lieu.
+- Le lieu est annoncé dès le début de la réponse. L'état arrive en fin de réponse, trop tard pour l'affichage progressif : quand le panneau d'état suit un champ « Lieu » (ou Endroit, Localisation, Position), l'IA est priée d'ouvrir sa réponse par une ligne `<lieu>Nouveau lieu</lieu>` quand le lieu change. Cette ligne n'est ni affichée ni gardée ; elle installe tout de suite l'intertitre, la lettrine, le décor de l'en-tête et celui des images de la réponse. Si l'IA l'oublie, l'intertitre arrive à la fin, en fondu, et le défilement compense sa hauteur pour que le texte ne saute pas.
 - Typographie française à l'affichage (récit et choix) : apostrophes courbes, guillemets « », tirets de dialogue (une ligne qui commence par `- ` ou `-- `), points de suspension, espaces insécables avant `; ! ? :` et dans les guillemets. Le texte enregistré, copié ou envoyé à l'IA ne change pas. Les heures (12:30) et les adresses restent intactes.
 - Le panneau d'état tient en une rangée de pastilles : les trois premières valeurs avec leur variation, et « +N » pour le reste. Le toucher le déplie en grille détaillée avec les jauges ; plié ou déplié, le choix vaut pour toutes les histoires.
 - Les scènes illustrées (décor et personnage) occupent toute la largeur, se fondent dans le fond par le bas et portent le lieu en légende, en haut à gauche. Les portraits sans décor gardent leur cadre.
@@ -275,7 +276,7 @@ L'application pose trois marqueurs de cache :
 
 Tout l'historique stable est ainsi relu depuis le cache à un dixième du prix, et seule la dernière paire message-réponse est écrite à chaque tour.
 
-Avec Claude, et tant qu'aucune limite de tokens n'est réglée, la mémoire résume **par grands lots** : elle attend que 80 messages soient en attente, puis en résume 40 d'un coup (en quatre appels). Comme une mise à jour de la mémoire réécrit le cache de la mémoire et de l'historique, elle survient ainsi environ tous les 20 tours au lieu de tous les 5. En contrepartie, l'historique envoyé est plus long (mais relu à un dixième du prix), et souvenirs et relations se mettent à jour moins souvent. Le cache dure 5 minutes, prolongées à chaque tour ; « Garder le cache une heure » (Réglages, visible pour Claude) l'allonge, avec une écriture plus chère. Il est réécrit quand la mémoire se met à jour, quand la fenêtre avance, quand un ancien message est modifié ou après une pause plus longue que sa durée. Le compteur sous la conversation affiche les tokens « lus en cache » et « mis en cache » pour vérifier l'économie réelle.
+Avec Claude, et tant qu'aucune limite de tokens n'est réglée, la mémoire résume **par grands lots** : elle attend que 80 messages soient en attente, puis en résume 40 d'un coup (en deux appels de 20 messages ; 10 par appel avec les autres fournisseurs). Comme une mise à jour de la mémoire réécrit le cache de la mémoire et de l'historique, elle survient ainsi environ tous les 20 tours au lieu de tous les 5. En contrepartie, l'historique envoyé est plus long (mais relu à un dixième du prix), et souvenirs et relations se mettent à jour moins souvent. Le cache dure 5 minutes, prolongées à chaque tour ; « Garder le cache une heure » (Réglages, visible pour Claude) l'allonge, avec une écriture plus chère. Il est réécrit quand la mémoire se met à jour, quand la fenêtre avance, quand un ancien message est modifié ou après une pause plus longue que sa durée. Le compteur sous la conversation affiche les tokens « lus en cache » et « mis en cache » pour vérifier l'économie réelle.
 
 **Maintien du cache pendant les pauses.** Lire une réponse puis écrire son tour dépasse souvent 5 minutes : le cache expirait, et le tour suivant réécrivait tout le prompt à 1,25 fois le prix d'entrée. Quand « Garder le cache au chaud pendant les pauses » est coché (Réglages, par défaut), l'application renvoie la dernière requête de narration avec `max_tokens: 0` environ 4 minutes 30 après son début : l'API relit le préfixe au tarif réduit (un dixième de l'entrée, un vingtième sur Opus 5.5), repousse l'échéance de 5 minutes et ne génère rien. Seul le dernier message, hors cache, est payé plein tarif. La relance part sans streaming (refusé avec `max_tokens: 0`) mais avec le même effort, qui fait partie du préfixe. Elle n'a lieu que tant que la conversation est ouverte et la page visible, au plus trois fois d'affilée (une vingtaine de minutes) sans nouvel envoi ; au-delà, mieux vaut laisser expirer. Elle est sans objet avec le cache d'une heure, qui reste préférable pour des pauses régulières de plus de 20 minutes. Les relances sont comptées dans les statistiques.
 
@@ -387,7 +388,7 @@ Activation : menu « … » de la conversation, Réglages du scénario, section 
 - Protocole de sortie centralisé, adapté au modèle, et préambule commun à tous les scénarios.
 - Liste des modèles du fournisseur (Réglages, Lister les modèles).
 - Budget de tokens : limite réglable et estimation des tokens envoyés dans le compteur sous la conversation (voir ci-dessous).
-- Recherche dans la liste, export d'une histoire en `.md`, sauvegarde JSON (clés API exclues) avec rappel tous les 30 jours, synchronisation en ligne (GitHub ou Google Drive).
+- Recherche dans la liste, export d'une histoire en `.md`, sauvegarde JSON (clés API exclues) avec rappel tous les 30 jours, synchronisation en ligne sur un dépôt GitHub privé.
 - Bouton retour du téléphone géré, y compris pour fermer une feuille ouverte depuis la liste, fonctionnement hors ligne.
 
 ## Stockage sur l'appareil
@@ -407,27 +408,16 @@ Fonctionnement : à chaque synchronisation, l'application lit l'index distant, g
 - Si la dernière synchronisation a échoué, un **point rouge** apparaît sur le nuage. Touchez le nuage : le message d'erreur propose « Modifier la configuration ».
 - Après « Enregistrer », la synchronisation se lance tout de suite et affiche son résultat (« Sauvegarde à jour » ou l'erreur).
 - La configuration est aussi accessible par la roue dentée (Réglages), section « GitHub et sauvegarde », bouton « Configurer… ».
-- « Effacer la configuration » remet le service, le jeton et la connexion Google à zéro sur l'appareil. Les histoires et le fichier de sauvegarde en ligne ne sont pas touchés.
+- « Effacer la configuration » oublie le dépôt et le jeton sur l'appareil. Les histoires et le fichier de sauvegarde en ligne ne sont pas touchés.
 - Réglages, section « GitHub et sauvegarde », indique l'espace occupé sur l'appareil et si le navigateur a accordé la **conservation** des données. Sans elle, le navigateur peut effacer les histoires quand l'espace manque : c'est la vraie raison de configurer une sauvegarde en ligne.
 
-### GitHub (recommandé)
+### Configurer GitHub
 
 1. Créez un dépôt **privé** dédié, par exemple `sauvegardes`, avec un fichier README pour l'initialiser.
 2. GitHub, Settings, Developer settings, Personal access tokens, Fine-grained tokens : créez un jeton limité à ce seul dépôt, permission **Contents : Read and write**.
 3. Dans l'application : service GitHub, dépôt `proprietaire/sauvegardes`, jeton, Enregistrer.
 
 Le jeton est stocké en clair dans le navigateur de l'appareil, comme les clés API. Un jeton limité à un dépôt de sauvegarde ne donne accès à rien d'autre. Chaque synchronisation avec changement crée un commit dans ce dépôt. Pour que le dépôt ne grossisse pas sans fin, l'application compacte l'historique en un seul commit tous les 100 commits environ (les fichiers ne changent pas, seules les anciennes versions disparaissent, GitHub les nettoie ensuite à son rythme). Par sécurité, elle ne le fait que si le dépôt ne contient que la sauvegarde (plus un README, une licence ou des fichiers `.git*`) : si vous l'avez pointée vers un dépôt qui contient autre chose, l'historique n'est jamais touché. Une branche protégée contre la réécriture empêche aussi le compactage, sans gêner la synchronisation.
-
-### Google Drive
-
-Le fichier est placé dans le dossier caché de l'application sur votre Drive.
-
-1. Google Cloud Console : créez un projet et activez **Google Drive API**.
-2. Écran de consentement OAuth : type Externe, ajoutez votre compte comme utilisateur de test, scope `.../auth/drive.appdata`.
-3. Identifiants, Créer des identifiants, ID client OAuth, Application Web. Dans Origines JavaScript autorisées, ajoutez l'adresse de l'application (`https://proprietaire.github.io`).
-4. Copiez l'ID client dans l'application : service Google Drive, Enregistrer, puis touchez le nuage.
-
-Limites : la connexion Google dure environ une heure, au-delà de laquelle il faut toucher le nuage pour se reconnecter, et la synchronisation automatique à l'ouverture ne fonctionne que si la connexion est encore valide. Dans une application installée sur iPhone, la fenêtre de connexion Google peut ne pas s'ouvrir : préférez GitHub.
 
 ## Structure du code
 
@@ -451,11 +441,13 @@ js/
   scene.js          scènes : choix du décor, détection de la transparence, placement du personnage
   read.js           lecture : taille du texte, mode lecture, lecture à voix haute
   cast.js           fenêtre Personnages
-  chat.js           conversation : affichage, envoi, variantes, suppression, continuation
+  view.js           conversation, affichage : messages, état, scènes, compteurs, en-tête, navigation
+  send.js           conversation, envoi : appel au modèle, affichage progressif, maintien du cache, saisie
+  chat.js           conversation, actions : ouverture, variantes, modification, suppression, bifurcation
   list.js           liste des scénarios : recherche, onglets, menu, création
   nav.js            navigation (bouton retour du téléphone)
   settings.js       réglages du scénario, mémoire, note, réglages IA, import
-  backup.js         export, synchronisation GitHub / Google Drive
+  backup.js         export, synchronisation GitHub
   merge.js          fusion des sauvegardes (sans DOM, testé unitairement)
   memory.js         mémoire longue : fusion des souvenirs et des relations
   stats.js          statistiques d'usage en tokens (sans DOM, testé unitairement)
@@ -470,7 +462,7 @@ test/               tests unitaires (node --test), sans aucune dépendance
 test/e2e.mjs        test de bout en bout dans Chromium (fournisseurs et GitHub simulés)
 ```
 
-En local : `npm test` lance les tests, `npm run build` régénère les numéros de version. Le test de bout en bout demande Playwright, seule dépendance de développement (`package.json`) : `npm install && npx playwright install chromium`, puis `npm run test:e2e` depuis la racine, après `npm run build`. Le workflow le lance à chaque déploiement. Il vérifie le démarrage, la migration d'une ancienne base, le retour Android, l'envoi et l'affichage progressif, la stabilité de l'écran, les variantes, Claude (en-têtes et marqueurs de cache), la synchronisation GitHub et les décors (placement aux 2/3, décor par message, fond par défaut et généré, fenêtre Personnages). En cas d'échec, il enregistre une capture `e2e-echec.png`.
+En local : `npm test` lance les tests, `npm run build` régénère les numéros de version. Le test de bout en bout demande Playwright, seule dépendance de développement (`package.json`) : `npm install && npx playwright install chromium`, puis `npm run test:e2e` depuis la racine, après `npm run build`. Le workflow le lance à chaque déploiement. Il vérifie le démarrage, le retour Android, l'envoi et l'affichage progressif, la stabilité de l'écran, les variantes, Claude (en-têtes et marqueurs de cache), la synchronisation GitHub et les décors (placement aux 2/3, décor par message, fond par défaut et généré, fenêtre Personnages). En cas d'échec, il enregistre une capture `e2e-echec.png`.
 
 Règles du projet :
 
@@ -479,7 +471,7 @@ Règles du projet :
 - `render()` ne reconstruit pas la conversation à chaque tour : il compare les nœuds existants à l'état voulu et ne remplace que ceux qui ont changé. Un message ajouté laisse les précédents en place, avec leur sélection de texte et leurs images déjà chargées.
 - L'état partagé qui change vit dans `state.js` (`app.cur`, `app.busy`…). Les autres variables restent locales à leur module.
 - Un module ne doit appeler aucune fonction d'un autre module au moment du chargement, seulement dans des gestionnaires d'événements ou des fonctions (s'abonner avec `on()` de `bus.js` est la seule exception).
-- **Pas d'import en boucle**, ni direct ni par un détour : `npm run build` refuse `backup.js → chat.js → backup.js`. Les imports vont de l'interface vers les couches basses (`chat.js` importe `backup.js`, jamais l'inverse). Quand une couche basse doit faire réagir l'interface, elle l'annonce par `emit()` de `bus.js` et l'interface s'abonne avec `on()`. Annonces actuelles : `open` (ouvrir une histoire, géré par `nav.js`), `settings:open` (feuille du scénario, `settings.js`), `list:stale` (redessiner la liste si elle est visible, `list.js`), `cur:remote` (histoire ouverte modifiée ou supprimée par la synchronisation, `chat.js`). `emit()` rend une promesse résolue quand toutes les réactions sont terminées.
+- **Pas d'import en boucle**, ni direct ni par un détour : `npm run build` refuse `backup.js → send.js → backup.js`. Les imports vont de l'interface vers les couches basses (`send.js` importe `backup.js`, jamais l'inverse ; dans la conversation, `chat.js` importe `send.js`, qui importe `view.js`). Quand une couche basse doit faire réagir l'interface, elle l'annonce par `emit()` de `bus.js` et l'interface s'abonne avec `on()`. Annonces actuelles : `open` (ouvrir une histoire, géré par `nav.js`), `settings:open` (feuille du scénario, `settings.js`), `list:stale` (redessiner la liste si elle est visible, `list.js`), `cur:remote` (histoire ouverte modifiée ou supprimée par la synchronisation, `chat.js`). `emit()` rend une promesse résolue quand toutes les réactions sont terminées.
 - Pour tester en local, servez le dossier avec un serveur HTTP (`python3 -m http.server`), car les modules ne se chargent pas depuis `file://`.
 - Quand vous ajoutez un fichier JavaScript dans `js/`, il est repris automatiquement par `npm run build` (service worker et `modulepreload`). Rien à déclarer à la main.
 - Les numéros de version sont calculés à partir du contenu des fichiers par `npm run build`, lancé par le workflow à chaque déploiement. Ne les modifiez pas à la main.
@@ -506,7 +498,7 @@ Si l'application ne répond plus malgré tout :
 
 ## Politique de sécurité (CSP)
 
-`index.html` contient une politique de sécurité qui limite les scripts à ceux de l'application et les connexions réseau aux services connus (fournisseurs d'IA, GitHub, Google). Conséquence : pour ajouter un fournisseur d'IA ou un autre service, ajoutez son adresse à `connect-src` dans cette balise, sinon le navigateur bloquera les requêtes. Une erreur « Refused to connect » dans la console du navigateur indique ce cas.
+`index.html` contient une politique de sécurité qui limite les scripts à ceux de l'application et les connexions réseau aux services connus (fournisseurs d'IA, GitHub). Conséquence : pour ajouter un fournisseur d'IA ou un autre service, ajoutez son adresse à `connect-src` dans cette balise, sinon le navigateur bloquera les requêtes. Une erreur « Refused to connect » dans la console du navigateur indique ce cas.
 
 ## Streaming
 

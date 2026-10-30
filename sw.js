@@ -1,4 +1,4 @@
-const C = 'nocturne-850acebb23',
+const C = 'nocturne-1e717bc1c4',
   A = [
     './',
     'index.html',
@@ -33,12 +33,14 @@ const C = 'nocturne-850acebb23',
     'js/reparer.js',
     'js/scenarios.js',
     'js/scene.js',
+    'js/send.js',
     'js/settings.js',
     'js/state.js',
     'js/stats.js',
     'js/statview.js',
     'js/store.js',
-    'js/util.js'
+    'js/util.js',
+    'js/view.js'
   ],
   MAX = 120;
 const SH = new Set(A.map(a => new URL(a, self.registration.scope).href));

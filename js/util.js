@@ -36,7 +36,8 @@ export const el = (t, p, ...c) => {
     else if (k in e && typeof e[k] == 'boolean') e[k] = !!v;
     else e.setAttribute(k, v);
   }
-  for (const x of c.flat(9)) if (x != null && x !== false) e.append(x);
+  // Enfants absents ignorés, y compris le 0 d'un « liste.length && … » : un nombre s'écrit avec text.
+  for (const x of c.flat(9)) if (x != null && x !== false && x !== 0) e.append(x);
   return e;
 };
 export const ic = (n, s) => {

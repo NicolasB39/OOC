@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { clean } from '../js/store.js';
 import { buildInfo } from '../js/prompt.js';
-import { sumGate, toAnt } from '../js/ai.js';
+import { sumBatch, sumGate, toAnt } from '../js/ai.js';
 import { S, ctx } from '../js/state.js';
 
 const sc = (o = {}) => clean({ id: 's', name: 'S', system: 'SYS', remote: true, noChoices: true, messages: [], ...o });
@@ -102,4 +102,18 @@ test('sumGate : avec Claude, la mémoire attend 80 messages puis en résume 40 d
   };
   assert.deepEqual(run(true, [79, 80, 70, 60, 50, 40]), [false, true, true, true, true, false]);
   assert.deepEqual(run(false, [39, 40, 30]), [false, true, false]);
+});
+
+test('sumBatch : avec Claude, les 40 messages partent en deux appels de 20', () => {
+  let u = 80,
+    go = false,
+    calls = 0;
+  while ((go = sumGate(u, true, go))) {
+    u -= sumBatch(true);
+    calls++;
+  }
+  assert.equal(calls, 2);
+  assert.equal(u, 40);
+  assert.equal(sumBatch(false), 10, 'autres fournisseurs : paquets de 10');
+  assert.equal(sumBatch(true, 8), 8, 'messages sortis de la fenêtre : résumés en priorité');
 });
