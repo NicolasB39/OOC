@@ -1,11 +1,12 @@
 import { S, app } from './state.js';
-import { split } from './format.js';
+import { LIX, split } from './format.js';
 import { LS, plain, uid } from './util.js';
 import { REL_MAX, cutLines, unnum } from './memory.js';
 
 let db;
 const one = m => {
-  const r = { role: m.role, content: m.content };
+  // L'annonce du lieu n'est jamais gardée, même dans une sauvegarde importée qui la contiendrait.
+  const r = { role: m.role, content: m.content.replace(LIX, '') };
   if (Array.isArray(m.choices) || Array.isArray(m.state)) {
     const c = (m.choices || []).filter(x => typeof x == 'string').slice(0, 3),
       t = (m.state || []).filter(e => Array.isArray(e) && e.length == 2).slice(0, 12);

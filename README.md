@@ -460,6 +460,7 @@ sw.js               service worker (hors ligne)
 tools/build.mjs     numérotation de version, liste du service worker, contrôles
 test/               tests unitaires (node --test), sans aucune dépendance
 test/e2e.mjs        test de bout en bout dans Chromium (fournisseurs et GitHub simulés)
+.claude/agents/     relecteur.md : agent Claude Code qui relit une modification selon les règles ci-dessous
 ```
 
 En local : `npm test` lance les tests, `npm run build` régénère les numéros de version. Le test de bout en bout demande Playwright, seule dépendance de développement (`package.json`) : `npm install && npx playwright install chromium`, puis `npm run test:e2e` depuis la racine, après `npm run build`. Le workflow le lance à chaque déploiement. Il vérifie le démarrage, le retour Android, l'envoi et l'affichage progressif, la stabilité de l'écran, les variantes, Claude (en-têtes et marqueurs de cache), la synchronisation GitHub et les décors (placement aux 2/3, décor par message, fond par défaut et généré, fenêtre Personnages). En cas d'échec, il enregistre une capture `e2e-echec.png`.

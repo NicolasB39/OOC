@@ -5,9 +5,13 @@ import { el, ikey } from './util.js';
 export const CHX = /<choix>[\s\S]*?(?:<\/choix>|$)/gi;
 export const ETX = /<etat>[\s\S]*?(?:<\/etat>|$)/gi;
 // Annonce du lieu en tête de réponse (protocol.js) : lue pendant l'affichage progressif, jamais affichée ni
-// gardée. Pendant l'écriture, une balise encore incomplète en tout début de texte est masquée aussi.
-export const LIX = /<lieu>[\s\S]*?(?:<\/lieu>|$)|^\s*<[a-z]{0,4}$/gi;
+// gardée. La suppression s'arrête à la fin de la ligne : une balise mal fermée n'emporte pas la narration.
+export const LIX = /<lieu>[^\n]*?(?:<\/lieu>|(?=\n)|$)/gi;
 export const lieuTag = t => t.match(/<lieu>([^<\n]{1,80})<\/lieu>/i)?.[1].trim() || '';
+// Texte de la réponse en cours, sans l'annonce du lieu ni, tant qu'elle s'écrit, sa balise encore incomplète
+// tout au début (« <li »). Sur la réponse entière seulement : body() reçoit aussi des morceaux, et doit les
+// rendre comme le rendu complet.
+export const liveText = v => v.replace(LIX, '').replace(/^\s*<[a-z]{0,4}$/i, '');
 export const parseEtat = t => {
   const m = t.match(/<etat>([\s\S]*?)<\/etat>/i);
   if (!m) return [];

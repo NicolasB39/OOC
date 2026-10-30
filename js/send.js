@@ -2,7 +2,7 @@ import { chat, keepWarm, lastTurn, lastWarmable, summarize, waitMsg, WARM_AT } f
 import { sync } from './backup.js';
 import { face } from './cast.js';
 import { costOf, priceOf } from './cost.js';
-import { fr, keepImgs, lieuTag, LIX, paintLive, split } from './format.js';
+import { fr, keepImgs, lieuTag, liveText, paintLive, split } from './format.js';
 import { buildInfo, inScene } from './prompt.js';
 import { modelOf } from './protocol.js';
 import { autoRead, stopSpeech } from './read.js';
@@ -10,7 +10,7 @@ import { decorNow } from './scene.js';
 import { app, S } from './state.js';
 import { save, saveSet } from './store.js';
 import { $, dlg, el, err, fit, LS, strip } from './util.js';
-import { liveScene, newShow, render, tail, unseen } from './view.js';
+import { liveEnd, liveScene, newShow, render, tail, unseen } from './view.js';
 
 // Envoi d'un tour : appel au modèle, affichage progressif, erreurs, maintien du cache, zone de saisie.
 export async function regenHint() {
@@ -76,7 +76,7 @@ export async function ask(old, cont, hint) {
     // Lieu annoncé en tête : la scène s'installe avant le texte (intertitre, lettrine, décor).
     const lt = !cont && lieuTag(t);
     if (lt && lt != lieu) dl = liveScene((lieu = lt));
-    const v = strip(t).replace(LIX, ''),
+    const v = liveText(strip(t)),
       sec = Math.round((Date.now() - t0) / 1000);
     if (!v)
       wt.querySelector('.act').textContent =
@@ -124,6 +124,9 @@ export async function ask(old, cont, hint) {
     cut = r.cut;
     part = !!r.partial;
     const p2 = split(out);
+    // Rien à raconter (réponse arrêtée juste après l'annonce du lieu, ou réduite à l'état) : un message vide
+    // ferait refuser les tours suivants. Échec, avec Réessayer, et l'ancienne réponse remise en place.
+    if (!cont && !p2.content) throw new Error('réponse vide : aucun texte de récit reçu');
     if (cont) {
       const m = s.messages.at(-1);
       m.content = m.content.trimEnd() + (/^[\s.,;:!?…»)]/.test(p2.content) ? '' : ' ') + p2.content;
@@ -152,6 +155,7 @@ export async function ask(old, cont, hint) {
   clearInterval(tick);
   cancelAnimationFrame(raf);
   pend = null;
+  liveEnd();
   const lv = document.querySelector('#live');
   setBusy(false);
   if (app.cur === s) {

@@ -45,15 +45,30 @@ test('lieu annoncé en tête : demandé seulement si l’état suit un lieu', ()
 });
 
 test('la balise <lieu> est lue puis retirée du texte', async () => {
-  const { LIX, lieuTag, split } = await import('../js/format.js');
+  const { LIX, lieuTag, liveText, split } = await import('../js/format.js');
   const t = '<lieu>Volcan</lieu>\n\nUn volcan gronde.\n\n<etat>\nLieu: Volcan\n</etat>';
   assert.equal(lieuTag(t), 'Volcan');
   assert.equal(split(t).content, 'Un volcan gronde.');
   assert.deepEqual(split(t).state, [['Lieu', 'Volcan']]);
   // Pendant l'écriture : balise incomplète masquée, texte ordinaire intact.
-  for (const p of ['<', '<li', '<lieu>Vol']) assert.equal(p.replace(LIX, ''), '', p);
-  assert.equal('Il entre. <3'.replace(LIX, ''), 'Il entre. <3');
+  for (const p of ['<', '<li', '<lieu>Vol']) assert.equal(liveText(p), '', p);
+  assert.equal(liveText('Il entre. <3'), 'Il entre. <3');
+  // Un morceau du milieu (« <et » d'un bloc <etat> qui s'écrit) n'est pas touché : body() doit le rendre
+  // comme le rendu complet.
+  assert.equal('\n\n<et'.replace(LIX, ''), '\n\n<et');
   assert.equal(lieuTag('Pas de balise.'), '');
+  // Balise mal fermée : seule sa ligne disparaît, la narration reste.
+  for (const b of ['<lieu>Volcan', '<lieu>Volcan<lieu>', '<lieu>Volcan</lie>'])
+    assert.equal(split(b + '\n\nUn volcan gronde.\n\nIl fait chaud.').content, 'Un volcan gronde.\n\nIl fait chaud.', b);
+});
+
+test('une sauvegarde importée ne garde pas l’annonce du lieu', () => {
+  const s = clean({
+    id: 's',
+    messages: [{ role: 'assistant', content: '<lieu>Volcan</lieu>\n\nUn volcan gronde.', state: [['Lieu', 'Volcan']] }]
+  });
+  assert.doesNotMatch(s.messages[0].content, /lieu>/);
+  assert.match(s.messages[0].content, /Un volcan gronde\./);
 });
 
 test('le rappel ne liste que les blocs activés', () => {

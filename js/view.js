@@ -246,19 +246,27 @@ const headDecor = dn => {
 };
 // Lieu annoncé en tête de la réponse en cours (<lieu>, protocol.js) : intertitre, lettrine et en-tête prennent
 // tout de suite la place que leur donnera le rendu final. Rend le décor du lieu, pour les images de la réponse.
+// LIVE le retient pour qu'un render() pendant l'écriture (messages précédents, saut, réglages) le remette ;
+// liveEnd() l'oublie avant le rendu final.
+let LIVE = null;
 export function liveScene(lieu) {
+  LIVE = { id: app.cur.id, lieu };
+  return liveApply(true);
+}
+export const liveEnd = () => (LIVE = null);
+const liveApply = fade => {
   const ms = app.cur.messages,
     n = ms.length,
-    sc = scenesOf([...ms, { role: 'assistant', content: '', state: [['Lieu', lieu]] }]);
+    sc = scenesOf([...ms, { role: 'assistant', content: '', state: [['Lieu', LIVE.lieu]] }]);
   titles(sc, n);
   const lv = $('#live');
   lv?.classList.toggle('lt', sc.some(s => s.at == n));
   const t = lv?.previousElementSibling;
-  if (t?.matches('.scene')) t.classList.add('in');
-  const d = decorFor(lieu);
+  if (fade && t?.matches('.scene')) t.classList.add('in');
+  const d = decorFor(LIVE.lieu);
   headDecor(d || coverOf(app.cur));
   return d;
-}
+};
 const msgNode = (i, m, last, d = '') => {
   const t = LT.has(i),
     p = m.role == 'assistant' ? LIEU[i] || '' : '',
@@ -387,6 +395,7 @@ export function render(sc) {
   const lm = ms.at(-1),
     cs = lm?.role == 'assistant' && !app.cur.noChoices ? lm.choices || [] : [];
   headDecor(decorNow(ms) || coverOf(app.cur));
+  if (LIVE?.id == app.cur.id && $('#live')) liveApply();
   const av = accentVars(app.cur.accent),
     ch = $('#chat');
   for (const k of ['--ac', '--acs', '--act', '--acb', '--on'])
